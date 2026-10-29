@@ -67,6 +67,20 @@ describe('WindowCanvas', () => {
 		expect(ev.pos).toBeCloseTo(750 - 20 / Math.min(520 / 1500, 640 / 1500), 6)
 	})
 
+	it('emits drag-start and drag-end around a bar drag', async () => {
+		const w = mountCanvas()
+		const bar = w.find('[data-bar="M1"]')
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 1 })
+		expect(w.emitted('drag-start')).toHaveLength(1)
+		await bar.trigger('pointermove', { clientX: 120, pointerId: 1 })
+		expect(w.emitted('drag-end')).toBeUndefined()
+		await bar.trigger('pointerup', { clientX: 120, pointerId: 1 })
+		expect(w.emitted('drag-end')).toHaveLength(1)
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 2 })
+		await bar.trigger('pointercancel', { pointerId: 2 })
+		expect(w.emitted('drag-end')).toHaveLength(2)
+	})
+
 	it('ignores moves after pointerup', async () => {
 		const w = mountCanvas()
 		const bar = w.find('[data-bar="M1"]')

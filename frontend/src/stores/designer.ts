@@ -19,36 +19,63 @@ export const useDesignerStore = defineStore('designer', {
 		error: null as string | null,
 		computing: false,
 		requestSeq: 0,
+		dirty: false,
+		dragOrigin: null as Design | null,
 	}),
 	actions: {
 		apply(fn: (d: Design) => Design) {
 			const next = fn(this.design)
 			if (next === this.design) return
-			this.past.push(this.design)
+			this.pushHistory(this.design)
+			this.setDesign(next)
+		},
+		/** Start a drag: later dragTo calls skip history and endDrag records one undo step. */
+		beginDrag() {
+			this.dragOrigin = this.design
+		},
+		dragTo(fn: (d: Design) => Design) {
+			if (!this.dragOrigin) return this.apply(fn)
+			const next = fn(this.design)
+			if (next !== this.design) this.setDesign(next)
+		},
+		endDrag() {
+			const origin = this.dragOrigin
+			this.dragOrigin = null
+			if (origin && origin !== this.design) this.pushHistory(origin)
+		},
+		markDirty() {
+			this.dirty = true
+		},
+		markSaved() {
+			this.dirty = false
+		},
+		pushHistory(design: Design) {
+			this.past.push(design)
 			if (this.past.length > HISTORY_CAP) this.past.shift()
 			this.future = []
-			this.design = next
+		},
+		setDesign(design: Design) {
+			this.design = design
+			this.dirty = true
 			this.scheduleCompute()
 		},
 		undo() {
 			const prev = this.past.pop()
 			if (!prev) return
 			this.future.push(this.design)
-			this.design = prev
-			this.scheduleCompute()
+			this.setDesign(prev)
 		},
 		redo() {
 			const next = this.future.pop()
 			if (!next) return
 			this.past.push(this.design)
-			this.design = next
-			this.scheduleCompute()
+			this.setDesign(next)
 		},
 		select(path: string) {
 			this.selectedPath = path
 		},
 		reset(design: Design, seriesVersion: string) {
-			this.$patch({ design, seriesVersion, selectedPath: 'F1', past: [], future: [], result: null, error: null })
+			this.$patch({ design, seriesVersion, selectedPath: 'F1', past: [], future: [], result: null, error: null, dirty: false, dragOrigin: null })
 			this.scheduleCompute()
 		},
 		cancelCompute() {

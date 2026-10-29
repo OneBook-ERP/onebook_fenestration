@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Alert, Badge, Button, toast } from 'frappe-ui'
-import { computed, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { getDesign, saveDesign, type SavedDesign } from '@/api'
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
@@ -63,7 +63,20 @@ async function load(name: string | null) {
 	}
 }
 watch(savedName, load, { immediate: true })
-onUnmounted(() => store.cancelCompute())
+// Sync so load's meta assignment lands before store.reset clears the flag.
+watch(meta, () => store.markDirty(), { deep: true, flush: 'sync' })
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+	if (!store.dirty) return
+	e.preventDefault()
+	e.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onUnmounted(() => {
+	window.removeEventListener('beforeunload', onBeforeUnload)
+	store.cancelCompute()
+})
+onBeforeRouteLeave(() => !store.dirty || window.confirm('Discard unsaved changes?'))
 
 function split(dir: SplitDir) {
 	const path = store.selectedPath
@@ -83,7 +96,7 @@ function convert(kind: 'sash' | 'fixed' | 'louver') {
 	store.apply((d) => setLeaf(d, store.selectedPath, leaf))
 }
 function onMoveSplit(p: { splitPath: string; index: number; pos: number }) {
-	store.apply((d) => moveSplit(d, p.splitPath, p.index, p.pos))
+	store.dragTo((d) => moveSplit(d, p.splitPath, p.index, p.pos))
 }
 
 async function save() {
@@ -107,6 +120,7 @@ async function save() {
 		})
 		if (res.ok) {
 			toast.success('Design saved')
+			store.markSaved()
 			loadedName = res.name
 			await router.replace({ name: 'Designer', params: { project: project.value, name: res.name } })
 		} else {
@@ -160,6 +174,8 @@ async function save() {
 					:view="view"
 					@select="store.select"
 					@move-split="onMoveSplit"
+					@drag-start="store.beginDrag()"
+					@drag-end="store.endDrag()"
 				/>
 			</main>
 			<PropertiesPanel v-model:meta="meta" :ref-error="refError" :ref-readonly="!!savedName" />

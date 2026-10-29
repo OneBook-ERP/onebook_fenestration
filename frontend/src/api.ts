@@ -4,7 +4,7 @@ import type { Design } from '@/design/types'
 const API = 'onebook_fenestration.api.design'
 
 export interface Issue {
-	severity: string
+	severity: 'error' | 'warn'
 	code: string
 	message: string
 	panel: string

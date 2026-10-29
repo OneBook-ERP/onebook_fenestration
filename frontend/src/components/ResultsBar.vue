@@ -9,8 +9,8 @@ const tab = ref('Cut list')
 
 const result = computed(() => store.result)
 const issues = computed(() => result.value?.issues ?? [])
-const errors = computed(() => issues.value.filter((i) => i.severity === 'Error').length)
-const warnings = computed(() => issues.value.filter((i) => i.severity === 'Warning').length)
+const errors = computed(() => issues.value.filter((i) => i.severity === 'error').length)
+const warnings = computed(() => issues.value.filter((i) => i.severity === 'warn').length)
 
 const shutters = computed(() => {
 	const s = result.value?.shutter_kg
@@ -93,7 +93,7 @@ const td = 'px-3 py-1.5 text-sm'
 						@click="store.select(i.path)"
 					>
 						<span class="font-mono text-xs text-gray-500">{{ i.path }}</span>
-						<span :class="i.severity === 'Error' ? 'text-red-700' : 'text-amber-700'">{{ i.severity }}</span>
+						<span :class="i.severity === 'error' ? 'text-red-700' : 'text-amber-700'">{{ i.severity }}</span>
 						<span>{{ i.message }}<template v-if="i.hint"> &mdash; {{ i.hint }}</template></span>
 					</button>
 				</li>

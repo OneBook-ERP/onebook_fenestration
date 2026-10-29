@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { newDesign, splitCell } from '@/design/tree'
+import { moveSplit, newDesign, splitCell } from '@/design/tree'
 import { useDesignerStore } from './designer'
 
 describe('designer store', () => {
@@ -42,5 +42,39 @@ describe('designer store', () => {
 		const s = useDesignerStore()
 		s.select('F1.0')
 		expect(s.selectedPath).toBe('F1.0')
+	})
+	it('a drag is one undo step', () => {
+		const s = useDesignerStore()
+		s.apply((d) => splitCell(d, 'F1', 'v'))
+		const before = s.design
+		const depth = s.past.length
+		s.beginDrag()
+		for (let i = 1; i <= 10; i++) s.dragTo((d) => moveSplit(d, 'F1', 0, 400 + i * 10))
+		s.endDrag()
+		expect(s.past).toHaveLength(depth + 1)
+		s.undo()
+		expect(s.design).toEqual(before)
+	})
+
+	it('a drag that changes nothing adds no undo step', () => {
+		const s = useDesignerStore()
+		s.beginDrag()
+		s.endDrag()
+		expect(s.past).toHaveLength(0)
+	})
+
+	it('dirty is set by edits and cleared by reset and markSaved', () => {
+		const s = useDesignerStore()
+		expect(s.dirty).toBe(false)
+		s.apply((d) => splitCell(d, 'F1', 'v'))
+		expect(s.dirty).toBe(true)
+		s.markSaved()
+		expect(s.dirty).toBe(false)
+		s.beginDrag()
+		s.dragTo((d) => moveSplit(d, 'F1', 0, 300))
+		s.endDrag()
+		expect(s.dirty).toBe(true)
+		s.reset(newDesign(900, 900), 'SV1')
+		expect(s.dirty).toBe(false)
 	})
 })

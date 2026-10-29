@@ -33,6 +33,8 @@ const props = withDefaults(
 const emit = defineEmits<{
 	select: [path: string]
 	'move-split': [payload: { splitPath: string; index: number; pos: number }]
+	'drag-start': []
+	'drag-end': []
 }>()
 
 const svg = ref<SVGSVGElement | null>(null)
@@ -191,6 +193,7 @@ function onPointerDown(e: PointerEvent, bar: BarGeom) {
 	drag = { bar, start: bar.dir === 'v' ? e.clientX : e.clientY, original: split.at[bar.index] }
 	const el = e.currentTarget as Element
 	if (el.setPointerCapture) el.setPointerCapture(e.pointerId)
+	emit('drag-start')
 }
 
 function onPointerMove(e: PointerEvent) {
@@ -208,6 +211,7 @@ function onPointerMove(e: PointerEvent) {
 function onPointerUp(e: PointerEvent) {
 	if (!drag) return
 	drag = null
+	emit('drag-end')
 	const el = e.currentTarget as Element
 	if (el.releasePointerCapture && el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId)
 }

@@ -1,12 +1,12 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { toast } from 'frappe-ui'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { h } from 'vue'
+import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
 import { computeDesign, getDesign, saveDesign } from '@/api'
 import { routes } from '@/router'
 import { useDesignerStore } from '@/stores/designer'
-import Designer from './Designer.vue'
 
 vi.mock('@/api', () => ({ computeDesign: vi.fn(), saveDesign: vi.fn(), getDesign: vi.fn() }))
 vi.mock('frappe-ui', async (orig) => ({
@@ -25,7 +25,10 @@ const result = {
 	window_kg: 10.1234,
 	area_m2: 1.116,
 	area_sqft: 12.013,
-	issues: [{ severity: 'Error', code: 'X', message: 'Too wide', panel: 'F1', hint: '', path: 'F1.0' }],
+	issues: [
+		{ severity: 'error', code: 'X', message: 'Too wide', panel: 'F1', hint: '', path: 'F1.0' },
+		{ severity: 'warn', code: 'Y', message: 'Louver placeholder', panel: 'F1', hint: '', path: 'F1.1' },
+	],
 }
 
 const w01 = {
@@ -57,7 +60,7 @@ async function setup(path = '/projects/P1/designs/new?series_version=SV1') {
 	const router = createRouter({ history: createMemoryHistory('/fenestration'), routes })
 	router.push(path)
 	await router.isReady()
-	const wrapper = mount(Designer, { global: { plugins: [router] } })
+	const wrapper = mount({ render: () => h(RouterView) }, { global: { plugins: [router] } })
 	await flushPromises()
 	return { wrapper, router }
 }
@@ -71,6 +74,7 @@ const button = (w: VueWrapper, name: string) => w.find(`button[aria-label="${nam
 const tab = (w: VueWrapper, text: string) => w.findAll('button, [role="radio"]').find((b) => b.text().startsWith(text))!
 
 describe('Designer page', () => {
+	enableAutoUnmount(afterEach)
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		vi.useFakeTimers()
@@ -130,6 +134,18 @@ describe('Designer page', () => {
 		expect(saveDesign).not.toHaveBeenCalled()
 	})
 
+	it('counts engine error and warn severities', async () => {
+		const { wrapper } = await setup()
+		await vi.advanceTimersByTimeAsync(300)
+		await flushPromises()
+		expect(wrapper.text()).toContain('1 errors')
+		expect(wrapper.text()).toContain('1 warnings')
+		await tab(wrapper, 'Issues').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-issue-path="F1.0"] .text-red-700').exists()).toBe(true)
+		expect(wrapper.find('[data-issue-path="F1.1"] .text-amber-700').exists()).toBe(true)
+	})
+
 	it('clicking an issue row selects its path', async () => {
 		const { wrapper } = await setup()
 		await vi.advanceTimersByTimeAsync(300)
@@ -175,6 +191,62 @@ describe('Designer page', () => {
 		const { wrapper } = await setup('/projects/P1/designs/WD-1')
 		expect(button(wrapper, 'Save').attributes('disabled')).toBeDefined()
 		expect(wrapper.text()).toContain('gone')
+	})
+
+	it('one bar drag is one undo step', async () => {
+		vi.mocked(getDesign).mockResolvedValue(w01 as never)
+		const { wrapper } = await setup('/projects/P1/designs/WD-1')
+		const store = useDesignerStore()
+		const before = store.design
+		const depth = store.past.length
+		const bar = wrapper.find('[data-bar="M1"]')
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 1 })
+		for (let i = 1; i <= 10; i++) await bar.trigger('pointermove', { clientX: 100 + i * 5, pointerId: 1 })
+		await bar.trigger('pointerup', { clientX: 150, pointerId: 1 })
+		expect(store.past).toHaveLength(depth + 1)
+		await button(wrapper, 'Undo').trigger('click')
+		expect(store.design).toEqual(before)
+	})
+
+	it('asks before leaving with unsaved changes and stays on cancel', async () => {
+		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+		const { wrapper, router } = await setup()
+		await wrapper.find('[data-path="F1"]').trigger('click')
+		await button(wrapper, 'Split vertical').trigger('click')
+		await router.push('/projects/P1')
+		await flushPromises()
+		expect(confirm).toHaveBeenCalledWith('Discard unsaved changes?')
+		expect(router.currentRoute.value.name).toBe('NewDesign')
+		confirm.mockRestore()
+	})
+
+	it('does not ask after a successful save', async () => {
+		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+		vi.mocked(saveDesign).mockResolvedValue({ ok: true, name: 'WD-1', results: {} } as never)
+		const { wrapper, router } = await setup()
+		await button(wrapper, 'Split vertical').trigger('click')
+		await field(wrapper, 'Design ref').setValue('W01')
+		await button(wrapper, 'Save').trigger('click')
+		await flushPromises()
+		await router.push('/projects/P1')
+		await flushPromises()
+		expect(confirm).not.toHaveBeenCalled()
+		expect(router.currentRoute.value.name).toBe('Project')
+		confirm.mockRestore()
+	})
+
+	it('blocks unload only while dirty', async () => {
+		const { wrapper } = await setup()
+		const unload = () => {
+			const e = new Event('beforeunload', { cancelable: true })
+			window.dispatchEvent(e)
+			return e.defaultPrevented
+		}
+		expect(unload()).toBe(false)
+		await button(wrapper, 'Split vertical').trigger('click')
+		expect(unload()).toBe(true)
+		wrapper.unmount()
+		expect(unload()).toBe(false)
 	})
 
 	it('unmount cancels pending compute', async () => {
