@@ -31,7 +31,7 @@ export const useDesignerStore = defineStore('designer', {
 		},
 		/** Start a drag: later dragTo calls skip history and endDrag records one undo step. */
 		beginDrag() {
-			this.dragOrigin = this.design
+			this.dragOrigin = JSON.parse(JSON.stringify(this.design))
 		},
 		dragTo(fn: (d: Design) => Design) {
 			if (!this.dragOrigin) return this.apply(fn)
@@ -41,7 +41,7 @@ export const useDesignerStore = defineStore('designer', {
 		endDrag() {
 			const origin = this.dragOrigin
 			this.dragOrigin = null
-			if (origin && origin !== this.design) this.pushHistory(origin)
+			if (origin && JSON.stringify(origin) !== JSON.stringify(this.design)) this.pushHistory(origin)
 		},
 		markDirty() {
 			this.dirty = true

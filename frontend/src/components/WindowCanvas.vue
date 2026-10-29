@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { layoutGeom } from '@/design/geometry'
 import { getNode } from '@/design/tree'
 import type { BarGeom, CellGeom, Design, SplitNode } from '@/design/types'
@@ -111,9 +111,10 @@ function openingLines(b: Box, side: HingeSide): string[] {
 }
 
 const cells = computed<CellView[]>(() => {
-	const counts: Record<string, number> = { F: 0, S: 0, L: 0 }
+	// Fixed panes show only their glass number; F<n> would clash with the frame id.
+	const counts: Record<string, number> = { S: 0, L: 0 }
 	return geom.value.cells.map((cell, i) => {
-		const prefix = cell.node.type === 'sash' ? 'S' : cell.node.type === 'louver' ? 'L' : 'F'
+		const prefix = cell.node.type === 'sash' ? 'S' : cell.node.type === 'louver' ? 'L' : ''
 		const box = cellBox(cell)
 		const isSash = cell.node.type === 'sash'
 		const selected = cell.path === props.selectedPath
@@ -124,7 +125,7 @@ const cells = computed<CellView[]>(() => {
 			cell,
 			box,
 			glass,
-			panelId: `${prefix}${++counts[prefix]}`,
+			panelId: prefix ? `${prefix}${++counts[prefix]}` : '',
 			glassNo: i + 1,
 			stroke: selected ? C.select : issue ? C.issue : C.stroke,
 			strokeWidth: selected ? 3 : issue ? 2 : 1,
@@ -188,6 +189,8 @@ interface Drag {
 	bar: BarGeom
 	start: number
 	original: number
+	el: Element
+	pointerId: number
 }
 let drag: Drag | null = null
 
@@ -195,9 +198,12 @@ function onPointerDown(e: PointerEvent, bar: BarGeom) {
 	if (e.button !== 0 && e.button !== undefined) return
 	e.preventDefault()
 	const split = getNode(props.design, bar.splitPath) as SplitNode
-	drag = { bar, start: bar.dir === 'v' ? e.clientX : e.clientY, original: split.at[bar.index] }
 	const el = e.currentTarget as Element
+	drag = { bar, start: bar.dir === 'v' ? e.clientX : e.clientY, original: split.at[bar.index], el, pointerId: e.pointerId }
 	if (el.setPointerCapture) el.setPointerCapture(e.pointerId)
+	// Belt and braces: the up event may miss the bar, so any of these ends the drag.
+	window.addEventListener('pointerup', endDrag)
+	window.addEventListener('pointercancel', endDrag)
 	emit('drag-start')
 }
 
@@ -205,25 +211,31 @@ function onPointerMove(e: PointerEvent) {
 	if (!drag) return
 	const vertical = drag.bar.dir === 'v'
 	const r = svg.value?.getBoundingClientRect()
-	const size = r ? (vertical ? r.width : r.height) : 0
-	const k = size ? (vertical ? props.viewW : props.viewH) / size : 1
+	// preserveAspectRatio "meet" scales both axes by the smaller ratio.
+	const meet = r && r.width && r.height ? Math.min(r.width / props.viewW, r.height / props.viewH) : 0
+	const k = meet ? 1 / meet : 1
 	const cur = vertical ? e.clientX : e.clientY
 	const delta = ((cur - drag.start) * k) / scale.value
 	const pos = drag.bar.dir === 'v' ? drag.original + delta : drag.original - delta
 	emit('move-split', { splitPath: drag.bar.splitPath, index: drag.bar.index, pos })
 }
 
-function onPointerUp(e: PointerEvent) {
+function endDrag() {
 	if (!drag) return
+	const { el, pointerId } = drag
 	drag = null
+	window.removeEventListener('pointerup', endDrag)
+	window.removeEventListener('pointercancel', endDrag)
+	if (el.releasePointerCapture && el.hasPointerCapture?.(pointerId)) el.releasePointerCapture(pointerId)
 	emit('drag-end')
-	const el = e.currentTarget as Element
-	if (el.releasePointerCapture && el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId)
 }
+onUnmounted(endDrag)
 
 function getSvgMarkup(): string {
 	if (!svg.value) return ''
 	const clone = svg.value.cloneNode(true) as SVGSVGElement
+	clone.setAttribute('width', String(props.viewW))
+	clone.setAttribute('height', String(props.viewH))
 	clone.querySelectorAll('*').forEach((el) => {
 		for (const a of Array.from(el.attributes)) {
 			if (a.name.startsWith('data-') || a.name === 'style') el.removeAttribute(a.name)
@@ -246,8 +258,9 @@ defineExpose({ getSvgMarkup })
 		role="img"
 		:aria-label="ariaLabel"
 		:viewBox="`0 0 ${viewW} ${viewH}`"
-		:width="viewW"
-		:height="viewH"
+		width="100%"
+		height="100%"
+		preserveAspectRatio="xMidYMid meet"
 		:font-family="FONT"
 	>
 		<rect x="0" y="0" :width="viewW" :height="viewH" fill="#FFFFFF" />
@@ -308,6 +321,7 @@ defineExpose({ getSvgMarkup })
 				<line :x1="v.box.x + v.box.w / 2" :x2="v.box.x + v.box.w / 2" :y1="v.box.y + v.box.h / 2 - 8" :y2="v.box.y + v.box.h / 2 + 8" />
 			</g>
 			<text
+				v-if="v.panelId"
 				:x="v.glass.x + v.glass.w / 2"
 				:y="v.glass.y + v.glass.h / 2 - 8"
 				text-anchor="middle"
@@ -355,8 +369,9 @@ defineExpose({ getSvgMarkup })
 				:style="{ cursor: bar.dir === 'v' ? 'ew-resize' : 'ns-resize', touchAction: 'none' }"
 				@pointerdown="onPointerDown($event, bar)"
 				@pointermove="onPointerMove"
-				@pointerup="onPointerUp"
-				@pointercancel="onPointerUp"
+				@pointerup="endDrag"
+				@pointercancel="endDrag"
+				@lostpointercapture="endDrag"
 			/>
 			<text
 				:x="bar.dir === 'v' ? px(bar.x) : frameBox.x - 6"

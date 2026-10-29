@@ -208,6 +208,26 @@ describe('Designer page', () => {
 		expect(store.design).toEqual(before)
 	})
 
+	it('undo works when the drag ends on window pointerup or lostpointercapture', async () => {
+		vi.mocked(getDesign).mockResolvedValue(w01 as never)
+		const { wrapper } = await setup('/projects/P1/designs/WD-1')
+		const store = useDesignerStore()
+		const bar = () => wrapper.find('[data-bar="M1"]')
+		for (const end of ['window', 'lost']) {
+			await bar().trigger('pointerdown', { clientX: 100, pointerId: 1 })
+			await bar().trigger('pointermove', { clientX: 60, pointerId: 1 })
+			if (end === 'window') window.dispatchEvent(new Event('pointerup'))
+			else await bar().trigger('lostpointercapture', { pointerId: 1 })
+			await flushPromises()
+			expect(store.past).toHaveLength(1)
+			expect(button(wrapper, 'Undo').attributes('disabled')).toBeUndefined()
+			await button(wrapper, 'Undo').trigger('click')
+			expect((store.design.root as { at: number[] }).at).toEqual([600])
+			store.past = []
+			store.future = []
+		}
+	})
+
 	it('asks before leaving with unsaved changes and stays on cancel', async () => {
 		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
 		const { wrapper, router } = await setup()

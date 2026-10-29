@@ -141,3 +141,10 @@ class TestSaveDesign(IntegrationTestCase):
 		with patch("onebook_fenestration.api.design.frappe.db.release_savepoint") as release:
 			self.assertTrue(self.save(design_ref="W-REL")["ok"])
 		release.assert_called_once_with("save_design")
+
+	def test_save_design_keeps_svg_geometry_attributes(self):
+		svg = f'<svg xmlns="{SVG_NS}" viewBox="0 0 10 10"><rect x="1" y="2" width="3" height="4" fill="#FFFFFF"/></svg>'
+		res = self.save(design_ref="W-SVGATTR", svg=svg)
+		stored = frappe.get_doc("Window Design", res["name"]).design_svg
+		self.assertIn('x="1"', stored)
+		self.assertIn('fill="#FFFFFF"', stored)

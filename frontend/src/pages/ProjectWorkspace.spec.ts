@@ -52,4 +52,12 @@ describe('ProjectWorkspace', () => {
 			expect(router.currentRoute.value.fullPath).toBe('/projects/FP-2026-00001/designs/new?series_version=CS400-V01'),
 		)
 	})
+	it('Edit design is a frappe-ui button link to the designer', async () => {
+		const { w } = await setup()
+		const edit = w.get('[data-testid="design-card"] [data-testid="edit-design"]')
+		expect(edit.text()).toBe('Edit design')
+		expect(edit.attributes('href')).toBe('/fenestration/projects/FP-2026-00001/designs/WD-1')
+		expect(edit.classes().join(' ')).not.toContain('text-ink-blue-3')
+		expect(edit.classes().join(' ')).toMatch(/bg-surface|border/)
+	})
 })

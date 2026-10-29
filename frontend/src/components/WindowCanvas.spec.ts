@@ -54,6 +54,59 @@ describe('WindowCanvas', () => {
 		expect(ev.pos).toBeCloseTo(457.5 + 40 / SCALE_W01, 6)
 	})
 
+	it('scales to its container and keeps drag math in a letterboxed box', async () => {
+		const w = mountCanvas()
+		const el = w.find('svg')
+		expect(el.attributes('width')).toBe('100%')
+		expect(el.attributes('height')).toBe('100%')
+		expect(el.attributes('preserveAspectRatio')).toBe('xMidYMid meet')
+		vi.spyOn(el.element, 'getBoundingClientRect').mockReturnValue({
+			width: 1280, height: 380, x: 0, y: 0, top: 0, left: 0, right: 1280, bottom: 380, toJSON() {},
+		} as DOMRect)
+		const bar = w.find('[data-bar="M1"]')
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 1 })
+		await bar.trigger('pointermove', { clientX: 120, pointerId: 1 })
+		const ev = w.emitted('move-split')![0][0] as { pos: number }
+		// meet scale is min(1280/640, 380/760) = 0.5, so 20 px is 40 viewBox units
+		expect(ev.pos).toBeCloseTo(457.5 + 40 / SCALE_W01, 6)
+	})
+
+	it('exported markup has a fixed pixel size', () => {
+		const m = (mountCanvas().vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
+		expect(m).toContain('width="640"')
+		expect(m).toContain('height="760"')
+	})
+
+	it('ends a drag on window pointerup and on lostpointercapture', async () => {
+		const w = mountCanvas()
+		const bar = w.find('[data-bar="M1"]')
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 1 })
+		await bar.trigger('pointermove', { clientX: 120, pointerId: 1 })
+		window.dispatchEvent(new Event('pointerup'))
+		expect(w.emitted('drag-end')).toHaveLength(1)
+		await bar.trigger('pointermove', { clientX: 140, pointerId: 1 })
+		expect(w.emitted('move-split')).toHaveLength(1)
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 2 })
+		await bar.trigger('lostpointercapture', { pointerId: 2 })
+		expect(w.emitted('drag-end')).toHaveLength(2)
+		window.dispatchEvent(new Event('pointerup'))
+		expect(w.emitted('drag-end')).toHaveLength(2)
+	})
+
+	it('labels fixed panes by glass number only, sashes S<n> and louvers L<n>', () => {
+		const d: Design = {
+			width: 1800, height: 1200,
+			root: { type: 'split', dir: 'v', at: [600, 1200], children: [
+				{ type: 'fixed', glass: 'G' }, { type: 'sash', glass: 'G' }, { type: 'louver', glass: 'G', blades: 3 },
+			] },
+		}
+		const texts = mountCanvas({ design: d }).findAll('text').map((t) => t.text())
+		expect(texts.filter((t) => /^F\d+$/.test(t))).toEqual([])
+		expect(texts).toContain('S1')
+		expect(texts).toContain('L1')
+		expect(texts).toContain('1')
+	})
+
 	it('drags horizontal bars with inverted y', async () => {
 		const d: Design = {
 			width: 1500, height: 1500,

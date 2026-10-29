@@ -164,7 +164,7 @@ async function save() {
 				<Button label="Fixed glass" aria-label="Fixed glass" class="min-h-9" :disabled="!selectedLeaf" @click="convert('fixed')" />
 				<Button label="Louver" aria-label="Louver" class="min-h-9" :disabled="!selectedLeaf" @click="convert('louver')" />
 			</nav>
-			<main class="flex min-w-0 flex-1 items-center justify-center overflow-auto">
+			<main class="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-2">
 				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
 				<WindowCanvas
 					v-else-if="!loadError"

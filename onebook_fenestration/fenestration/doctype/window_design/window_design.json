@@ -111,10 +111,11 @@
    "fieldname": "design_svg",
    "fieldtype": "Long Text",
    "label": "Design SVG",
-   "hidden": 1
+   "hidden": 1,
+   "ignore_xss_filter": 1
   }
  ],
- "modified": "2026-10-30 00:00:00",
+ "modified": "2026-10-30 00:00:01",
  "modified_by": "Administrator",
  "module": "Fenestration",
  "name": "Window Design",

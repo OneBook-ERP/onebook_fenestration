@@ -25,7 +25,13 @@
 					<Badge v-else-if="d.warning_count" theme="orange" :label="`${d.warning_count} warnings`" />
 				</div>
 				<p class="text-sm text-ink-gray-5">{{ d.series_version }} · {{ d.area_sqft }} sq.ft<template v-if="d.location"> · {{ d.location }}</template></p>
-				<RouterLink :to="`/projects/${project}/designs/${d.name}`" class="mt-2 inline-block text-sm text-ink-blue-3">Edit design</RouterLink>
+				<Button
+					class="mt-2 min-h-9"
+					variant="subtle"
+					label="Edit design"
+					data-testid="edit-design"
+					:route="`/projects/${project}/designs/${d.name}`"
+				/>
 			</article>
 		</div>
 	</div>
@@ -34,7 +40,7 @@
 <script setup lang="ts">
 import { Badge, Button, useList } from 'frappe-ui'
 import { computed } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 
 interface DesignRow {
 	name: string
