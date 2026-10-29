@@ -2,6 +2,7 @@
 import { Alert, Badge, TabButtons } from 'frappe-ui'
 import { computed, ref } from 'vue'
 import type { BomRow, Member } from '@/api'
+import { formatMoney } from '@/money'
 import { useDesignerStore } from '@/stores/designer'
 
 const store = useDesignerStore()
@@ -31,11 +32,13 @@ const cutList = computed(() => {
 const hardware = computed<BomRow[]>(() => (result.value?.bom ?? []).filter((b) => b.group !== 'Gasket'))
 
 const tabOptions = computed(() =>
-	['Cut list', 'Hardware', 'Glass', 'Issues'].map((t) => ({
+	['Cut list', 'Hardware', 'Glass', 'Pricing', 'Issues'].map((t) => ({
 		value: t,
 		label: t === 'Issues' ? `Issues (${issues.value.length})` : t,
 	})),
 )
+
+const pricing = computed(() => result.value?.pricing)
 
 const th = 'px-3 py-1.5 text-left text-xs font-semibold text-gray-500'
 const td = 'px-3 py-1.5 text-sm'
@@ -51,6 +54,10 @@ const td = 'px-3 py-1.5 text-sm'
 				<span v-for="[panel, kg] in shutters" :key="panel">
 					Shutter {{ panel }} {{ Number(kg).toFixed(3) }} kg
 				</span>
+				<template v-if="pricing">
+					<span class="font-semibold">Unit price {{ formatMoney(pricing.unit_price) }}</span>
+					<span>{{ formatMoney(pricing.rate_per_sqft) }}/sq.ft</span>
+				</template>
 				<Badge theme="red" :label="`${errors} errors`" />
 				<Badge theme="amber" :label="`${warnings} warnings`" />
 			</div>
@@ -82,6 +89,17 @@ const td = 'px-3 py-1.5 text-sm'
 				<tbody>
 					<tr v-for="g in result?.glass ?? []" :key="g.path">
 						<td :class="td">{{ g.panel }}</td><td :class="td">{{ g.number }}</td><td :class="td">{{ g.glass }}</td><td :class="td">{{ g.width }}</td><td :class="td">{{ g.height }}</td>
+					</tr>
+				</tbody>
+			</table>
+			<table v-else-if="tab === 'Pricing'" class="w-full">
+				<thead><tr><th :class="th">Cost head</th><th :class="[th, 'text-right']">Amount</th></tr></thead>
+				<tbody>
+					<tr v-for="l in pricing?.lines ?? []" :key="l.key">
+						<td :class="td">{{ l.label }}</td><td :class="[td, 'text-right']">{{ formatMoney(l.amount) }}</td>
+					</tr>
+					<tr v-if="pricing" class="border-t font-bold">
+						<td :class="td">Total</td><td :class="[td, 'text-right']">{{ formatMoney(pricing.unit_price) }}</td>
 					</tr>
 				</tbody>
 			</table>

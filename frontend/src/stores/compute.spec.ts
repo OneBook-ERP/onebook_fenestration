@@ -31,6 +31,16 @@ describe('designer compute', () => {
 		expect(mocked.mock.calls[0][1]).toBe('SV1')
 	})
 
+	it('passes finish and price structure to compute', async () => {
+		mocked.mockResolvedValue(res(1))
+		const s = useDesignerStore()
+		s.seriesVersion = 'SV1'
+		s.priceStructure = 'Standard'
+		s.setFinish('BROWN-5104')
+		await vi.advanceTimersByTimeAsync(300)
+		expect(mocked.mock.calls[0].slice(2)).toEqual(['BROWN-5104', 'Standard'])
+	})
+
 	it('ignores out-of-order responses', async () => {
 		let resolveFirst!: (v: never) => void
 		mocked.mockImplementationOnce(() => new Promise((r) => (resolveFirst = r as never)))

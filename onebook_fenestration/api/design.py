@@ -134,3 +134,14 @@ def get_design(name: str) -> dict:
 		value = doc.get(field)
 		out[field] = json.loads(value) if isinstance(value, str) else value
 	return out
+
+
+@frappe.whitelist()
+def get_fenestration_defaults() -> dict:
+	"""Default finish and price structure for new designs; readable by any logged-in user."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Login required"), frappe.PermissionError)
+	return {
+		"default_finish": frappe.db.get_single_value("Fenestration Settings", "default_finish"),
+		"default_price_structure": frappe.db.get_single_value("Fenestration Settings", "default_price_structure"),
+	}

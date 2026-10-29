@@ -11,10 +11,12 @@ export interface Meta {
 	location: string
 }
 const meta = defineModel<Meta>('meta', { required: true })
-defineProps<{ refError?: string; refReadonly?: boolean }>()
+defineProps<{ refError?: string; refReadonly?: boolean; finishes?: { name: string; finish_name: string }[] }>()
 const store = useDesignerStore()
 
 const NONE = 'none'
+const finishOptions = (list: { name: string; finish_name: string }[] = []) =>
+	list.map((f) => ({ label: f.finish_name || f.name, value: f.name }))
 const OPENINGS = [{ label: 'None', value: NONE }, { label: 'In', value: 'in' }, { label: 'Out', value: 'out' }]
 const HINGES = [
 	{ label: 'None', value: NONE },
@@ -80,6 +82,8 @@ function optNum(e: Event): number | undefined {
 						@change="resize(store.design.width, num($event))" />
 				</div>
 				<FormControl v-model="meta.location" label="Location" />
+				<Select label="Finish" :options="finishOptions(finishes)" :model-value="store.finish"
+					@update:model-value="store.setFinish(String($event ?? ''))" />
 			</div>
 		</details>
 

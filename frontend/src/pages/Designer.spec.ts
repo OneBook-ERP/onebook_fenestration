@@ -4,14 +4,25 @@ import { toast } from 'frappe-ui'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { h } from 'vue'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
-import { computeDesign, getDesign, saveDesign } from '@/api'
+import { computeDesign, getDesign, getFenestrationDefaults, saveDesign } from '@/api'
 import { routes } from '@/router'
 import { useDesignerStore } from '@/stores/designer'
 
-vi.mock('@/api', () => ({ computeDesign: vi.fn(), saveDesign: vi.fn(), getDesign: vi.fn() }))
+vi.mock('@/api', () => ({
+	computeDesign: vi.fn(),
+	saveDesign: vi.fn(),
+	getDesign: vi.fn(),
+	getFenestrationDefaults: vi.fn(),
+}))
 vi.mock('frappe-ui', async (orig) => ({
 	...(await orig<object>()),
 	toast: { success: vi.fn(), error: vi.fn() },
+	useList: (await import('@/test-utils')).fakeUseList({
+		'Profile Finish': [
+			{ name: 'GREY', finish_name: 'Grey', color: '#8A8F98' },
+			{ name: 'BROWN-5104', finish_name: '5104 PC Brown', color: '#6B3E26' },
+		],
+	}),
 }))
 
 const result = {
@@ -25,6 +36,14 @@ const result = {
 	window_kg: 10.1234,
 	area_m2: 1.116,
 	area_sqft: 12.013,
+	pricing: {
+		lines: [
+			{ key: 'profile', label: 'Profile Cost', amount: 5000.5 },
+			{ key: 'profit', label: 'Profit', amount: 11380.22 },
+		],
+		unit_price: 16380.72,
+		rate_per_sqft: 1363.63,
+	},
 	issues: [
 		{ severity: 'error', code: 'X', message: 'Too wide', panel: 'F1', hint: '', path: 'F1.0' },
 		{ severity: 'warn', code: 'Y', message: 'Louver placeholder', panel: 'F1', hint: '', path: 'F1.1' },
@@ -80,11 +99,42 @@ describe('Designer page', () => {
 		vi.useFakeTimers()
 		vi.mocked(computeDesign).mockReset()
 		vi.mocked(computeDesign).mockResolvedValue({ ok: true, result } as never)
+		vi.mocked(getFenestrationDefaults).mockReset()
+		vi.mocked(getFenestrationDefaults).mockResolvedValue({ default_finish: 'GREY', default_price_structure: 'Standard' })
 		vi.mocked(saveDesign).mockReset()
 		vi.mocked(getDesign).mockReset()
 		vi.mocked(toast.error).mockReset()
 	})
 	afterEach(() => vi.useRealTimers())
+
+	it('choosing a finish recomputes with it and recolours the frame', async () => {
+		const { wrapper } = await setup()
+		await vi.advanceTimersByTimeAsync(300)
+		await flushPromises()
+		expect(vi.mocked(computeDesign).mock.calls[0][2]).toBe('GREY')
+		expect(vi.mocked(computeDesign).mock.calls[0][3]).toBe('Standard')
+		useDesignerStore().setFinish('BROWN-5104')
+		await vi.advanceTimersByTimeAsync(300)
+		await flushPromises()
+		const last = vi.mocked(computeDesign).mock.calls.at(-1)!
+		expect(last[2]).toBe('BROWN-5104')
+		expect(wrapper.find('svg > rect:nth-of-type(2)').attributes('fill')).toBe('#6B3E26')
+		expect(useDesignerStore().dirty).toBe(true)
+	})
+
+	it('results bar shows unit price and rate, and the Pricing tab lists heads', async () => {
+		const { wrapper } = await setup()
+		await vi.advanceTimersByTimeAsync(300)
+		await flushPromises()
+		expect(wrapper.text()).toContain('Unit price ₹16,380.72')
+		expect(wrapper.text()).toContain('₹1,363.63/sq.ft')
+		await tab(wrapper, 'Pricing').trigger('click')
+		await flushPromises()
+		expect(wrapper.text()).toContain('Profile Cost')
+		expect(wrapper.text()).toContain('₹5,000.50')
+		expect(wrapper.text()).toContain('Profit')
+		expect(wrapper.text()).toContain('₹11,380.22')
+	})
 
 	it('split vertical shows M1 on canvas', async () => {
 		const { wrapper } = await setup()

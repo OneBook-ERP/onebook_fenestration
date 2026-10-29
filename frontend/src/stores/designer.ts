@@ -16,6 +16,8 @@ export const useDesignerStore = defineStore('designer', {
 		future: [] as Design[],
 		result: null as ComputeResult | null,
 		seriesVersion: '',
+		finish: '' as string,
+		priceStructure: '' as string,
 		error: null as string | null,
 		computing: false,
 		requestSeq: 0,
@@ -82,8 +84,14 @@ export const useDesignerStore = defineStore('designer', {
 		select(path: string) {
 			this.selectedPath = path
 		},
-		reset(design: Design, seriesVersion: string) {
-			this.$patch({ design, seriesVersion, selectedPath: 'F1', past: [], future: [], result: null, error: null, dirty: false, dragOrigin: null })
+		setFinish(finish: string) {
+			if (finish === this.finish) return
+			this.finish = finish
+			this.dirty = true
+			this.scheduleCompute()
+		},
+		reset(design: Design, seriesVersion: string, finish = '', priceStructure = '') {
+			this.$patch({ design, seriesVersion, finish, priceStructure, selectedPath: 'F1', past: [], future: [], result: null, error: null, dirty: false, dragOrigin: null })
 			this.scheduleCompute()
 		},
 		cancelCompute() {
@@ -107,7 +115,7 @@ export const useDesignerStore = defineStore('designer', {
 			this.computing = true
 			let res
 			try {
-				res = await computeDesign(this.design, this.seriesVersion)
+				res = await computeDesign(this.design, this.seriesVersion, this.finish, this.priceStructure)
 			} catch (e) {
 				res = { ok: false as const, message: e instanceof Error ? e.message : String(e) }
 			}

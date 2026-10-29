@@ -24,6 +24,12 @@ describe('WindowCanvas', () => {
 		expect(texts).toContain('GHH = 732')
 	})
 
+	it('fills the frame with the finish colour and lightens the sash', () => {
+		const w = mountCanvas({ finishColor: '#6B3E26' })
+		expect(w.find('svg > rect:nth-of-type(2)').attributes('fill')).toBe('#6B3E26')
+		expect(w.find('[data-path="F1.1"]').attributes('fill')).toBe('#7A513C')
+	})
+
 	it('emits select on cell click', async () => {
 		const w = mountCanvas()
 		await w.find('[data-path="F1.1"]').trigger('click')

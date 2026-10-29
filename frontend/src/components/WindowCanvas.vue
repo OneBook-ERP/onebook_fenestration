@@ -9,9 +9,8 @@ const BAR_FACE = 40
 const SASH_FACE = 50
 const PAD = 60
 const FONT = 'Inter, sans-serif'
+const DEFAULT_FINISH = '#8A8F98'
 const C = {
-	frame: '#8A8F98',
-	sash: '#9BA0A8',
 	glass: '#DCEBF7',
 	stroke: '#5B6470',
 	select: '#2563EB',
@@ -27,8 +26,9 @@ const props = withDefaults(
 		view: 'inside' | 'outside'
 		viewW?: number
 		viewH?: number
+		finishColor?: string
 	}>(),
-	{ viewW: 640, viewH: 760 },
+	{ viewW: 640, viewH: 760, finishColor: DEFAULT_FINISH },
 )
 const emit = defineEmits<{
 	select: [path: string]
@@ -36,6 +36,18 @@ const emit = defineEmits<{
 	'drag-start': []
 	'drag-end': []
 }>()
+
+/** Mix a #RRGGBB colour towards white by `amount` (0..1). */
+function lighten(hex: string, amount: number): string {
+	const n = parseInt(hex.slice(1), 16)
+	const mix = (shift: number) => {
+		const c = (n >> shift) & 255
+		return Math.round(c + (255 - c) * amount)
+	}
+	return '#' + [16, 8, 0].map((s) => mix(s).toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+const frameFill = computed(() => props.finishColor)
+const sashFill = computed(() => lighten(props.finishColor, 0.1))
 
 const svg = ref<SVGSVGElement | null>(null)
 
@@ -269,7 +281,7 @@ defineExpose({ getSvgMarkup })
 			:y="frameBox.y"
 			:width="frameBox.w"
 			:height="frameBox.h"
-			:fill="C.frame"
+			:fill="frameFill"
 			:stroke="C.stroke"
 		/>
 
@@ -280,7 +292,7 @@ defineExpose({ getSvgMarkup })
 				:y="v.box.y"
 				:width="v.box.w"
 				:height="v.box.h"
-				:fill="v.cell.node.type === 'sash' ? C.sash : C.glass"
+				:fill="v.cell.node.type === 'sash' ? sashFill : C.glass"
 				:stroke="v.stroke"
 				:stroke-width="v.strokeWidth"
 				:class="{ hl: v.stroke !== C.stroke }"
@@ -364,7 +376,7 @@ defineExpose({ getSvgMarkup })
 				:y="barRect(bar).y"
 				:width="barRect(bar).w"
 				:height="barRect(bar).h"
-				:fill="C.frame"
+				:fill="frameFill"
 				:stroke="C.stroke"
 				:style="{ cursor: bar.dir === 'v' ? 'ew-resize' : 'ns-resize', touchAction: 'none' }"
 				@pointerdown="onPointerDown($event, bar)"

@@ -4,7 +4,7 @@
 			<div>
 				<h1 class="text-xl font-semibold">{{ info?.project_title || project }}</h1>
 				<p class="text-sm text-ink-gray-5">
-					{{ totals.windows }} windows · {{ totals.area.toFixed(3) }} sq.ft · {{ totals.weight.toFixed(3) }} kg
+					{{ totals.windows }} windows · {{ totals.area.toFixed(3) }} sq.ft · {{ totals.weight.toFixed(3) }} kg · Value {{ formatMoney(totals.value) }}
 				</p>
 			</div>
 			<Button class="ml-auto" variant="solid" data-testid="new-design" :disabled="!info?.default_series_version" @click="newDesign">
@@ -24,6 +24,7 @@
 					<Badge v-if="d.error_count" theme="red" :label="`${d.error_count} errors`" />
 					<Badge v-else-if="d.warning_count" theme="orange" :label="`${d.warning_count} warnings`" />
 				</div>
+				<p class="text-sm font-medium">{{ formatMoney(d.line_total) }} <span class="font-normal text-ink-gray-5">for {{ d.qty }}</span></p>
 				<p class="text-sm text-ink-gray-5">{{ d.series_version }} · {{ d.area_sqft }} sq.ft<template v-if="d.location"> · {{ d.location }}</template></p>
 				<Button
 					class="mt-2 min-h-9"
@@ -41,6 +42,7 @@
 import { Badge, Button, useList } from 'frappe-ui'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { formatMoney } from '@/money'
 
 interface DesignRow {
 	name: string
@@ -53,6 +55,7 @@ interface DesignRow {
 	warning_count: number
 	design_svg: string
 	location: string
+	line_total: number
 }
 interface ProjectInfo {
 	name: string
@@ -73,7 +76,7 @@ const designList = useList<DesignRow>({
 	doctype: 'Window Design',
 	fields: [
 		'name', 'design_ref', 'qty', 'series_version', 'area_sqft', 'window_kg',
-		'error_count', 'warning_count', 'design_svg', 'location',
+		'error_count', 'warning_count', 'design_svg', 'location', 'line_total',
 	],
 	filters: { project: props.project },
 	orderBy: 'design_ref asc',
@@ -83,13 +86,14 @@ const designList = useList<DesignRow>({
 const info = computed(() => projectList.data?.[0])
 const designs = computed(() => designList.data ?? [])
 const totals = computed(() => {
-	let windows = 0, area = 0, weight = 0
+	let windows = 0, area = 0, weight = 0, value = 0
 	for (const d of designs.value) {
 		windows += d.qty
 		area += d.area_sqft * d.qty
 		weight += d.window_kg * d.qty
+		value += d.line_total ?? 0
 	}
-	return { windows, area, weight }
+	return { windows, area, weight, value }
 })
 
 function thumb(svg: string) {

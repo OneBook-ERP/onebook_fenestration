@@ -47,6 +47,17 @@ export interface ComputeResult {
 	area_m2: number
 	area_sqft: number
 	issues: Issue[]
+	pricing?: Pricing
+}
+export interface PricingLine {
+	key: string
+	label: string
+	amount: number
+}
+export interface Pricing {
+	lines: PricingLine[]
+	unit_price: number
+	rate_per_sqft: number
 }
 export type ComputeResponse =
 	| { ok: true; result: ComputeResult }
@@ -62,6 +73,8 @@ export interface SaveArgs {
 	design_name?: string
 	location?: string
 	name?: string | null
+	finish?: string | null
+	price_structure?: string | null
 }
 export type SaveResponse =
 	| { ok: true; name: string; results: { area_sqft: number; window_kg: number; error_count: number; warning_count: number } }
@@ -79,10 +92,31 @@ export interface SavedDesign {
 	design_json: Design | string
 	result_json: ComputeResult | Record<string, never> | string
 	design_svg: string
+	finish?: string | null
+	price_structure?: string | null
 }
 
-export function computeDesign(design: Design, seriesVersion: string): Promise<ComputeResponse> {
-	return call(`${API}.compute_design`, { design: JSON.stringify(design), series_version: seriesVersion })
+export function computeDesign(
+	design: Design,
+	seriesVersion: string,
+	finish?: string | null,
+	priceStructure?: string | null,
+): Promise<ComputeResponse> {
+	return call(`${API}.compute_design`, {
+		design: JSON.stringify(design),
+		series_version: seriesVersion,
+		finish: finish || null,
+		price_structure: priceStructure || null,
+	})
+}
+
+export interface FenestrationDefaults {
+	default_finish: string | null
+	default_price_structure: string | null
+}
+
+export function getFenestrationDefaults(): Promise<FenestrationDefaults> {
+	return call(`${API}.get_fenestration_defaults`)
 }
 
 export function saveDesign(args: SaveArgs): Promise<SaveResponse> {

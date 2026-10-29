@@ -3,7 +3,7 @@ import json
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from onebook_fenestration.api.design import compute_design
+from onebook_fenestration.api.design import compute_design, get_fenestration_defaults
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -53,6 +53,13 @@ class TestComputeDesignApi(IntegrationTestCase):
 		self.assertIs(out["ok"], False)
 		self.assertEqual(out["error_type"], "design")
 		self.assertIn("F1", out["message"])
+
+	def test_fenestration_defaults(self):
+		frappe.db.set_single_value("Fenestration Settings", "default_finish", "BROWN-5104")
+		frappe.set_user(SALES_EMAIL)
+		out = get_fenestration_defaults()
+		self.assertEqual(out["default_finish"], "BROWN-5104")
+		self.assertIn("default_price_structure", out)
 
 	def test_api_invalid_json(self):
 		out = compute_design("{", self.version)

@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { Alert, Badge, Button, toast } from 'frappe-ui'
+import { Alert, Badge, Button, toast, useList } from 'frappe-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { getDesign, saveDesign, type SavedDesign } from '@/api'
+import { getDesign, getFenestrationDefaults, saveDesign, type SavedDesign } from '@/api'
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
 import WindowCanvas from '@/components/WindowCanvas.vue'
 import { getNode, moveSplit, newDesign, setLeaf, splitCell } from '@/design/tree'
 import type { LeafNode, SplitDir } from '@/design/types'
 import { useDesignerStore } from '@/stores/designer'
+
+interface FinishRow {
+	name: string
+	finish_name: string
+	color: string
+}
 
 const store = useDesignerStore()
 const route = useRoute()
@@ -25,6 +31,15 @@ const loading = ref(false)
 let loadedName: string | null = null
 const blocked = computed(() => loading.value || !!loadError.value || saving.value)
 const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
+
+const finishList = useList<FinishRow>({
+	doctype: 'Profile Finish',
+	fields: ['name', 'finish_name', 'color'],
+	orderBy: 'name asc',
+	limit: 100,
+})
+const finishes = computed(() => finishList.data ?? [])
+const finishColor = computed(() => finishes.value.find((f) => f.name === store.finish)?.color || undefined)
 
 const issuePaths = computed(() => (store.result?.issues ?? []).map((i) => i.path))
 const selectedLeaf = computed(() => {
@@ -45,7 +60,19 @@ async function load(name: string | null) {
 	if (!name) {
 		loadedName = null
 		meta.value = { ref: '', qty: 1, location: '' }
-		store.reset(newDesign(1200, 1200), String(route.query.series_version ?? ''))
+		let defaults = { default_finish: '', default_price_structure: '' }
+		try {
+			defaults = { ...defaults, ...(await getFenestrationDefaults()) }
+		} catch {
+			// Prices fall back to the server-side defaults when none are sent.
+		}
+		if (savedName.value) return
+		store.reset(
+			newDesign(1200, 1200),
+			String(route.query.series_version ?? ''),
+			defaults.default_finish ?? '',
+			defaults.default_price_structure ?? '',
+		)
 		return
 	}
 	if (name === loadedName) return
@@ -54,7 +81,7 @@ async function load(name: string | null) {
 		const doc: SavedDesign = await getDesign(name)
 		if (name !== savedName.value) return
 		meta.value = { ref: doc.design_ref, qty: doc.qty, location: doc.location ?? '' }
-		store.reset(parseJson(doc.design_json), doc.series_version)
+		store.reset(parseJson(doc.design_json), doc.series_version, doc.finish ?? '', doc.price_structure ?? '')
 		loadedName = name
 	} catch (e) {
 		if (name !== savedName.value) return
@@ -118,6 +145,8 @@ async function save() {
 			qty: meta.value.qty,
 			location: meta.value.location,
 			name: savedName.value,
+			finish: store.finish || null,
+			price_structure: store.priceStructure || null,
 		})
 		if (res.ok) {
 			toast.success('Design saved')
@@ -173,13 +202,14 @@ async function save() {
 					:selected-path="store.selectedPath"
 					:issue-paths="issuePaths"
 					:view="view"
+					:finish-color="finishColor"
 					@select="store.select"
 					@move-split="onMoveSplit"
 					@drag-start="store.beginDrag()"
 					@drag-end="store.endDrag()"
 				/>
 			</main>
-			<PropertiesPanel v-model:meta="meta" :ref-error="refError" :ref-readonly="!!savedName" />
+			<PropertiesPanel v-model:meta="meta" :finishes="finishes" :ref-error="refError" :ref-readonly="!!savedName" />
 		</div>
 		<ResultsBar />
 	</div>
