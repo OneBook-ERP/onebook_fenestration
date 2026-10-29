@@ -57,7 +57,7 @@ class TestSaveDesign(IntegrationTestCase):
 		self.assertTrue(res["ok"])
 		self.assertEqual(res["results"]["area_sqft"], 12.013)
 		self.assertNotIn("script", frappe.db.get_value("Window Design", res["name"], "design_svg"))
-		again = self.save(name=res["name"], qty=3)
+		again = self.save(design_ref="W-INS", name=res["name"], qty=3)
 		self.assertEqual(again["name"], res["name"])
 		self.assertEqual(frappe.db.get_value("Window Design", res["name"], "qty"), 3)
 		self.assertIn("rect", frappe.db.get_value("Window Design", res["name"], "design_svg"))
@@ -74,3 +74,42 @@ class TestSaveDesign(IntegrationTestCase):
 		self.assertEqual(doc["design_json"], load("w01.json"))
 		self.assertIsInstance(doc["result_json"], dict)
 		self.assertEqual(doc["design_ref"], "W-GET")
+
+	def test_update_cannot_change_ref_or_project(self):
+		first = self.save(design_ref="W-A")
+		other = self.save(design_ref="W-B")
+		res = self.save(name=first["name"], design_ref="W-B")
+		self.assertFalse(res["ok"])
+		self.assertEqual(res["message"], "Design ref and project cannot be changed after creation")
+		self.assertEqual(frappe.db.get_value("Window Design", first["name"], "design_ref"), "W-A")
+		self.assertTrue(frappe.db.exists("Window Design", other["name"]))
+
+	def test_svg_sanitizer_rejects_deep_nesting(self):
+		deep = f'<svg xmlns="{SVG_NS}">' + "<g>" * 100 + "</g>" * 100 + "</svg>"
+		with self.assertRaises(frappe.ValidationError):
+			sanitize_svg(deep)
+		ok = f'<svg xmlns="{SVG_NS}">' + "<g>" * 10 + "</g>" * 10 + "</svg>"
+		sanitize_svg(ok)
+
+	def test_svg_sanitizer_drops_namespaced_attributes(self):
+		src = f'<svg xmlns="{SVG_NS}" xmlns:p="urn:evil" p:xmlns="urn:evil" p:x="1"><rect p:width="3" width="4"/></svg>'
+		clean = sanitize_svg(src)
+		self.assertNotIn("urn:evil", clean)
+		self.assertEqual(sanitize_svg(clean), clean)
+
+	def test_svg_sanitizer_drops_dangerous_values(self):
+		src = (
+			f'<svg xmlns="{SVG_NS}"><rect fill="url(http://169.254.169.254/x#a)" width="1"/>'
+			'<rect transform="JAVA script:x()" height="2"/><rect stroke="expression (1)" x="3"/></svg>'
+		)
+		clean = sanitize_svg(src)
+		for bad in ("169.254", "url(", "script", "expression"):
+			self.assertNotIn(bad, clean)
+		self.assertIn('width="1"', clean)
+
+	def test_save_error_clears_message_log(self):
+		self.save(design_ref="W-MSG")
+		frappe.local.message_log = []
+		res = self.save(design_ref="W-MSG")
+		self.assertFalse(res["ok"])
+		self.assertEqual(frappe.local.message_log, [])

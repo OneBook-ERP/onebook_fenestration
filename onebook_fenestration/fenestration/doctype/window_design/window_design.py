@@ -20,6 +20,8 @@ class WindowDesign(Document):
 	def validate(self):
 		if cint(self.qty) < 1:
 			frappe.throw(_("Qty must be at least 1"))
+		if not self.is_new() and (self.has_value_changed("project") or self.has_value_changed("design_ref")):
+			frappe.throw(_("Design ref and project cannot be changed after creation"))
 		if self.is_new() or self.has_value_changed("design_json") or self.has_value_changed("series_version"):
 			self.compute_results()
 		if self.design_svg and (self.is_new() or self.has_value_changed("design_svg")):

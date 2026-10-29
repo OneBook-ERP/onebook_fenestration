@@ -64,12 +64,13 @@ def save_design(
 	)
 	if svg:
 		doc.design_svg = svg
+	frappe.db.savepoint("save_design")
 	try:
 		doc.save()
 	except frappe.DuplicateEntryError:
-		return {"ok": False, "message": _("A design with this ref already exists in this project")}
+		return _save_failed(_("A design with this ref already exists in this project"))
 	except frappe.ValidationError as exc:
-		return {"ok": False, "message": str(exc)}
+		return _save_failed(str(exc))
 	return {
 		"ok": True,
 		"name": doc.name,
@@ -80,6 +81,13 @@ def save_design(
 			"warning_count": doc.warning_count,
 		},
 	}
+
+
+def _save_failed(message: str) -> dict:
+	"""Undo the failed save and drop queued toasts so the caller reports the error once."""
+	frappe.db.rollback(save_point="save_design")
+	frappe.clear_messages()
+	return {"ok": False, "message": message}
 
 
 @frappe.whitelist()
