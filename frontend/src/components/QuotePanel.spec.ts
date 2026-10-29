@@ -169,4 +169,38 @@ describe('QuotePanel', () => {
 		await flushPromises()
 		expect(setProjectField).toHaveBeenCalledWith('FP-1', 'customer', '')
 	})
+
+	it('shows the rounded total when present, else the grand total', async () => {
+		vi.mocked(quoteStatus).mockResolvedValue({ quotation: 'QTN-1', docstatus: 0, grand_total: 1000.4, rounded_total: 1000 })
+		const w = await setup({ ...base, quotation: 'QTN-1' })
+		expect(w.get('[data-testid="quote-status"]').text()).toContain('₹1,000.00')
+		expect(w.get('[data-testid="quote-status"]').text()).not.toContain('1,000.40')
+	})
+
+	it('warns which designs changed since the quotation', async () => {
+		vi.mocked(quoteStatus).mockResolvedValue({
+			quotation: 'QTN-1',
+			docstatus: 0,
+			grand_total: 100,
+			is_stale: true,
+			stale: { changed: ['W01'], added: ['W09'], removed: ['W02 — 2 sash'], transport_changed: true },
+		})
+		const w = await setup({ ...base, quotation: 'QTN-1' })
+		const alert = w.get('[data-testid="quote-stale"]')
+		expect(alert.text()).toContain('Designs changed since quotation')
+		for (const text of ['W01', 'W09', 'W02 — 2 sash', 'Transport']) expect(alert.text()).toContain(text)
+		expect(btn(w, 'Update quotation')).toBeTruthy()
+	})
+
+	it('hides the stale warning for a fresh quotation', async () => {
+		vi.mocked(quoteStatus).mockResolvedValue({
+			quotation: 'QTN-1',
+			docstatus: 0,
+			grand_total: 100,
+			is_stale: false,
+			stale: { changed: [], added: [], removed: [], transport_changed: false },
+		})
+		const w = await setup({ ...base, quotation: 'QTN-1' })
+		expect(w.find('[data-testid="quote-stale"]').exists()).toBe(false)
+	})
 })

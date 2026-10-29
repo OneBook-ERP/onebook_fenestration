@@ -170,11 +170,20 @@ export async function createProject(values: NewProject): Promise<string> {
 const PROJECT_API = 'onebook_fenestration.api.project'
 
 export type MakeQuotationResponse = { ok: true; quotation: string } | { ok: false; message: string }
+export interface QuoteStaleness {
+	changed: string[]
+	added: string[]
+	removed: string[]
+	transport_changed: boolean
+}
 export interface QuoteStatus {
 	quotation: string | null
 	docstatus?: number
 	status?: string
 	grand_total?: number
+	rounded_total?: number
+	stale?: QuoteStaleness
+	is_stale?: boolean
 	net_total?: number
 	total_taxes_and_charges?: number
 }

@@ -19,7 +19,16 @@
 		<div v-if="status?.quotation" class="flex items-center gap-2 text-sm" data-testid="quote-status">
 			<span>{{ status.quotation }}</span>
 			<Badge :theme="statusTheme" :label="statusLabel" />
-			<span class="font-medium">{{ formatMoney(status.grand_total) }}</span>
+			<span class="font-medium">{{ formatMoney(status.rounded_total ?? status.grand_total) }}</span>
+		</div>
+		<div
+			v-if="status?.is_stale"
+			class="flex w-full items-center gap-2 rounded bg-surface-amber-1 p-2 text-sm"
+			data-testid="quote-stale"
+		>
+			<Badge theme="orange" label="Designs changed since quotation" />
+			<span>{{ staleDetail }}</span>
+			<span class="text-ink-gray-5">Use {{ hasDraft ? 'Update quotation' : 'Create quotation' }} to refresh.</span>
 		</div>
 		<div class="ml-auto flex flex-wrap gap-2">
 			<Button label="Quotation" :href="quotationUrl" :disabled="!quotationUrl" />
@@ -67,6 +76,17 @@ let timer: ReturnType<typeof setTimeout> | undefined
 const hasDraft = computed(() => !!status.value?.quotation && status.value.docstatus === 0)
 const statusLabel = computed(() => ['Draft', 'Submitted', 'Cancelled'][status.value?.docstatus ?? 0] ?? status.value?.status ?? 'Unknown')
 const statusTheme = computed(() => (['orange', 'green', 'red'] as const)[status.value?.docstatus ?? 0] ?? 'gray')
+const staleDetail = computed(() => {
+	const stale = status.value?.stale
+	if (!stale) return ''
+	const parts = [
+		stale.changed.length ? `Changed: ${stale.changed.join(', ')}` : '',
+		stale.added.length ? `Added: ${stale.added.join(', ')}` : '',
+		stale.removed.length ? `Removed: ${stale.removed.join(', ')}` : '',
+		stale.transport_changed ? 'Transport charges changed' : '',
+	]
+	return parts.filter(Boolean).join(' · ')
+})
 const quotationUrl = computed(() =>
 	status.value?.quotation ? printPdfUrl('Quotation', status.value.quotation, 'Fenestration Quotation') : undefined,
 )
