@@ -52,12 +52,12 @@
   {
    "fieldname": "length_expr",
    "fieldtype": "Data",
-   "label": "Length Expr",
+   "label": "Length Formula",
    "reqd": 1,
    "in_list_view": 1
   }
  ],
- "modified": "2026-10-29 00:00:00",
+ "modified": "2026-10-30 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Series Member Rule",

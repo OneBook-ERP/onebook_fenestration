@@ -65,20 +65,20 @@
   {
    "fieldname": "kg_per_m",
    "fieldtype": "Float",
-   "label": "Kg Per M",
+   "label": "Weight (kg/m)",
    "reqd": 1
   },
   {
    "fieldname": "bar_lengths",
    "fieldtype": "Data",
-   "label": "Bar Lengths",
+   "label": "Bar Lengths (mm)",
    "reqd": 1,
    "description": "Comma-separated mm, e.g. 4880, 5800"
   },
   {
    "fieldname": "dxf_file",
    "fieldtype": "Attach",
-   "label": "Dxf File"
+   "label": "Section DXF"
   },
   {
    "fieldname": "use_computed_weight",
@@ -94,43 +94,43 @@
   {
    "fieldname": "area_mm2",
    "fieldtype": "Float",
-   "label": "Area Mm2",
+   "label": "Area (mm²)",
    "read_only": 1
   },
   {
    "fieldname": "width_mm",
    "fieldtype": "Float",
-   "label": "Width Mm",
+   "label": "Width (mm)",
    "read_only": 1
   },
   {
    "fieldname": "depth_mm",
    "fieldtype": "Float",
-   "label": "Depth Mm",
+   "label": "Depth (mm)",
    "read_only": 1
   },
   {
    "fieldname": "perimeter_mm",
    "fieldtype": "Float",
-   "label": "Perimeter Mm",
+   "label": "Perimeter (mm)",
    "read_only": 1
   },
   {
    "fieldname": "ix_mm4",
    "fieldtype": "Float",
-   "label": "Ix Mm4",
+   "label": "Ix (mm⁴)",
    "read_only": 1
   },
   {
    "fieldname": "iy_mm4",
    "fieldtype": "Float",
-   "label": "Iy Mm4",
+   "label": "Iy (mm⁴)",
    "read_only": 1
   },
   {
    "fieldname": "computed_kg_per_m",
    "fieldtype": "Float",
-   "label": "Computed Kg Per M",
+   "label": "Computed Weight (kg/m)",
    "read_only": 1
   },
   {
@@ -147,7 +147,7 @@
    "read_only": 1
   }
  ],
- "modified": "2026-10-29 00:00:00",
+ "modified": "2026-10-30 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Fenestration Profile",

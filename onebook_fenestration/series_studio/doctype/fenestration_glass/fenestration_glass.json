@@ -28,7 +28,7 @@
   {
    "fieldname": "thickness_mm",
    "fieldtype": "Float",
-   "label": "Thickness Mm",
+   "label": "Thickness (mm)",
    "reqd": 1,
    "in_list_view": 1
   },
@@ -39,7 +39,7 @@
    "options": "Item"
   }
  ],
- "modified": "2026-10-29 00:00:00",
+ "modified": "2026-10-30 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Fenestration Glass",

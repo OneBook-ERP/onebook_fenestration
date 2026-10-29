@@ -20,7 +20,7 @@
   {
    "fieldname": "when_expr",
    "fieldtype": "Data",
-   "label": "When Expr",
+   "label": "Condition",
    "reqd": 1
   },
   {
@@ -42,7 +42,7 @@
    "label": "Hint"
   }
  ],
- "modified": "2026-10-29 00:00:00",
+ "modified": "2026-10-30 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Series Validation Rule",

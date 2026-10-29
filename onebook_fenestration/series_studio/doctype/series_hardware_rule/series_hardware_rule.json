@@ -45,35 +45,35 @@
   {
    "fieldname": "when_expr",
    "fieldtype": "Data",
-   "label": "When Expr",
+   "label": "Condition",
    "default": "True"
   },
   {
    "fieldname": "qty_expr",
    "fieldtype": "Data",
-   "label": "Qty Expr",
+   "label": "Qty Formula",
    "reqd": 1
   },
   {
    "fieldname": "length_expr",
    "fieldtype": "Data",
-   "label": "Length Expr"
+   "label": "Length Formula"
   },
   {
    "fieldname": "uom",
    "fieldtype": "Link",
-   "label": "Uom",
+   "label": "UOM",
    "options": "UOM",
    "default": "Nos"
   },
   {
    "fieldname": "bom_group",
    "fieldtype": "Data",
-   "label": "Bom Group",
+   "label": "BOM Group",
    "default": "Fabrication Hardware"
   }
  ],
- "modified": "2026-10-29 00:00:00",
+ "modified": "2026-10-30 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Series Hardware Rule",
