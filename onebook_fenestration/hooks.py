@@ -96,12 +96,13 @@ app_license = "mit"
 # ------------
 
 # before_install = "onebook_fenestration.install.before_install"
-# after_install = "onebook_fenestration.install.after_install"
+after_install = "onebook_fenestration.setup.install.after_install"
+after_migrate = "onebook_fenestration.setup.install.after_migrate"
 
 # Uninstallation
 # ------------
 
-# before_uninstall = "onebook_fenestration.uninstall.before_uninstall"
+before_uninstall = "onebook_fenestration.setup.install.before_uninstall"
 # after_uninstall = "onebook_fenestration.uninstall.after_uninstall"
 
 # Integration Setup
