@@ -18,8 +18,10 @@ _RESERVED = frozenset(
 		"visible_perimeter_sqft",
 		"total_perimeter_sqft",
 		"finish_type",
+		"finish_surcharge_pct",
 	)
 )
+PERIMETER_KINDS = {"Per Visible Perimeter Sqft": "visible", "Per Total Perimeter Sqft": "total"}
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,7 @@ class CostHead:
 	formula: str = ""
 	base: str = ""
 	condition: str = ""
+	include_in_total: bool = True
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,9 @@ class PricingInput:
 	glass_rates: dict[str, float]
 	finish_type: str
 	missing: tuple[str, ...] = ()
+	profile_perimeters: dict[str, tuple[float, float]] = field(default_factory=dict)
+	"""Live (visible_mm, total_mm) per profile code; overrides the snapshot's values."""
+	finish_surcharge_pct: float = 0
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,7 @@ class PriceLine:
 	key: str
 	label: str
 	amount: float
+	include_in_total: bool = True
 
 
 @dataclass
@@ -60,23 +67,49 @@ class PriceBreakdown:
 
 
 def price(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingInput) -> PriceBreakdown:
-	variables = _variables(result, snapshot, pricing)
+	perimeters = _perimeters(result, snapshot, pricing)
+	variables = _variables(result, snapshot, pricing, perimeters)
 	lines = []
 	seen = set()
+	issues = [Issue("warn", "no_rate", f"{name}: no rate", path="") for name in pricing.missing]
+	warned = set()
 	for head in pricing.heads:
 		if head.key in _RESERVED or head.key in seen:
 			raise RuleError(f"{head.key}: duplicate or reserved cost head key")
 		seen.add(head.key)
-		amount = round(_amount(head, variables), 2)
+		active = not head.condition or bool(evaluate(head.condition, variables, head.key))
+		amount = round(_amount(head, variables, active), 2)
 		variables[head.key] = amount
-		lines.append(PriceLine(head.key, head.label, amount))
-	unit_price = round(sum(line.amount for line in lines), 2)
+		lines.append(PriceLine(head.key, head.label, amount, head.include_in_total))
+		if active and head.rate > 0 and head.calc in PERIMETER_KINDS:
+			issues += _perimeter_warnings(head, perimeters, warned)
+	unit_price = round(sum(line.amount for line in lines if line.include_in_total), 2)
 	rate_per_sqft = round(unit_price / result.area_sqft, 2) if result.area_sqft else 0.0
-	issues = [Issue("warn", "no_rate", f"{name}: no rate", path="") for name in pricing.missing]
 	return PriceBreakdown(lines, unit_price, rate_per_sqft, variables, issues)
 
 
-def _variables(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingInput) -> dict:
+def _perimeters(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingInput) -> dict[str, dict]:
+	"""Perimeter (mm) by kind for each profile the design uses; live values win over the snapshot."""
+	out = {}
+	for code in sorted({m.profile for m in result.members}):
+		spec = snapshot.profiles[code]
+		visible, total = pricing.profile_perimeters.get(code, (spec.visible_perimeter_mm, spec.total_perimeter_mm))
+		out[code] = {"visible": visible or 0, "total": total or 0}
+	return out
+
+
+def _perimeter_warnings(head: CostHead, perimeters: dict, warned: set) -> list[Issue]:
+	kind = PERIMETER_KINDS[head.calc]
+	issues = []
+	for code, values in perimeters.items():
+		if values[kind] or (code, kind) in warned:
+			continue
+		warned.add((code, kind))
+		issues.append(Issue("warn", "no_perimeter", f"{code}: no {kind} perimeter — {head.label} under-priced"))
+	return issues
+
+
+def _variables(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingInput, perimeters: dict) -> dict:
 	profile_cost = sum(
 		m.length / 1000 * snapshot.profiles[m.profile].kg_per_m * pricing.profile_rates.get(m.profile, 0) for m in result.members
 	)
@@ -91,20 +124,21 @@ def _variables(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingI
 		"area_sqft": result.area_sqft,
 		"area_m2": result.area_m2,
 		"window_kg": result.window_kg,
-		"visible_perimeter_sqft": _perimeter_sqft(result, snapshot, "visible_perimeter_mm"),
-		"total_perimeter_sqft": _perimeter_sqft(result, snapshot, "total_perimeter_mm"),
+		"visible_perimeter_sqft": _perimeter_sqft(result, perimeters, "visible"),
+		"total_perimeter_sqft": _perimeter_sqft(result, perimeters, "total"),
 		"finish_type": pricing.finish_type,
+		"finish_surcharge_pct": pricing.finish_surcharge_pct,
 	}
 
 
-def _perimeter_sqft(result: EngineResult, snapshot: SeriesSnapshot, attr: str) -> float:
-	m2 = sum(m.length / 1000 * getattr(snapshot.profiles[m.profile], attr) / 1000 for m in result.members)
+def _perimeter_sqft(result: EngineResult, perimeters: dict, kind: str) -> float:
+	m2 = sum(m.length / 1000 * perimeters[m.profile][kind] / 1000 for m in result.members)
 	return m2 * SQFT_PER_M2
 
 
-def _amount(head: CostHead, variables: dict) -> float:
+def _amount(head: CostHead, variables: dict, active: bool) -> float:
 	base = _base(head, variables) if head.calc == "Percentage" else 0.0
-	if head.condition and not evaluate(head.condition, variables, head.key):
+	if not active:
 		return 0.0
 	if head.calc == "Formula":
 		return evaluate_number(head.formula, variables, head.key)

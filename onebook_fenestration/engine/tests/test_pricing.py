@@ -144,3 +144,59 @@ class TestPricing(unittest.TestCase):
 		with self.assertRaises(RuleError) as ctx:
 			price(result, snap, _inputs(result, (CostHead("weird", "W", "Bogus"),)))
 		self.assertIn("weird", str(ctx.exception))
+
+	def test_informational_head_excluded_from_total(self):
+		result, snap = _setup()
+		base = (CostHead("f", "F", "Fixed", rate=100), CostHead("g", "G", "Fixed", rate=50))
+		subtotal = CostHead("sub", "Subtotal", "Formula", formula="f + g", include_in_total=False)
+		without = price(result, snap, _inputs(result, base))
+		out = price(result, snap, _inputs(result, (*base, subtotal)))
+		self.assertEqual(out.unit_price, without.unit_price)
+		self.assertEqual(out.variables["sub"], 150)
+		self.assertEqual([line.include_in_total for line in out.lines], [True, True, False])
+
+	def test_finish_surcharge_pct_variable(self):
+		result, snap = _setup()
+		heads = (CostHead("s", "S", "Formula", formula="finish_surcharge_pct * 2"),)
+		out = price(result, snap, _inputs(result, heads, finish_surcharge_pct=12))
+		self.assertEqual(out.variables["s"], 24)
+		with self.assertRaises(RuleError):
+			price(result, snap, _inputs(result, (CostHead("finish_surcharge_pct", "X", "Fixed", rate=1),)))
+
+	def test_live_perimeters_override_snapshot(self):
+		result, snap = _setup()
+		out = price(result, snap, _inputs(result, profile_perimeters={"E104156": (100, 0)}))
+		metres = sum(m.length / 1000 * 0.1 for m in result.members if m.profile == "E104156")
+		self.assertAlmostEqual(out.variables["visible_perimeter_sqft"], metres * 10.764, places=4)
+
+	def test_zero_perimeter_warns_for_active_coating_head(self):
+		result, snap = _setup()
+		out = price(result, snap, _inputs(result))
+		warns = [i for i in out.issues if i.code == "no_perimeter"]
+		profiles = sorted({m.profile for m in result.members})
+		self.assertEqual(
+			[i.message for i in warns],
+			[f"{p}: no visible perimeter — Powder Coating under-priced" for p in profiles],
+		)
+		self.assertTrue(all(i.severity == "warn" for i in warns))
+
+	def test_no_perimeter_warning_when_head_inactive_or_free(self):
+		result, snap = _setup()
+		out = price(result, snap, _inputs(result, finish="Mill"))
+		self.assertFalse([i for i in out.issues if i.code == "no_perimeter"])
+		free = (CostHead("p", "P", "Per Total Perimeter Sqft", rate=0),)
+		out = price(result, snap, _inputs(result, free))
+		self.assertFalse([i for i in out.issues if i.code == "no_perimeter"])
+
+	def test_no_perimeter_warning_once_per_profile_and_kind(self):
+		result, snap = _setup()
+		heads = (
+			CostHead("a", "A", "Per Visible Perimeter Sqft", rate=1),
+			CostHead("b", "B", "Per Visible Perimeter Sqft", rate=1),
+			CostHead("c", "C", "Per Total Perimeter Sqft", rate=1),
+		)
+		perims = {p: (100, 0) for p in {m.profile for m in result.members}}
+		out = price(result, snap, _inputs(result, heads, profile_perimeters=perims))
+		warns = [i.message for i in out.issues if i.code == "no_perimeter"]
+		self.assertEqual(len(warns), len(perims))
+		self.assertTrue(all("no total perimeter — C under-priced" in w for w in warns))
