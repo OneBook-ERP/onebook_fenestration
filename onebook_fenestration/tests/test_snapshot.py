@@ -45,3 +45,19 @@ class TestSnapshot(IntegrationTestCase):
 		self.assertIsNotNone(frappe.cache.hget("fen_snapshot", self.version))
 		frappe.get_doc("Series Version", self.version).cancel()
 		self.assertIsNone(frappe.cache.hget("fen_snapshot", self.version))
+
+	def test_draft_never_served_from_cache(self):
+		draft = frappe.get_doc({"doctype": "Series Version", "series": "CS400"}).insert()
+		bogus = {**self.data, "code": "BOGUS", "version": draft.name}
+		frappe.cache.hset("fen_snapshot", draft.name, bogus)
+		snap = get_snapshot(draft.name)
+		self.assertEqual(snap.code, "CS400")
+		self.assertEqual(snap.deductions, {})
+
+	def test_profile_edit_clears_cache(self):
+		get_snapshot(self.version)
+		profile = frappe.get_doc("Fenestration Profile", "E104156")
+		profile.kg_per_m = profile.kg_per_m + 0.1
+		profile.save()
+		self.assertIsNone(frappe.cache.hget("fen_snapshot", self.version))
+		self.assertEqual(get_snapshot(self.version).profiles["E104156"].kg_per_m, profile.kg_per_m)

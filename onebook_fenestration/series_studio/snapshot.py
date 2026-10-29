@@ -9,17 +9,23 @@ CACHE_KEY = "fen_snapshot"
 
 
 def get_snapshot(series_version: str) -> SeriesSnapshot:
-	"""Snapshot for `series_version`; submitted versions are served from cache, drafts are rebuilt."""
+	"""Snapshot for `series_version`; submitted versions are served from cache, drafts always rebuild."""
+	if frappe.db.get_value("Series Version", series_version, "docstatus") != 1:
+		return SeriesSnapshot.from_dict(build_snapshot_dict(series_version))
 	data = frappe.cache.hget(CACHE_KEY, series_version)
 	if data is None:
 		data = build_snapshot_dict(series_version)
-		if frappe.db.get_value("Series Version", series_version, "docstatus") == 1:
-			frappe.cache.hset(CACHE_KEY, series_version, data)
+		frappe.cache.hset(CACHE_KEY, series_version, data)
 	return SeriesSnapshot.from_dict(data)
 
 
 def clear_snapshot(series_version: str) -> None:
 	frappe.cache.hdel(CACHE_KEY, series_version)
+
+
+def clear_all_snapshots() -> None:
+	"""Profiles and glasses are live masters baked into every cached snapshot, so any edit drops them all."""
+	frappe.cache.delete_value(CACHE_KEY)
 
 
 def build_snapshot_dict(series_version: str | Document) -> dict:
