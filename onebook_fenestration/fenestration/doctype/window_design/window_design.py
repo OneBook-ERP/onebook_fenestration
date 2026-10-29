@@ -8,7 +8,11 @@ from frappe.utils import cint, flt
 
 from onebook_fenestration.engine import DesignError, EngineResult, PriceBreakdown, RuleError
 from onebook_fenestration.fenestration.svg import sanitize_svg
-from onebook_fenestration.pricing.rates import price_design
+from onebook_fenestration.pricing.rates import (
+	missing_defaults_message,
+	price_design,
+	resolve_pricing_defaults,
+)
 
 
 def pricing_to_dict(breakdown: PriceBreakdown) -> dict:
@@ -41,9 +45,9 @@ class WindowDesign(Document):
 			self.design_svg = sanitize_svg(self.design_svg)
 
 	def set_pricing_defaults(self):
-		settings = frappe.get_cached_doc("Fenestration Settings")
-		self.finish = self.finish or settings.default_finish
-		self.price_structure = self.price_structure or settings.default_price_structure
+		self.finish, self.price_structure = resolve_pricing_defaults(self.finish, self.price_structure)
+		if not (self.finish and self.price_structure):
+			frappe.throw(missing_defaults_message())
 
 	def needs_pricing(self) -> bool:
 		"""Price changes (Item Prices) never re-price a saved design; only its own inputs do."""
@@ -59,14 +63,14 @@ class WindowDesign(Document):
 			result, breakdown = price_design(design, self.series_version, self.finish, self.price_structure)
 		except json.JSONDecodeError:
 			frappe.throw(_("Design JSON is not valid"), title=_("Design is invalid"))
-		except (DesignError, RuleError) as exc:
+		except (DesignError, RuleError, frappe.DoesNotExistError) as exc:
 			frappe.throw(str(exc), title=_("Design is invalid"))
 		self.area_m2 = result.area_m2
 		self.area_sqft = result.area_sqft
 		self.window_kg = result.window_kg
 		self.error_count = sum(1 for i in result.issues if i.severity == "error")
-		issues = result.issues + breakdown.issues
-		self.warning_count = sum(1 for i in issues if i.severity == "warn")
+		self.warning_count = sum(1 for i in result.issues if i.severity == "warn")
+		self.pricing_warning_count = len(breakdown.issues)
 		self.unit_price = breakdown.unit_price
 		self.rate_per_sqft = breakdown.rate_per_sqft
 		self.line_total = round(breakdown.unit_price * cint(self.qty), 2)

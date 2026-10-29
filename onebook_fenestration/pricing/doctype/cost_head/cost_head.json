@@ -45,6 +45,13 @@
    "fieldname": "condition",
    "fieldtype": "Data",
    "label": "Condition"
+  },
+  {
+   "fieldname": "include_in_total",
+   "fieldtype": "Check",
+   "label": "Include in Total",
+   "default": "1",
+   "description": "Untick for an informational subtotal that is shown but not added to the unit price."
   }
  ],
  "permissions": [],
@@ -52,7 +59,7 @@
  "creation": "2026-10-30 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
- "modified": "2026-10-30 00:00:00",
+ "modified": "2026-10-31 00:00:00",
  "modified_by": "Administrator",
  "module": "Pricing",
  "name": "Cost Head",
@@ -66,6 +73,7 @@
   "rate",
   "formula",
   "base",
-  "condition"
+  "condition",
+  "include_in_total"
  ]
 }

@@ -8,7 +8,11 @@ from onebook_fenestration.fenestration.doctype.window_design.window_design impor
 	pricing_to_dict,
 	result_to_dict,
 )
-from onebook_fenestration.pricing.rates import price_design
+from onebook_fenestration.pricing.rates import (
+	missing_defaults_message,
+	price_design,
+	resolve_pricing_defaults,
+)
 
 
 @frappe.whitelist()
@@ -27,6 +31,9 @@ def compute_design(
 			design = json.loads(design)
 		except json.JSONDecodeError:
 			return {"ok": False, "error_type": "design", "message": "design is not valid JSON"}
+	finish, price_structure = resolve_pricing_defaults(finish, price_structure)
+	if not (finish and price_structure):
+		return {"ok": False, "error_type": "series", "message": missing_defaults_message()}
 	try:
 		result, breakdown = price_design(design, series_version, finish, price_structure)
 	except DesignError as exc:
@@ -130,6 +137,7 @@ def get_design(name: str) -> dict:
 		"line_total",
 	)
 	out = {f: doc.get(f) for f in fields}
+	out["finish"], out["price_structure"] = resolve_pricing_defaults(doc.finish, doc.price_structure)
 	for field in ("design_json", "result_json", "pricing_json"):
 		value = doc.get(field)
 		out[field] = json.loads(value) if isinstance(value, str) else value

@@ -164,3 +164,11 @@ class TestSaveDesign(IntegrationTestCase):
 		stored = frappe.get_doc("Window Design", res["name"]).design_svg
 		self.assertIn('x="1"', stored)
 		self.assertIn('fill="#FFFFFF"', stored)
+
+	def test_get_design_falls_back_to_default_finish_and_structure(self):
+		res = self.save(design_ref="W-DEF")
+		frappe.db.set_value("Window Design", res["name"], {"finish": None, "price_structure": None})
+		doc = get_design(res["name"])
+		settings = frappe.get_single("Fenestration Settings")
+		self.assertEqual(doc["finish"], settings.default_finish)
+		self.assertEqual(doc["price_structure"], settings.default_price_structure)

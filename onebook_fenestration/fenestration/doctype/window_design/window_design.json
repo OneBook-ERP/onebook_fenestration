@@ -17,6 +17,7 @@
   "window_kg",
   "error_count",
   "warning_count",
+  "pricing_warning_count",
   "result_json",
   "pricing_section",
   "finish",
@@ -109,6 +110,12 @@
    "read_only": 1
   },
   {
+   "fieldname": "pricing_warning_count",
+   "fieldtype": "Int",
+   "label": "Pricing Warnings",
+   "read_only": 1
+  },
+  {
    "fieldname": "result_json",
    "fieldtype": "JSON",
    "label": "Result JSON",
@@ -164,7 +171,7 @@
    "ignore_xss_filter": 1
   }
  ],
- "modified": "2026-10-30 00:00:02",
+ "modified": "2026-10-31 00:00:00",
  "modified_by": "Administrator",
  "module": "Fenestration",
  "name": "Window Design",

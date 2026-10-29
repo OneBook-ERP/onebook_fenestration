@@ -57,6 +57,7 @@ def to_cost_heads(name: str) -> tuple[CostHead, ...]:
 			formula=row.formula or "",
 			base=row.base or "",
 			condition=row.condition or "",
+			include_in_total=bool(row.include_in_total),
 		)
 		for row in doc.heads
 	)

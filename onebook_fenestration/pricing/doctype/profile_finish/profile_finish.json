@@ -28,6 +28,13 @@
    "fieldname": "color",
    "fieldtype": "Color",
    "label": "Color"
+  },
+  {
+   "fieldname": "surcharge_pct",
+   "fieldtype": "Percent",
+   "label": "Surcharge %",
+   "default": "0",
+   "description": "Available to price structure formulas as finish_surcharge_pct."
   }
  ],
  "permissions": [
@@ -58,7 +65,7 @@
  "creation": "2026-10-30 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
- "modified": "2026-10-30 00:00:00",
+ "modified": "2026-10-31 00:00:00",
  "modified_by": "Administrator",
  "module": "Pricing",
  "name": "Profile Finish",
@@ -69,6 +76,7 @@
   "finish_code",
   "finish_name",
   "finish_type",
-  "color"
+  "color",
+  "surcharge_pct"
  ]
 }

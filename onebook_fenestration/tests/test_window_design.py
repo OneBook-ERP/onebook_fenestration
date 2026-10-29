@@ -128,3 +128,45 @@ class TestWindowDesign(IntegrationTestCase):
 		doc.save()
 		self.assertNotEqual(doc.unit_price, unit_price)
 		frappe.db.set_value("Item Price", {"price_list": PRICE_LIST, "item_code": "E104156"}, "price_list_rate", 300)
+
+	def test_pricing_warnings_counted_separately(self):
+		doc = self.make(load("w01.json"), design_ref="PWARN").insert()
+		pricing_issues = json.loads(doc.pricing_json)["issues"]
+		engineering = [i for i in json.loads(doc.result_json)["issues"] if i["severity"] == "warn"]
+		self.assertTrue(pricing_issues)
+		self.assertEqual(doc.pricing_warning_count, len(pricing_issues))
+		self.assertEqual(doc.warning_count, len(engineering))
+
+	def test_price_structure_change_reprices(self):
+		if not frappe.db.exists("Price Structure", "TPS Flat"):
+			frappe.get_doc(
+				{
+					"doctype": "Price Structure",
+					"structure_name": "TPS Flat",
+					"heads": [{"key": "flat", "label": "Flat", "calc": "Fixed", "rate": 1234}],
+				}
+			).insert()
+		doc = self.make(load("w01.json"), design_ref="PSCHG").insert()
+		doc.price_structure = "TPS Flat"
+		doc.save()
+		self.assertEqual(doc.unit_price, 1234)
+
+	def test_missing_defaults_message(self):
+		frappe.db.set_single_value("Fenestration Settings", "default_price_structure", None)
+		try:
+			with self.assertRaises(frappe.ValidationError) as ctx:
+				self.make(load("w01.json"), design_ref="NODEF").insert()
+			self.assertIn("Set a default price structure and finish in Fenestration Settings", str(ctx.exception))
+		finally:
+			frappe.db.set_single_value("Fenestration Settings", "default_price_structure", "Standard")
+
+	def test_unknown_price_structure_is_design_invalid(self):
+		doc = self.make(load("w01.json"), design_ref="NOPS")
+		doc.price_structure = "No Such Structure"
+		doc.flags.ignore_links = True  # as in the backfill patch, which calls compute_results directly
+		frappe.local.message_log = []
+		with self.assertRaises(frappe.ValidationError):
+			doc.insert()
+		last = frappe.local.message_log[-1]
+		last = json.loads(last) if isinstance(last, str) else last
+		self.assertEqual(last.get("title"), "Design is invalid")

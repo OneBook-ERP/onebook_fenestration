@@ -3,7 +3,7 @@ from frappe.tests import IntegrationTestCase
 
 from onebook_fenestration.pricing.doctype.price_structure.price_structure import to_cost_heads
 from onebook_fenestration.series_studio.snapshot import build_snapshot_dict
-from onebook_fenestration.setup.install import after_migrate
+from onebook_fenestration.setup.install import after_migrate, seed_pricing
 from onebook_fenestration.tests.test_profile_dxf import FIXTURE, make_file, profile_doc
 from onebook_fenestration.tests.test_series import make_masters, make_version
 
@@ -78,3 +78,21 @@ class TestPricingMasters(IntegrationTestCase):
 		profile = profile_doc("TPPM1", file_doc.file_url).insert()
 		self.assertGreater(profile.total_perimeter_mm, 0)
 		self.assertEqual(profile.total_perimeter_mm, profile.perimeter_mm)
+
+	def test_include_in_total_maps_to_cost_heads(self):
+		structure("TPS Info", [head("a"), head("sub", "Formula", formula="a", include_in_total=0)]).insert()
+		heads = to_cost_heads("TPS Info")
+		self.assertEqual([h.include_in_total for h in heads], [True, False])
+
+	def test_wood_surcharge_seeded_on_insert_only(self):
+		frappe.db.delete("Profile Finish", "WOOD")
+		seed_pricing()
+		self.assertEqual(frappe.db.get_value("Profile Finish", "WOOD", "surcharge_pct"), 12)
+		self.assertEqual(frappe.db.get_value("Profile Finish", "GREY", "surcharge_pct"), 0)
+		frappe.db.set_value("Profile Finish", "WOOD", "surcharge_pct", 5)
+		seed_pricing()
+		self.assertEqual(frappe.db.get_value("Profile Finish", "WOOD", "surcharge_pct"), 5)
+
+	def test_cost_price_list_description(self):
+		field = frappe.get_meta("Fenestration Settings").get_field("cost_price_list")
+		self.assertIn("profile rate per kg, glass per m², gaskets per m, hardware per unit", field.description)

@@ -2,7 +2,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, today
 
-from onebook_fenestration.engine import compute
+from onebook_fenestration.engine import compute, price
 from onebook_fenestration.pricing.rates import _item_prices, build_pricing_input, price_design
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.tests.test_snapshot import import_cs400, load
@@ -138,3 +138,18 @@ class TestRates(IntegrationTestCase):
 		self.assertGreater(breakdown.unit_price, 0)
 		self.assertEqual(result.area_sqft, 12.013)
 		self.assertTrue(any(i.code == "no_rate" and "H912" in i.message for i in breakdown.issues))
+
+	def test_live_perimeters_override_zero_snapshot(self):
+		self.assertEqual(self.snapshot.profiles["E104156"].visible_perimeter_mm, 0)
+		frappe.db.set_value("Fenestration Profile", "E104156", {"visible_perimeter_mm": 150, "total_perimeter_mm": 300})
+		pricing = self.build()
+		self.assertEqual(pricing.profile_perimeters["E104156"], (150, 300))
+		breakdown = price(self.result, self.snapshot, pricing)
+		self.assertGreater(breakdown.variables["visible_perimeter_sqft"], 0)
+		self.assertFalse(any(i.code == "no_perimeter" and "E104156" in i.message for i in breakdown.issues))
+
+	def test_finish_surcharge_pct_is_passed(self):
+		frappe.db.set_value("Profile Finish", "WOOD", "surcharge_pct", 12)
+		pricing = build_pricing_input(self.snapshot, self.result, "WOOD", "Standard", PRICE_LIST)
+		self.assertEqual(pricing.finish_surcharge_pct, 12)
+		self.assertEqual(self.build().finish_surcharge_pct, 0)

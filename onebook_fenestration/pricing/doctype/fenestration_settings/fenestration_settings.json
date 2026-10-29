@@ -5,7 +5,8 @@
    "fieldname": "cost_price_list",
    "fieldtype": "Link",
    "label": "Cost Price List",
-   "options": "Price List"
+   "options": "Price List",
+   "description": "Use a cost/buying price list — profile rate per kg, glass per m², gaskets per m, hardware per unit."
   },
   {
    "fieldname": "default_price_structure",
@@ -53,7 +54,7 @@
  "creation": "2026-10-30 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
- "modified": "2026-10-30 00:00:00",
+ "modified": "2026-10-31 00:00:00",
  "modified_by": "Administrator",
  "module": "Pricing",
  "name": "Fenestration Settings",

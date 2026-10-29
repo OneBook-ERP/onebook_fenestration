@@ -96,3 +96,14 @@ class TestComputeDesignApi(IntegrationTestCase):
 	def test_api_rejects_missing_version(self):
 		out = compute_design(load("w01.json"), "NO-SUCH-VERSION")
 		self.assertEqual(out, {"ok": False, "error_type": "series", "message": "Series Version not found"})
+
+	def test_api_missing_defaults(self):
+		frappe.db.set_single_value("Fenestration Settings", "default_finish", None)
+		try:
+			out = compute_design(load("w01.json"), self.version)
+		finally:
+			frappe.db.set_single_value("Fenestration Settings", "default_finish", "GREY")
+		self.assertEqual(
+			out,
+			{"ok": False, "error_type": "series", "message": "Set a default price structure and finish in Fenestration Settings"},
+		)

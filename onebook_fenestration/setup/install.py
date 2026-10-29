@@ -59,16 +59,16 @@ STANDARD_HEADS = (
 	),
 )
 STANDARD_FINISHES = (
-	("GREY", "Grey", "Powder Coat", "#8A8F98"),
-	("BROWN-5104", "5104 PC Brown", "Powder Coat", "#6B3E26"),
-	("MILL", "Mill Finish", "Mill", "#B8BCC2"),
-	("WOOD", "Wooden Finish", "Wood", "#8B5A2B"),
+	("GREY", "Grey", "Powder Coat", "#8A8F98", 0),
+	("BROWN-5104", "5104 PC Brown", "Powder Coat", "#6B3E26", 0),
+	("MILL", "Mill Finish", "Mill", "#B8BCC2", 0),
+	("WOOD", "Wooden Finish", "Wood", "#8B5A2B", 12),
 )
 
 
 def seed_pricing():
 	"""Create the Standard price structure, finishes and Settings defaults; never overwrites existing data."""
-	for code, name, finish_type, color in STANDARD_FINISHES:
+	for code, name, finish_type, color, surcharge_pct in STANDARD_FINISHES:
 		if not frappe.db.exists("Profile Finish", code):
 			frappe.get_doc(
 				{
@@ -77,6 +77,7 @@ def seed_pricing():
 					"finish_name": name,
 					"finish_type": finish_type,
 					"color": color,
+					"surcharge_pct": surcharge_pct,
 				}
 			).insert(ignore_permissions=True)
 	if not frappe.db.exists("Price Structure", "Standard"):
