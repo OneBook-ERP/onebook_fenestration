@@ -30,6 +30,14 @@ describe('WindowCanvas', () => {
 		expect(w.find('[data-path="F1.1"]').attributes('fill')).toBe('#7A513C')
 	})
 
+	it('falls back to the default finish colour for non-#RRGGBB colours', () => {
+		for (const finishColor of ['red', '#abc', 'rgb(1, 2, 3)', '']) {
+			const w = mountCanvas({ finishColor })
+			expect(w.find('svg > rect:nth-of-type(2)').attributes('fill')).toBe('#8A8F98')
+			expect(w.find('[data-path="F1.1"]').attributes('fill')).toBe('#969AA2')
+		}
+	})
+
 	it('emits select on cell click', async () => {
 		const w = mountCanvas()
 		await w.find('[data-path="F1.1"]').trigger('click')

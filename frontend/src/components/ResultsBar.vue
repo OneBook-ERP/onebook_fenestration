@@ -95,7 +95,12 @@ const td = 'px-3 py-1.5 text-sm'
 			<table v-else-if="tab === 'Pricing'" class="w-full">
 				<thead><tr><th :class="th">Cost head</th><th :class="[th, 'text-right']">Amount</th></tr></thead>
 				<tbody>
-					<tr v-for="l in pricing?.lines ?? []" :key="l.key">
+					<tr
+						v-for="l in pricing?.lines ?? []"
+						:key="l.key"
+						:class="{ 'italic text-gray-500': l.include_in_total === false }"
+						:title="l.include_in_total === false ? 'Not added to the total' : undefined"
+					>
 						<td :class="td">{{ l.label }}</td><td :class="[td, 'text-right']">{{ formatMoney(l.amount) }}</td>
 					</tr>
 					<tr v-if="pricing" class="border-t font-bold">

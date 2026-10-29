@@ -40,6 +40,7 @@ const result = {
 		lines: [
 			{ key: 'profile', label: 'Profile Cost', amount: 5000.5 },
 			{ key: 'profit', label: 'Profit', amount: 11380.22 },
+			{ key: 'subtotal', label: 'Material Subtotal', amount: 7000, include_in_total: false },
 		],
 		unit_price: 16380.72,
 		rate_per_sqft: 1363.63,
@@ -134,6 +135,19 @@ describe('Designer page', () => {
 		expect(wrapper.text()).toContain('₹5,000.50')
 		expect(wrapper.text()).toContain('Profit')
 		expect(wrapper.text()).toContain('₹11,380.22')
+	})
+
+	it('Pricing tab shows heads left out of the total in grey italics', async () => {
+		const { wrapper } = await setup()
+		await vi.advanceTimersByTimeAsync(300)
+		await flushPromises()
+		await tab(wrapper, 'Pricing').trigger('click')
+		await flushPromises()
+		const rows = wrapper.findAll('tr').filter((r) => r.text().includes('Subtotal') || r.text().includes('Profit'))
+		const [profit, subtotal] = rows
+		expect(subtotal.text()).toContain('Material Subtotal')
+		expect(subtotal.classes()).toEqual(expect.arrayContaining(['italic', 'text-gray-500']))
+		expect(profit.classes()).not.toContain('italic')
 	})
 
 	it('split vertical shows M1 on canvas', async () => {

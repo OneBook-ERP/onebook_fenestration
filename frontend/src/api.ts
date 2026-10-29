@@ -53,6 +53,8 @@ export interface PricingLine {
 	key: string
 	label: string
 	amount: number
+	/** false for informational subtotal heads: listed but not added to unit_price. */
+	include_in_total?: boolean
 }
 export interface Pricing {
 	lines: PricingLine[]
@@ -77,7 +79,18 @@ export interface SaveArgs {
 	price_structure?: string | null
 }
 export type SaveResponse =
-	| { ok: true; name: string; results: { area_sqft: number; window_kg: number; error_count: number; warning_count: number } }
+	| {
+			ok: true
+			name: string
+			results: {
+				area_sqft: number
+				window_kg: number
+				error_count: number
+				warning_count: number
+				unit_price: number
+				line_total: number
+			}
+	  }
 	| { ok: false; message: string }
 
 export interface SavedDesign {

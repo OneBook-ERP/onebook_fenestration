@@ -46,8 +46,10 @@ function lighten(hex: string, amount: number): string {
 	}
 	return '#' + [16, 8, 0].map((s) => mix(s).toString(16).padStart(2, '0')).join('').toUpperCase()
 }
-const frameFill = computed(() => props.finishColor)
-const sashFill = computed(() => lighten(props.finishColor, 0.1))
+/** Finish colours come from a free Color field; anything but #RRGGBB falls back to the default. */
+const finish = computed(() => (/^#[0-9a-f]{6}$/i.test(props.finishColor) ? props.finishColor : DEFAULT_FINISH))
+const frameFill = finish
+const sashFill = computed(() => lighten(finish.value, 0.1))
 
 const svg = ref<SVGSVGElement | null>(null)
 
