@@ -28,7 +28,10 @@ class SectionProperties:
 
 
 def analyze_dxf(path: str, layer: str | None = None) -> SectionProperties:
-	doc = ezdxf.readfile(path)
+	try:
+		doc = ezdxf.readfile(path)
+	except (OSError, ezdxf.DXFError) as exc:
+		raise SectionError(f"cannot read DXF: {exc}")
 	scale, warnings = _unit_scale(doc.header.get("$INSUNITS", 0))
 	loops = _read_loops(doc.modelspace(), layer, scale)
 	if not loops:
@@ -103,6 +106,8 @@ def _build(loops, signs, warnings) -> SectionProperties:
 		for i, value in enumerate(_moments(pts)):
 			total[i] += sign * value
 	area, sx, sy, ixx, iyy = total
+	if abs(area) < 1e-9:
+		raise SectionError("section area is zero")
 	cx, cy = sx / area, sy / area
 	xs = [x for pts in loops for x, _ in pts]
 	ys = [y for pts in loops for _, y in pts]

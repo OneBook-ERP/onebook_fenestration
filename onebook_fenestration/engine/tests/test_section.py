@@ -50,3 +50,35 @@ class TestSection(unittest.TestCase):
 	def test_no_closed_loops(self):
 		with self.assertRaises(SectionError):
 			analyze_dxf(self.make_line_only_dxf())
+
+	def test_unsupported_units_raise(self):
+		with self.assertRaises(SectionError):
+			analyze_dxf(self.make_rect_dxf(40, 20, insunits=2))
+
+	def test_zero_area_raises(self):
+		doc = ezdxf.new()
+		doc.header["$INSUNITS"] = 4
+		doc.modelspace().add_lwpolyline([(0, 0), (10, 0), (20, 0)], close=True)
+		with self.assertRaisesRegex(SectionError, "section area is zero"):
+			analyze_dxf(self._save(doc, "zero.dxf"))
+
+	def test_unreadable_file_raises(self):
+		with self.assertRaisesRegex(SectionError, "cannot read DXF"):
+			analyze_dxf(str(Path(self._tmp.name) / "missing.dxf"))
+
+	def test_rectangle_with_hole_inertia(self):
+		doc = ezdxf.new()
+		doc.header["$INSUNITS"] = 4
+		msp = doc.modelspace()
+		msp.add_lwpolyline([(0, 0), (40, 0), (40, 20), (0, 20)], close=True)
+		msp.add_lwpolyline([(10, 5), (10, 15), (30, 15), (30, 5)], close=True)
+		p = analyze_dxf(self._save(doc, "hole.dxf"))
+		self.assertAlmostEqual(p.area_mm2, 600, delta=0.01)
+		self.assertAlmostEqual(p.ix_mm4, (40 * 20**3 - 20 * 10**3) / 12, delta=1)
+		self.assertAlmostEqual(p.iy_mm4, (20 * 40**3 - 10 * 20**3) / 12, delta=1)
+		self.assertEqual(p.loops, 2)
+
+	def test_inch_scaling(self):
+		p = analyze_dxf(self.make_rect_dxf(1, 0.5, insunits=1))
+		self.assertAlmostEqual(p.area_mm2, 25.4 * 12.7, delta=0.01)
+		self.assertAlmostEqual(p.ix_mm4, 25.4 * 12.7**3 / 12, delta=0.5)
