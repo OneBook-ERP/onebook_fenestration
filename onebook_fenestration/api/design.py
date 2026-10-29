@@ -45,6 +45,7 @@ def save_design(
 ) -> dict:
 	"""Insert a Window Design, or update `name`; results are recomputed by the doc's validate."""
 	frappe.has_permission("Window Design", "write" if name else "create", doc=name, throw=True)
+	frappe.has_permission("Fenestration Project", "write", project, throw=True)
 	if isinstance(design, str):
 		try:
 			design = json.loads(design)
@@ -71,6 +72,7 @@ def save_design(
 		return _save_failed(_("A design with this ref already exists in this project"))
 	except frappe.ValidationError as exc:
 		return _save_failed(str(exc))
+	frappe.db.release_savepoint("save_design")
 	return {
 		"ok": True,
 		"name": doc.name,

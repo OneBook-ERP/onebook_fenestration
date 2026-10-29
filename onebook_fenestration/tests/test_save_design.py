@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
@@ -113,3 +114,30 @@ class TestSaveDesign(IntegrationTestCase):
 		res = self.save(design_ref="W-MSG")
 		self.assertFalse(res["ok"])
 		self.assertEqual(frappe.local.message_log, [])
+
+	def test_save_design_checks_project_write(self):
+		real = frappe.has_permission
+		with patch("onebook_fenestration.api.design.frappe.has_permission", side_effect=real) as spy:
+			first = self.save(design_ref="W-PERM")
+			self.save(design_ref="W-PERM", name=first["name"])
+		project_checks = [c for c in spy.call_args_list if c.args[:1] == ("Fenestration Project",)]
+		self.assertEqual(len(project_checks), 2)
+		for call in project_checks:
+			self.assertEqual(call.args[1:3], ("write", self.project.name))
+			self.assertTrue(call.kwargs.get("throw"))
+
+	def test_save_design_rejects_user_without_project_write(self):
+		email = "no-roles-save@example.com"
+		if not frappe.db.exists("User", email):
+			frappe.get_doc({"doctype": "User", "email": email, "first_name": "No Roles", "send_welcome_email": 0}).insert()
+		frappe.set_user(email)
+		try:
+			with self.assertRaises(frappe.PermissionError):
+				self.save(design_ref="W-NOPERM")
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_save_design_releases_savepoint(self):
+		with patch("onebook_fenestration.api.design.frappe.db.release_savepoint") as release:
+			self.assertTrue(self.save(design_ref="W-REL")["ok"])
+		release.assert_called_once_with("save_design")
