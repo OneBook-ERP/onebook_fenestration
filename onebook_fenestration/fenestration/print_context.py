@@ -30,7 +30,8 @@ DESIGN_FIELDS = (
 def design_rows(doc) -> list[dict]:
 	"""Plain dicts, one per window design of a Quotation or Fenestration Project, for the print formats."""
 	if doc.doctype == "Quotation":
-		return [_quoted_row(item) for item in doc.items if item.fen_window_design]
+		rows = (_quoted_row(item) for item in doc.items if item.fen_window_design)
+		return [row for row in rows if row]
 	designs = frappe.get_all("Window Design", {"project": doc.name}, DESIGN_FIELDS, order_by="design_ref")
 	return [_row(design) for design in designs]
 
@@ -63,14 +64,17 @@ def quote_totals(doc, rows: list[dict]) -> dict:
 		"transport": sum(flt(item.amount) for item in doc.items if item.item_code == TRANSPORT_ITEM),
 		"project_cost": flt(doc.net_total),
 		"gst": flt(doc.total_taxes_and_charges),
-		"grand_total": flt(doc.grand_total),
+		"rounding_adjustment": flt(doc.rounding_adjustment),
+		"grand_total": flt(doc.rounded_total or doc.grand_total),
 		"avg_rate": round(flt(doc.net_total) / area, 2) if area else 0,
 	}
 
 
-def _quoted_row(item) -> dict:
+def _quoted_row(item) -> dict | None:
 	"""A design row priced as the Quotation line says, not as the design is priced now."""
 	design = frappe.db.get_value("Window Design", item.fen_window_design, DESIGN_FIELDS, as_dict=True)
+	if not design:
+		return None
 	row = _row(design)
 	row.update(
 		qty=item.qty,

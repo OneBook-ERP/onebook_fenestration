@@ -4,7 +4,7 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, flt, now
+from frappe.utils import cint, flt, now_datetime
 
 from onebook_fenestration.engine import DesignError, EngineResult, PriceBreakdown, RuleError
 from onebook_fenestration.fenestration.svg import sanitize_svg
@@ -23,7 +23,7 @@ def pricing_to_dict(breakdown: PriceBreakdown) -> dict:
 		"rate_per_sqft": breakdown.rate_per_sqft,
 		"issues": [dataclasses.asdict(issue) for issue in breakdown.issues],
 		"price_list": frappe.get_cached_doc("Fenestration Settings").cost_price_list,
-		"priced_on": now(),
+		"priced_on": now_datetime().isoformat(),
 	}
 
 

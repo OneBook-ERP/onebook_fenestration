@@ -29,4 +29,12 @@ CUSTOM_FIELDS["Quotation Item"] = [
 		"insert_after": "item_code",
 		"read_only": 1,
 	},
+	{
+		"fieldname": "fen_design_hash",
+		"label": "Design Hash",
+		"fieldtype": "Data",
+		"insert_after": "fen_window_design",
+		"read_only": 1,
+		"hidden": 1,
+	},
 ]

@@ -1,11 +1,17 @@
 import json
+from datetime import datetime
 from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
 
 from onebook_fenestration.api.project import make_quotation as api_make_quotation
-from onebook_fenestration.fenestration.quotation import make_quotation, quote_status, reprice_project
+from onebook_fenestration.fenestration.quotation import (
+	design_hash,
+	make_quotation,
+	quote_status,
+	reprice_project,
+)
 from onebook_fenestration.fenestration.quote_party import company_address
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
@@ -370,7 +376,9 @@ class TestQuotation(IntegrationTestCase):
 	def test_error_and_missing_price_message(self):
 		project, designs = self.make_quote_project()
 		frappe.db.set_value("Window Design", designs[0].name, "error_count", 1)
-		frappe.db.set_value("Window Design", designs[1].name, "pricing_warning_count", 2)
+		frappe.db.set_value(
+			"Window Design", designs[1].name, {"pricing_warning_count": 2, "pricing_json": None}
+		)
 		out = api_make_quotation(project.name)
 		self.assertEqual(
 			out,
@@ -397,3 +405,107 @@ class TestQuotation(IntegrationTestCase):
 		self.assertEqual(
 			out, {"ok": False, "message": "Add your company address (with GSTIN) before quoting"}
 		)
+
+	def test_gate_message_names_missing_items(self):
+		project, designs = self.make_quote_project()
+		pricing = {"issues": [{"code": "no_rate", "message": "G21 (Fen Test Cost): no rate"}, {"code": "no_rate", "message": "G23 (Fen Test Cost): no rate"}]}
+		frappe.db.set_value(
+			"Window Design",
+			designs[1].name,
+			{"pricing_warning_count": 2, "pricing_json": json.dumps(pricing)},
+		)
+		out = api_make_quotation(project.name)
+		self.assertIn("W02 (missing prices: G21, G23)", out["message"])
+
+	def test_status_reports_rounded_total(self):
+		quotation = self.quote()
+		self.assertEqual(
+			quote_status(quotation.fen_project)["rounded_total"], quotation.rounded_total or quotation.grand_total
+		)
+		frappe.db.set_value("Quotation", quotation.name, "rounded_total", 4321)
+		self.assertEqual(quote_status(quotation.fen_project)["rounded_total"], 4321)
+		frappe.db.set_value("Quotation", quotation.name, "rounded_total", 0)
+		self.assertEqual(quote_status(quotation.fen_project)["rounded_total"], quotation.grand_total)
+
+	def test_quotation_currency_pinned_to_company_currency(self):
+		name = "Fen Test Customer USD"
+		if not frappe.db.exists("Customer", name):
+			frappe.get_doc(
+				{
+					"doctype": "Customer",
+					"customer_name": name,
+					"customer_type": "Company",
+					"gst_category": "Unregistered",
+					"default_currency": "USD",
+				}
+			).insert()
+		project, designs = self.make_quote_project(customer=name, refs=("W01",))
+		quotation = frappe.get_doc("Quotation", make_quotation(project.name))
+		self.assertEqual(quotation.currency, "INR")
+		self.assertEqual(quotation.conversion_rate, 1)
+		self.assertEqual(quotation.plc_conversion_rate, 1)
+		self.assertEqual(quotation.items[0].rate, frappe.db.get_value("Window Design", designs[0].name, "unit_price"))
+		quotation.db_set({"currency": "USD", "conversion_rate": 83})
+		again = frappe.get_doc("Quotation", make_quotation(project.name))
+		self.assertEqual((again.currency, again.conversion_rate), ("INR", 1))
+
+	def stale_quote(self, transport=0):
+		project, designs = self.make_quote_project(refs=("W01", "W02"), transport=transport)
+		make_quotation(project.name)
+		return project, designs
+
+	def test_fresh_quote_is_not_stale(self):
+		project, designs = self.stale_quote(transport=500)
+		stale = quote_status(project.name)["stale"]
+		self.assertEqual(stale, {"changed": [], "added": [], "removed": [], "transport_changed": False})
+		self.assertFalse(quote_status(project.name)["is_stale"])
+		line = frappe.get_all("Quotation Item", {"fen_window_design": designs[0].name}, "fen_design_hash")
+		self.assertEqual(len(line[0].fen_design_hash), 16)
+
+	def test_no_quotation_has_no_stale_info(self):
+		project, _designs = self.make_quote_project()
+		self.assertEqual(quote_status(project.name), {"quotation": None})
+
+	def test_edited_design_is_changed(self):
+		project, designs = self.stale_quote()
+		spec = load("w01.json")
+		spec["width"] = 1000
+		doc = frappe.get_doc("Window Design", designs[0].name)
+		doc.design_json = json.dumps(spec)
+		doc.save()
+		status = quote_status(project.name)
+		self.assertEqual(status["stale"]["changed"], ["W01"])
+		self.assertTrue(status["is_stale"])
+
+	def test_added_design_is_listed(self):
+		project, _designs = self.stale_quote()
+		self.make_design("W09", project.name)
+		self.assertEqual(quote_status(project.name)["stale"]["added"], ["W09"])
+
+	def test_deleted_design_is_removed(self):
+		project, designs = self.stale_quote()
+		frappe.delete_doc("Window Design", designs[1].name)
+		stale = quote_status(project.name)["stale"]
+		self.assertEqual(len(stale["removed"]), 1)
+		self.assertIn("W02", stale["removed"][0])
+		self.assertEqual(stale["changed"], [])
+
+	def test_transport_change_is_flagged(self):
+		project, _designs = self.stale_quote(transport=500)
+		frappe.db.set_value("Fenestration Project", project.name, "transport_charges", 900)
+		status = quote_status(project.name)
+		self.assertTrue(status["stale"]["transport_changed"])
+		self.assertTrue(status["is_stale"])
+
+	def test_design_hash_is_stable_and_sensitive(self):
+		design = frappe._dict(
+			design_json=json.dumps({"a": 1, "b": 2}), series_version="V", finish="F", price_structure="P", unit_price=10
+		)
+		same = frappe._dict(design, design_json=json.dumps({"b": 2, "a": 1}))
+		self.assertEqual(design_hash(design), design_hash(same))
+		self.assertNotEqual(design_hash(design), design_hash(frappe._dict(design, unit_price=11)))
+
+	def test_priced_on_is_iso_with_t(self):
+		stamp = json.loads(frappe.db.get_value("Window Design", self.designs[0].name, "pricing_json"))
+		self.assertIn("T", stamp["priced_on"])
+		datetime.fromisoformat(stamp["priced_on"])

@@ -139,3 +139,24 @@ class TestPrintFormats(IntegrationTestCase):
 			html = self.printed("Fenestration Project", self.project.name, print_format)
 			self.assertIn(test_quotation.COMPANY, html)
 			self.assertIn("Karur", html)
+
+	def test_grand_total_prints_rounded_total_and_adjustment(self):
+		frappe.db.set_value(
+			"Quotation", self.quotation.name, {"rounded_total": 99999, "rounding_adjustment": 0.5}
+		)
+		html = self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)
+		self.assertIn("Rounding Adjustment", html)
+		self.assertIn(frappe.format(99999, {"fieldtype": "Currency"}), html)
+
+	def test_no_rounding_row_when_adjustment_is_zero(self):
+		frappe.db.set_value("Quotation", self.quotation.name, {"rounded_total": 0, "rounding_adjustment": 0})
+		html = self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)
+		self.assertNotIn("Rounding Adjustment", html)
+		self.assertIn(frappe.format(self.quotation.grand_total, {"fieldtype": "Currency"}), html)
+
+	def test_quotation_skips_lines_of_deleted_designs(self):
+		line = next(row for row in self.quotation.items if row.fen_window_design)
+		frappe.db.set_value("Quotation Item", line.name, "fen_window_design", "NO-SUCH-DESIGN")
+		self.addCleanup(frappe.db.set_value, "Quotation Item", line.name, "fen_window_design", line.fen_window_design)
+		html = self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)
+		self.assertIn("Grand Total", html)
