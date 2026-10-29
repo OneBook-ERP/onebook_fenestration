@@ -79,4 +79,27 @@ describe('designer compute', () => {
 		await vi.advanceTimersByTimeAsync(300)
 		expect(mocked).toHaveBeenCalledTimes(2)
 	})
+
+	it('response landing after a newer apply but before its debounce is dropped', async () => {
+		let resolveA!: (v: never) => void
+		mocked.mockImplementationOnce(() => new Promise((r) => (resolveA = r as never)))
+		const s = useDesignerStore()
+		s.seriesVersion = 'SV1'
+		s.apply((d) => ({ ...d, width: 1000 }))
+		await vi.advanceTimersByTimeAsync(300)
+		s.apply((d) => ({ ...d, width: 1100 }))
+		await vi.advanceTimersByTimeAsync(100)
+		resolveA(res(1) as never)
+		await vi.advanceTimersByTimeAsync(0)
+		expect(s.result).toBeNull()
+	})
+
+	it('cancelCompute drops pending timer', async () => {
+		mocked.mockResolvedValue(res(1))
+		const s = useDesignerStore()
+		s.apply((d) => ({ ...d, width: 1000 }))
+		s.cancelCompute()
+		await vi.advanceTimersByTimeAsync(300)
+		expect(mocked).not.toHaveBeenCalled()
+	})
 })

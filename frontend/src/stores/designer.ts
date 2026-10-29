@@ -48,15 +48,19 @@ export const useDesignerStore = defineStore('designer', {
 			this.selectedPath = path
 		},
 		reset(design: Design, seriesVersion: string) {
-			clearTimeout(timer)
 			this.$patch({ design, seriesVersion, selectedPath: 'F1', past: [], future: [], result: null, error: null })
 			this.scheduleCompute()
 		},
+		cancelCompute() {
+			clearTimeout(timer)
+			this.requestSeq += 1
+			this.computing = false
+		},
 		scheduleCompute() {
 			clearTimeout(timer)
+			this.requestSeq += 1
 			const invalid = validateDesign(this.design)
 			if (invalid) {
-				this.requestSeq += 1
 				this.error = invalid
 				this.computing = false
 				return
@@ -64,7 +68,7 @@ export const useDesignerStore = defineStore('designer', {
 			timer = setTimeout(() => this.runCompute(), COMPUTE_DEBOUNCE_MS)
 		},
 		async runCompute() {
-			const seq = ++this.requestSeq
+			const seq = this.requestSeq
 			this.computing = true
 			let res
 			try {

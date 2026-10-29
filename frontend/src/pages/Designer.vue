@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { toast } from 'frappe-ui'
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { getDesign, saveDesign } from '@/api'
+import { Alert, Badge, Button, toast } from 'frappe-ui'
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { getDesign, saveDesign, type SavedDesign } from '@/api'
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
 import WindowCanvas from '@/components/WindowCanvas.vue'
@@ -21,6 +21,9 @@ const refError = ref('')
 const view = ref<'inside' | 'outside'>('inside')
 const saving = ref(false)
 const loadError = ref('')
+const loading = ref(false)
+let loadedName: string | null = null
+const blocked = computed(() => loading.value || !!loadError.value || saving.value)
 const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
 
 const issuePaths = computed(() => (store.result?.issues ?? []).map((i) => i.path))
@@ -33,19 +36,34 @@ const selectedLeaf = computed(() => {
 	}
 })
 
-onMounted(async () => {
-	if (!savedName.value) {
+function parseJson<T>(v: T | string): T {
+	return typeof v === 'string' ? JSON.parse(v) : v
+}
+
+async function load(name: string | null) {
+	loadError.value = ''
+	if (!name) {
+		loadedName = null
+		meta.value = { ref: '', qty: 1, location: '' }
 		store.reset(newDesign(1200, 1200), String(route.query.series_version ?? ''))
 		return
 	}
+	if (name === loadedName) return
+	loading.value = true
 	try {
-		const doc = await getDesign(savedName.value)
-		Object.assign(meta.value, { ref: doc.design_ref, qty: doc.qty, location: doc.location ?? '' })
-		store.reset(JSON.parse(doc.design_json), doc.series_version)
+		const doc: SavedDesign = await getDesign(name)
+		if (name !== savedName.value) return
+		meta.value = { ref: doc.design_ref, qty: doc.qty, location: doc.location ?? '' }
+		store.reset(parseJson(doc.design_json), doc.series_version)
+		loadedName = name
 	} catch (e) {
 		loadError.value = e instanceof Error ? e.message : 'Could not load design'
+	} finally {
+		loading.value = false
 	}
-})
+}
+watch(savedName, load, { immediate: true })
+onUnmounted(() => store.cancelCompute())
 
 function split(dir: SplitDir) {
 	const path = store.selectedPath
@@ -70,6 +88,7 @@ function onMoveSplit(p: { splitPath: string; index: number; pos: number }) {
 
 async function save() {
 	refError.value = ''
+	if (blocked.value) return
 	if (!meta.value.ref.trim()) {
 		refError.value = 'Design ref is required'
 		return
@@ -88,6 +107,7 @@ async function save() {
 		})
 		if (res.ok) {
 			toast.success('Design saved')
+			loadedName = res.name
 			await router.replace({ name: 'Designer', params: { project: project.value, name: res.name } })
 		} else {
 			toast.error(res.message)
@@ -99,44 +119,40 @@ async function save() {
 	}
 }
 
-const btn =
-	'inline-flex h-9 min-w-9 items-center justify-center rounded border border-gray-300 bg-white px-3 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40'
 </script>
 
 <template>
 	<div class="flex h-screen flex-col bg-gray-50 text-gray-900">
 		<header class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-2">
-			<RouterLink :to="`/projects/${project}`" aria-label="Back to project" :class="btn">&larr; Back</RouterLink>
+			<Button label="Back" aria-label="Back to project" class="min-h-9" :route="`/projects/${project}`" />
 			<span class="text-sm font-semibold">{{ meta.ref || 'New design' }}</span>
-			<span v-if="store.seriesVersion" class="rounded-full bg-gray-100 px-2 py-0.5 text-xs">{{ store.seriesVersion }}</span>
+			<Badge v-if="store.seriesVersion" :label="store.seriesVersion" />
 			<div class="ml-auto flex items-center gap-2">
-				<button :class="btn" aria-label="Undo" :disabled="!store.past.length" @click="store.undo()">Undo</button>
-				<button :class="btn" aria-label="Redo" :disabled="!store.future.length" @click="store.redo()">Redo</button>
-				<button
-					:class="btn"
+				<Button label="Undo" aria-label="Undo" class="min-h-9" :disabled="!store.past.length" @click="store.undo()" />
+				<Button label="Redo" aria-label="Redo" class="min-h-9" :disabled="!store.future.length" @click="store.redo()" />
+				<Button
+					:label="view === 'inside' ? 'Inside' : 'Outside'"
 					aria-label="Toggle inside or outside view"
+					class="min-h-9"
 					@click="view = view === 'inside' ? 'outside' : 'inside'"
-				>{{ view === 'inside' ? 'Inside' : 'Outside' }}</button>
-				<button
-					class="inline-flex h-9 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white disabled:opacity-50"
-					aria-label="Save"
-					:disabled="saving"
-					@click="save"
-				>Save</button>
+				/>
+				<Button label="Save" aria-label="Save" variant="solid" class="min-h-9" :disabled="blocked" @click="save" />
 			</div>
 		</header>
-		<p v-if="loadError" role="alert" class="bg-red-50 px-4 py-2 text-sm text-red-700">{{ loadError }}</p>
+		<Alert v-if="loadError" role="alert" theme="red" :title="loadError" />
 
 		<div class="flex min-h-0 flex-1">
 			<nav class="flex w-36 shrink-0 flex-col gap-2 border-r border-gray-200 bg-white p-3" aria-label="Tools">
-				<button :class="btn" aria-label="Split vertical" :disabled="!selectedLeaf" @click="split('v')">Split vertical</button>
-				<button :class="btn" aria-label="Split horizontal" :disabled="!selectedLeaf" @click="split('h')">Split horizontal</button>
-				<button :class="btn" aria-label="Sash" :disabled="!selectedLeaf" @click="convert('sash')">Sash</button>
-				<button :class="btn" aria-label="Fixed glass" :disabled="!selectedLeaf" @click="convert('fixed')">Fixed glass</button>
-				<button :class="btn" aria-label="Louver" :disabled="!selectedLeaf" @click="convert('louver')">Louver</button>
+				<Button label="Split vertical" aria-label="Split vertical" class="min-h-9" :disabled="!selectedLeaf" @click="split('v')" />
+				<Button label="Split horizontal" aria-label="Split horizontal" class="min-h-9" :disabled="!selectedLeaf" @click="split('h')" />
+				<Button label="Sash" aria-label="Sash" class="min-h-9" :disabled="!selectedLeaf" @click="convert('sash')" />
+				<Button label="Fixed glass" aria-label="Fixed glass" class="min-h-9" :disabled="!selectedLeaf" @click="convert('fixed')" />
+				<Button label="Louver" aria-label="Louver" class="min-h-9" :disabled="!selectedLeaf" @click="convert('louver')" />
 			</nav>
 			<main class="flex min-w-0 flex-1 items-center justify-center overflow-auto">
+				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
 				<WindowCanvas
+					v-else-if="!loadError"
 					ref="canvas"
 					:design="store.design"
 					:selected-path="store.selectedPath"
@@ -146,7 +162,7 @@ const btn =
 					@move-split="onMoveSplit"
 				/>
 			</main>
-			<PropertiesPanel v-model:meta="meta" :ref-error="refError" />
+			<PropertiesPanel v-model:meta="meta" :ref-error="refError" :ref-readonly="!!savedName" />
 		</div>
 		<ResultsBar />
 	</div>

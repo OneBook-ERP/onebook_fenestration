@@ -75,8 +75,9 @@ export interface SavedDesign {
 	qty: number
 	location: string
 	series_version: string
-	design_json: string
-	result_json: string
+	/** get_design parses these server-side; older callers may still get JSON strings. */
+	design_json: Design | string
+	result_json: ComputeResult | Record<string, never> | string
 	design_svg: string
 }
 
