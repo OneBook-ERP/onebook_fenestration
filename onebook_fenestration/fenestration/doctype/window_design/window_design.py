@@ -4,7 +4,7 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, flt
+from frappe.utils import cint, flt, now
 
 from onebook_fenestration.engine import DesignError, EngineResult, PriceBreakdown, RuleError
 from onebook_fenestration.fenestration.svg import sanitize_svg
@@ -22,6 +22,8 @@ def pricing_to_dict(breakdown: PriceBreakdown) -> dict:
 		"unit_price": breakdown.unit_price,
 		"rate_per_sqft": breakdown.rate_per_sqft,
 		"issues": [dataclasses.asdict(issue) for issue in breakdown.issues],
+		"price_list": frappe.get_cached_doc("Fenestration Settings").cost_price_list,
+		"priced_on": now(),
 	}
 
 
@@ -52,7 +54,12 @@ class WindowDesign(Document):
 	def needs_pricing(self) -> bool:
 		"""Price changes (Item Prices) never re-price a saved design; only its own inputs do."""
 		fields = ("design_json", "series_version", "finish", "price_structure")
-		return self.is_new() or any(self.has_value_changed(f) for f in fields)
+		return self.is_new() or self.flags.force_reprice or any(self.has_value_changed(f) for f in fields)
+
+	def reprice(self):
+		"""Recompute and re-price from current Item Prices, bypassing the input-change gate."""
+		self.flags.force_reprice = True
+		self.save()
 
 	def compute_results(self):
 		"""Run the engine and pricing on the design; only called when its inputs change, so stored results stay frozen."""
