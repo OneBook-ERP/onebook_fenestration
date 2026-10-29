@@ -27,6 +27,7 @@ def _sync():
 	create_custom_fields(CUSTOM_FIELDS, update=True)
 	_ensure_engineer_role()
 	seed_pricing()
+	seed_quote_masters()
 
 
 def _ensure_engineer_role():
@@ -87,7 +88,13 @@ def seed_pricing():
 				"structure_name": "Standard",
 				"is_default": 1,
 				"heads": [
-					dict(zip(("key", "label", "calc", "rate", "formula", "base", "condition"), head, strict=True))
+					dict(
+						zip(
+							("key", "label", "calc", "rate", "formula", "base", "condition"),
+							head,
+							strict=True,
+						)
+					)
 					for head in STANDARD_HEADS
 				],
 			}
@@ -110,3 +117,90 @@ def _seed_settings():
 			changed = True
 	if changed:
 		settings.save(ignore_permissions=True)
+
+
+QUOTE_ITEMS = (
+	("FEN-WINDOW", "Window (custom fabricated)", "761010", "Aluminium windows, doors and their frames"),
+	("FEN-TRANSPORT", "Transportation", "996511", "Road transport services of goods"),
+)
+STANDARD_TERMS = "Hilux Standard Terms"
+STANDARD_TERMS_LINES = (
+	"Payment: 90% advance along with the work order; the balance 10% before dispatch.",
+	"This quotation is valid for 10 days from its date.",
+	"Delivery within 60 days of receiving the advance and the confirmed colour and window types.",
+	"The advance cannot be refunded once production has started.",
+	"Prices are not reduced when finished site sizes turn out smaller than quoted.",
+	"A size change of more than 25 mm either way, or any change to opening type, colour, glass, quantity or"
+	" hardware, is treated as a new order and priced again.",
+	"Materials: 6063-T6 aluminium; Saint-Gobain, AIS or Guardian glass; SS304 mesh; Jotun, AkzoNobel or Pulver"
+	" powder coating.",
+	"Profiles, hardware and coating carry a 10-year warranty, excluding misuse, accidents, structural movement"
+	" and glass breakage.",
+	"Finish surcharge over the quoted price: Matt 0%, Texture 2%, Wooden 12%.",
+	"The client keeps the site ready and the openings finished; final sizes are measured on site before production.",
+	"Installation covers fixing the windows only; civil, electrical and finishing work is outside our scope.",
+	"Scaffolding, where needed, is provided by the client.",
+	"Delays caused by site conditions are not our responsibility.",
+	"The client provides site access, power and water during installation.",
+	"The client provides safe, dry storage for delivered material.",
+	"Breakage or damage after delivery to site is at the client's risk.",
+	"Neither party is liable for delays caused by events beyond its reasonable control.",
+	"Prices are final once the order is confirmed and are not open to further negotiation.",
+	"Any dispute is subject to the jurisdiction of courts in Karur, Tamil Nadu.",
+	"Prices may be revised if raw material costs rise sharply before production starts.",
+	"Quoted prices include material, fabrication and installation labour; GST is extra as shown.",
+)
+
+
+def seed_quote_masters():
+	"""Generic quote items with their HSN codes and the standard terms; never overwrites existing records."""
+	has_hsn = frappe.db.exists("DocType", "GST HSN Code") and frappe.get_meta("Item").has_field(
+		"gst_hsn_code"
+	)
+	for code, item_name, hsn, hsn_description in QUOTE_ITEMS:
+		if has_hsn and not frappe.db.exists("GST HSN Code", hsn):
+			frappe.get_doc(
+				{"doctype": "GST HSN Code", "hsn_code": hsn, "description": hsn_description}
+			).insert(ignore_permissions=True)
+		if not frappe.db.exists("Item", code):
+			item = frappe.get_doc(
+				{
+					"doctype": "Item",
+					"item_code": code,
+					"item_name": item_name,
+					"item_group": _quote_item_group(),
+					"stock_uom": "Nos",
+					"is_stock_item": 0,
+					"is_sales_item": 1,
+				}
+			)
+			if has_hsn:
+				item.gst_hsn_code = hsn
+			item.insert(ignore_permissions=True)
+	_seed_terms()
+
+
+def _quote_item_group() -> str:
+	if not frappe.db.exists("Item Group", "Fenestration"):
+		frappe.get_doc(
+			{
+				"doctype": "Item Group",
+				"item_group_name": "Fenestration",
+				"parent_item_group": "All Item Groups",
+			}
+		).insert(ignore_permissions=True)
+	return "Fenestration"
+
+
+def _seed_terms():
+	if frappe.db.exists("Terms and Conditions", STANDARD_TERMS):
+		return
+	items = "".join(f"<li>{line}</li>" for line in STANDARD_TERMS_LINES)
+	frappe.get_doc(
+		{
+			"doctype": "Terms and Conditions",
+			"title": STANDARD_TERMS,
+			"selling": 1,
+			"terms": f"<ol>{items}</ol>",
+		}
+	).insert(ignore_permissions=True)

@@ -46,6 +46,17 @@ class WindowDesign(Document):
 		if self.design_svg and (self.is_new() or self.has_value_changed("design_svg")):
 			self.design_svg = sanitize_svg(self.design_svg)
 
+	def on_trash(self):
+		# A draft quotation line must not block deleting its design; the next make_quotation drops the line.
+		drafts = frappe.get_all("Quotation", {"fen_project": self.project, "docstatus": 0}, pluck="name")
+		if drafts:
+			frappe.db.set_value(
+				"Quotation Item",
+				{"parent": ("in", drafts), "fen_window_design": self.name},
+				"fen_window_design",
+				None,
+			)
+
 	def set_pricing_defaults(self):
 		self.finish, self.price_structure = resolve_pricing_defaults(self.finish, self.price_structure)
 		if not (self.finish and self.price_structure):
