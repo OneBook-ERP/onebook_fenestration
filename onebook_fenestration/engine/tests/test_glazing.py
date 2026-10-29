@@ -48,3 +48,23 @@ class TestGlazing(unittest.TestCase):
 		panes, _, issues = run_glaze(design)
 		self.assertEqual([(p.panel, p.width, p.height) for p in panes], [("F1", 690.0, 1440.0)])
 		self.assertEqual([(i.severity, i.code, i.panel) for i in issues], [("warn", "louver_placeholder", "F1")])
+
+	def test_unknown_glass_issue(self):
+		design = {"width": 915, "height": 1220, "root": {"type": "fixed", "glass": "NOPE"}}
+		panes, _, issues = run_glaze(design)
+		self.assertEqual(panes, [])
+		self.assertEqual([(i.severity, i.code, i.panel) for i in issues], [("error", "unknown_glass", "F1")])
+
+	def test_missing_glass_is_unknown_glass(self):
+		_, _, issues = run_glaze({"width": 915, "height": 1220, "root": {"type": "fixed"}})
+		self.assertEqual([i.code for i in issues], ["unknown_glass"])
+
+	def test_non_positive_glass_issue(self):
+		design = {
+			"width": 915,
+			"height": 1220,
+			"root": {"type": "split", "dir": "v", "at": [50], "children": [{"type": "fixed", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"}]},
+		}
+		panes, _, issues = run_glaze(design)
+		self.assertEqual([p.width for p in panes], [805.0])
+		self.assertEqual([(i.severity, i.code, i.panel) for i in issues], [("error", "non_positive_size", "F1")])

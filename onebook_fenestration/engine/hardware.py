@@ -1,10 +1,10 @@
 """Hardware and consumable BOM lines from the series hardware rules."""
 
-from onebook_fenestration.engine.formula import evaluate
+from onebook_fenestration.engine.formula import evaluate, evaluate_number
 from onebook_fenestration.engine.members import FRAME_PANEL
 from onebook_fenestration.engine.types import BomLine, CutMember, GlassPane, HardwareRule, SeriesSnapshot
 
-MEMBER_ROLES = {"frame_member": "frame", "sash_member": "sash", "mullion": "mullion"}
+MEMBER_ROLES = {"frame_member": "frame", "sash_member": "sash", "mullion": "mullion", "transom_member": "transom"}
 
 
 def hardware_bom(
@@ -23,10 +23,10 @@ def hardware_bom(
 			variables = {**constants, **variables}
 			if not evaluate(rule.when, variables, rule.id):
 				continue
-			qty = evaluate(rule.qty, variables, rule.id)
+			qty = evaluate_number(rule.qty, variables, rule.id)
 			if not qty:
 				continue
-			length = evaluate(rule.length, variables, rule.id) if rule.length else None
+			length = evaluate_number(rule.length, variables, rule.id) if rule.length else None
 			bom.append(BomLine(rule.item, rule.name, qty, rule.uom, panel, position, length, rule.group))
 	return bom
 

@@ -1,6 +1,17 @@
 """Plain data shapes the engine consumes and produces. No DB access here."""
 
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field, fields
+
+SIDES = ("frame", "mullion", "transom")
+REQUIRED_DEDUCTIONS = (
+	*(f"bar_end_{s}" for s in SIDES),
+	*(f"sash_side_{s}" for s in SIDES),
+	"sash_glass",
+	*(f"fixed_glass_side_{s}" for s in SIDES),
+	"glazing_gasket",
+)
+SNAPSHOT_SECTIONS = ("deductions", "profiles", "member_rules", "hardware_rules", "validation_rules", "glasses", "constants")
+HARDWARE_PER = ("frame_member", "sash_member", "mullion", "transom_member", "sash", "glass", "window")
 
 
 class EngineError(Exception):
@@ -79,20 +90,57 @@ class SeriesSnapshot:
 
 	@classmethod
 	def from_dict(cls, data: dict) -> "SeriesSnapshot":
+		"""Build from plain dicts (fixture JSON or DB rows); unknown keys in rows are ignored."""
+		try:
+			code, version = data["code"], data["version"]
+			sections = {key: data[key] for key in SNAPSHOT_SECTIONS}
+		except KeyError as exc:
+			raise RuleError(f"series snapshot is missing {exc.args[0]!r}") from exc
+		profiles = {}
+		for pcode, p in sections["profiles"].items():
+			spec = _row(ProfileSpec, {**p, "code": pcode}, f"profile {pcode}")
+			profiles[pcode] = ProfileSpec(spec.code, spec.name, spec.kg_per_m, tuple(spec.bar_lengths))
+		member_rules = []
+		for r in sections["member_rules"]:
+			rule = _row(MemberRule, r, f"member rule {r.get('id')}")
+			member_rules.append(MemberRule(rule.id, rule.role, rule.profile, tuple(rule.angles), rule.length))
 		return cls(
-			code=data["code"],
-			version=data["version"],
-			deductions=dict(data["deductions"]),
-			profiles={
-				code: ProfileSpec(code=code, name=p["name"], kg_per_m=p["kg_per_m"], bar_lengths=tuple(p["bar_lengths"]))
-				for code, p in data["profiles"].items()
-			},
-			member_rules=tuple(MemberRule(**{**r, "angles": tuple(r["angles"])}) for r in data["member_rules"]),
-			hardware_rules=tuple(HardwareRule(**r) for r in data["hardware_rules"]),
-			validation_rules=tuple(ValidationRule(**r) for r in data["validation_rules"]),
-			glasses={code: GlassSpec(code=code, **g) for code, g in data["glasses"].items()},
-			constants=dict(data["constants"]),
+			code=code,
+			version=version,
+			deductions=dict(sections["deductions"]),
+			profiles=profiles,
+			member_rules=tuple(member_rules),
+			hardware_rules=tuple(_row(HardwareRule, r, f"hardware rule {r.get('id')}") for r in sections["hardware_rules"]),
+			validation_rules=tuple(_row(ValidationRule, r, f"validation rule {r.get('id')}") for r in sections["validation_rules"]),
+			glasses={gcode: _row(GlassSpec, {**g, "code": gcode}, f"glass {gcode}") for gcode, g in sections["glasses"].items()},
+			constants=dict(sections["constants"]),
 		)
+
+	def check(self) -> None:
+		"""Raise RuleError listing every missing deduction, profile, constant or bad hardware `per`."""
+		problems = [f"deduction {key!r} missing" for key in REQUIRED_DEDUCTIONS if key not in self.deductions]
+		problems += [
+			f"{rule.id}: profile {rule.profile!r} not in series" for rule in self.member_rules if rule.profile not in self.profiles
+		]
+		if "glass_density" not in self.constants:
+			problems.append("constant 'glass_density' missing")
+		problems += [
+			f"{rule.id}: unknown per {rule.per!r} (allowed: {', '.join(HARDWARE_PER)})"
+			for rule in self.hardware_rules
+			if rule.per not in HARDWARE_PER
+		]
+		if problems:
+			raise RuleError(f"series {self.code} snapshot is incomplete: " + "; ".join(problems))
+
+
+def _row(cls, row: dict, label: str):
+	"""Construct dataclass `cls` from the keys of `row` it knows, naming any required key that is missing."""
+	known = {f.name for f in fields(cls)}
+	required = {f.name for f in fields(cls) if f.default is MISSING and f.default_factory is MISSING}
+	missing = sorted(required - row.keys())
+	if missing:
+		raise RuleError(f"{label}: missing {', '.join(missing)}")
+	return cls(**{k: v for k, v in row.items() if k in known})
 
 
 @dataclass(frozen=True)
@@ -103,6 +151,7 @@ class CutMember:
 	profile: str
 	length: float
 	angles: tuple[int, int]
+	path: str = ""
 
 
 @dataclass(frozen=True)
@@ -112,6 +161,7 @@ class GlassPane:
 	glass: str
 	width: float
 	height: float
+	path: str = ""
 
 
 @dataclass(frozen=True)
@@ -133,6 +183,7 @@ class Issue:
 	message: str
 	panel: str = ""
 	hint: str = ""
+	path: str = ""
 
 
 @dataclass

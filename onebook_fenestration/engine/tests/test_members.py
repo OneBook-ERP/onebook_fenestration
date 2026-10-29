@@ -32,6 +32,18 @@ class TestMembers(unittest.TestCase):
 
 	def test_tiny_cell_gives_issue_not_crash(self):
 		d = {"width": 30, "height": 1220, "root": {"type": "sash", "glass": "6CTG"}}
-		members, issues, _ = run(d)
+		members, issues, sash_sizes = run(d)
 		self.assertTrue(any(i.code == "non_positive_size" for i in issues))
 		self.assertEqual(len([m for m in members if m.panel == "F1"]), 4)
+		self.assertEqual([m for m in members if m.panel == "F1-S1"], [])
+		self.assertEqual(sash_sizes, {})
+		self.assertEqual([(i.severity, i.code, i.panel) for i in issues], [("error", "non_positive_size", "F1-S1")])
+
+	def test_partly_invalid_sash_gets_no_weight_or_hardware(self):
+		from onebook_fenestration.engine import compute
+		from onebook_fenestration.engine.tests.helpers import snapshot
+
+		r = compute({"width": 30, "height": 1220, "root": {"type": "sash", "glass": "6CTG"}}, snapshot())
+		self.assertEqual(r.shutter_kg, {})
+		self.assertEqual([b for b in r.bom if b.panel == "F1-S1"], [])
+		self.assertEqual([i.code for i in r.issues], ["non_positive_size"])

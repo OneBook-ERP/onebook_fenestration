@@ -63,8 +63,9 @@ class TestSection(unittest.TestCase):
 			analyze_dxf(self._save(doc, "zero.dxf"))
 
 	def test_unreadable_file_raises(self):
-		with self.assertRaisesRegex(SectionError, "cannot read DXF"):
+		with self.assertRaisesRegex(SectionError, "cannot read DXF") as cm:
 			analyze_dxf(str(Path(self._tmp.name) / "missing.dxf"))
+		self.assertIsInstance(cm.exception.__cause__, OSError)
 
 	def test_rectangle_with_hole_inertia(self):
 		doc = ezdxf.new()

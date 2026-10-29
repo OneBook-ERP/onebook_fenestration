@@ -31,7 +31,7 @@ def analyze_dxf(path: str, layer: str | None = None) -> SectionProperties:
 	try:
 		doc = ezdxf.readfile(path)
 	except (OSError, ezdxf.DXFError) as exc:
-		raise SectionError(f"cannot read DXF: {exc}")
+		raise SectionError(f"cannot read DXF: {exc}") from exc
 	scale, warnings = _unit_scale(doc.header.get("$INSUNITS", 0))
 	loops = _read_loops(doc.modelspace(), layer, scale)
 	if not loops:

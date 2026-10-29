@@ -30,3 +30,16 @@ class TestHardware(unittest.TestCase):
 	def test_w02_frame_hardware(self):
 		t = totals(compute(load("w02.json"), SNAP).bom)
 		self.assertEqual((t["H912"], t["H902"], t["H911"]), (8, 4, 8))
+
+	def test_transom_member_rule(self):
+		from onebook_fenestration.engine.tests.helpers import snapshot_with
+
+		rule = {"id": "hw_transom_screw", "item": "H412T", "name": "TRANSOM SCREW", "per": "transom_member", "qty": "4", "when": "role == 'transom' and len > 0"}
+		snap = snapshot_with(lambda d: d["hardware_rules"].append(rule))
+		design = {
+			"width": 915,
+			"height": 1220,
+			"root": {"type": "split", "dir": "h", "at": [610], "children": [{"type": "fixed", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"}]},
+		}
+		lines = [b for b in compute(design, snap).bom if b.item == "H412T"]
+		self.assertEqual([(b.qty, b.panel, b.position) for b in lines], [(4, "F1", "W")])

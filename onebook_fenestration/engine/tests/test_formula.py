@@ -1,6 +1,6 @@
 import unittest
 
-from onebook_fenestration.engine.formula import evaluate
+from onebook_fenestration.engine.formula import evaluate, evaluate_number
 from onebook_fenestration.engine.types import RuleError, SeriesSnapshot
 
 
@@ -39,3 +39,16 @@ class TestFormula(unittest.TestCase):
 			}
 		)
 		self.assertEqual(s.code, "X")
+
+
+class TestEvaluateNumber(unittest.TestCase):
+	def test_int_result_is_float(self):
+		value = evaluate_number("span", {"span": 915}, "mr_frame")
+		self.assertIsInstance(value, float)
+		self.assertEqual(value, 915.0)
+
+	def test_non_numbers_raise_rule_error(self):
+		for expr in ("'abc'", "None", "span > 0", "'2'"):
+			with self.subTest(expr=expr), self.assertRaises(RuleError) as cm:
+				evaluate_number(expr, {"span": 915}, "mr_frame")
+			self.assertIn("mr_frame", str(cm.exception))

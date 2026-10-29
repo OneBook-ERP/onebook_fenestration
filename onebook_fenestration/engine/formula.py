@@ -21,3 +21,11 @@ def evaluate(expr: str, variables: dict, rule_id: str) -> float | bool:
 		return safe_eval(expr, dict(ALLOWED_FUNCTIONS), dict(variables))
 	except Exception as exc:
 		raise RuleError(f"{rule_id}: {expr!r}: {exc}") from exc
+
+
+def evaluate_number(expr: str, variables: dict, rule_id: str) -> float:
+	"""Evaluate a formula that must produce a number (not a bool, string or None)."""
+	value = evaluate(expr, variables, rule_id)
+	if isinstance(value, bool) or not isinstance(value, int | float):
+		raise RuleError(f"{rule_id}: {expr!r} must give a number, got {value!r}")
+	return float(value)

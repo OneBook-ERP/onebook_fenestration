@@ -10,6 +10,7 @@ from onebook_fenestration.engine.weights import weights
 
 
 def compute(design: dict, snapshot: SeriesSnapshot) -> EngineResult:
+	snapshot.check()
 	cells, bars = layout(design)
 	members, member_issues, sash_sizes = cut_members(design, snapshot, cells, bars)
 	panes, gasket_bom, glass_issues = glaze(design, cells, sash_sizes, snapshot)
@@ -23,7 +24,8 @@ def compute(design: dict, snapshot: SeriesSnapshot) -> EngineResult:
 		"window_kg": window_kg,
 	}
 	hardware = hardware_bom(members, panes, sash_sizes, shutter_kg, window_vars, snapshot)
-	issues = member_issues + glass_issues + validate(snapshot, sash_sizes, shutter_kg, window_vars)
+	sash_paths = {m.panel: m.path for m in members if m.role == "sash"}
+	issues = member_issues + glass_issues + validate(snapshot, sash_sizes, shutter_kg, window_vars, sash_paths)
 
 	area_m2 = round(width * height / 1e6, 3)
 	return EngineResult(

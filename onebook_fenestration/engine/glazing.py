@@ -43,7 +43,7 @@ def glaze(
 		else:
 			panel = FRAME_PANEL
 			if kind == "louver":
-				issues.append(Issue("warn", "louver_placeholder", "Louver glazing is not computed yet", panel))
+				issues.append(Issue("warn", "louver_placeholder", "Louver glazing is not computed yet", panel, path=cell.path))
 				continue
 			side = {s: deductions[f"fixed_glass_side_{cell.sides[s]}"] for s in "LRBT"}
 			width = cell.w - side["L"] - side["R"]
@@ -51,15 +51,14 @@ def glaze(
 
 		code = cell.node.get("glass")
 		if code not in snapshot.glasses:
-			issues.append(Issue("error", "unknown_glass", f"{panel}: unknown glass {code!r}", panel))
+			issues.append(Issue("error", "unknown_glass", f"{panel}: unknown glass {code!r}", panel, path=cell.path))
 			continue
 		width, height = round(width, 1), round(height, 1)
 		if width <= 0 or height <= 0:
-			issues.append(
-				Issue("error", "non_positive_size", f"{panel}: glass size is {width} x {height} mm", panel)
-			)
+			message = f"{panel}: glass size is {width} x {height} mm"
+			issues.append(Issue("error", "non_positive_size", message, panel, path=cell.path))
 			continue
-		panes.append(GlassPane(panel, len(panes) + 1, code, width, height))
+		panes.append(GlassPane(panel, len(panes) + 1, code, width, height, cell.path))
 		for position, length in (("W", width), ("W", width), ("H", height), ("H", height)):
 			add_gasket("G23", "GASKET 3MM", panel, position, length - 2 * gasket)
 	return panes, bom, issues
