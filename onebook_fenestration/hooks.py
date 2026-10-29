@@ -278,3 +278,9 @@ before_uninstall = "onebook_fenestration.setup.install.before_uninstall"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+
+# SPA
+# ---
+website_route_rules = [
+	{"from_route": "/fenestration/<path:app_path>", "to_route": "fenestration"},
+]

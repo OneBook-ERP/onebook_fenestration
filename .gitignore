@@ -58,3 +58,8 @@ jspm_packages/
 doc/*.pdf
 doc/*.mp4
 doc/*.dxf
+
+# Vue SPA build
+frontend/node_modules
+onebook_fenestration/public/frontend
+onebook_fenestration/www/fenestration.html
