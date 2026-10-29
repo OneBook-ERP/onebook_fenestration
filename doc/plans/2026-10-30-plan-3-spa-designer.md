@@ -287,10 +287,20 @@ onebook_fenestration/tests/test_save_design.py
 - Test: `frontend/src/pages/Projects.spec.ts`, `ProjectWorkspace.spec.ts`
 
 **Interfaces:**
-- **AppShell:**
-  - Left sidebar (stacks on top below 768 px): Projects plus disabled "Production", "Install" and "Orders" entries marked "Soon".
-  - A user menu with "Open Desk" (`/app`) and "Log out".
+- **AppShell** (user request: frappe-ui's two-layer sidebar, frappe-ui 1.1.0 `SidebarRail` + `Sidebar`):
+  - **`SidebarRail`** (50 px icon column):
+    - top: app logo/home;
+    - middle (`flex-1`): one `SidebarRailItem` per module, each with an icon and a tooltip label:
+      - Projects (`lucide-folder-kanban`, route `/projects`);
+      - Production (`lucide-factory`), Install (`lucide-wrench`) and Orders (`lucide-package`), all disabled with the description "Soon";
+      - Series Studio (`lucide-layers`), shown only to roles System Manager / Fenestration Engineer, opening `/app/profile-series` in Desk for now;
+    - bottom: `SidebarRailItem` with the user `Avatar` and a menu containing "Open Desk" (`/app`) and "Log out".
+  - **`Sidebar`** (wide column, collapsible with `SidebarCollapseToggle`) holds the **active module's** sub-navigation. For Projects:
+    - `SidebarHeader` "Projects";
+    - items "All projects" and "Recent", plus a `SidebarSection` "Recent projects" listing the 5 most recently modified projects (`route` to each).
+  - Below 768 px the `Sidebar` is collapsed by default and the rail stays visible.
   - Unauthenticated users are redirected to `/login?redirect-to=/fenestration`.
+  - Read `node_modules/frappe-ui/src/components/Sidebar/*.md` and `SidebarRail/*.md` for the exact props.
 - **Routes:** `/fenestration` redirects to `/fenestration/projects`; `/fenestration/projects`; `/fenestration/projects/:project`; plus the Task 5 designer routes.
 - **Projects:**
   - A list of Fenestration Project (fields `name, project_title, customer, modified`) through frappe-ui's list helper, with a search box.
@@ -301,6 +311,7 @@ onebook_fenestration/tests/test_save_design.py
   - A "New design" button opens the designer with the project's default series version.
 
 - [ ] **Step 1: Write failing tests** (mock the frappe-ui list/resource helpers):
+  - AppShell renders a `SidebarRail` with items Projects, Production, Install and Orders (the last three disabled), plus a `Sidebar` containing "All projects".
   - Projects renders two mocked projects and filters by search.
   - Workspace renders cards for two mocked designs and the totals (qty 260 + 60 = 320 windows).
   - A card thumbnail is an `<img>` whose src starts with `data:image/svg+xml`.
