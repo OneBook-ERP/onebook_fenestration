@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import w01 from '@/design/__fixtures__/w01.json'
 import type { Design } from '@/design/types'
 import WindowCanvas from './WindowCanvas.vue'
@@ -9,6 +9,8 @@ function mountCanvas(props: Record<string, unknown> = {}) {
 		props: { design: w01 as Design, selectedPath: null, issuePaths: [], view: 'inside', ...props },
 	})
 }
+
+const SCALE_W01 = Math.min(520 / 915, 640 / 1220)
 
 describe('WindowCanvas', () => {
 	it('renders W01 cells, bar label and dimensions', () => {
@@ -37,6 +39,78 @@ describe('WindowCanvas', () => {
 		expect(ev.splitPath).toBe('F1')
 		expect(ev.index).toBe(0)
 		expect(ev.pos).toBeGreaterThan(457.5)
+		expect(ev.pos).toBeCloseTo(457.5 + 20 / SCALE_W01, 6)
+	})
+
+	it('converts drag deltas through the rendered size', async () => {
+		const w = mountCanvas()
+		vi.spyOn(w.find('svg').element, 'getBoundingClientRect').mockReturnValue({
+			width: 320, height: 380, x: 0, y: 0, top: 0, left: 0, right: 320, bottom: 380, toJSON() {},
+		} as DOMRect)
+		const bar = w.find('[data-bar="M1"]')
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 1 })
+		await bar.trigger('pointermove', { clientX: 120, pointerId: 1 })
+		const ev = w.emitted('move-split')![0][0] as { pos: number }
+		expect(ev.pos).toBeCloseTo(457.5 + 40 / SCALE_W01, 6)
+	})
+
+	it('drags horizontal bars with inverted y', async () => {
+		const d: Design = {
+			width: 1500, height: 1500,
+			root: { type: 'split', dir: 'h', at: [750], children: [{ type: 'fixed', glass: 'G' }, { type: 'fixed', glass: 'G' }] },
+		}
+		const w = mountCanvas({ design: d })
+		const bar = w.find('[data-bar="T1"]')
+		await bar.trigger('pointerdown', { clientY: 100, pointerId: 1 })
+		await bar.trigger('pointermove', { clientY: 120, pointerId: 1 })
+		const ev = w.emitted('move-split')![0][0] as { pos: number }
+		expect(ev.pos).toBeCloseTo(750 - 20 / Math.min(520 / 1500, 640 / 1500), 6)
+	})
+
+	it('ignores moves after pointerup', async () => {
+		const w = mountCanvas()
+		const bar = w.find('[data-bar="M1"]')
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 1 })
+		await bar.trigger('pointerup', { clientX: 100, pointerId: 1 })
+		await bar.trigger('pointermove', { clientX: 140, pointerId: 1 })
+		expect(w.emitted('move-split')).toBeUndefined()
+	})
+
+	it('labels sash opening direction, independent of view', async () => {
+		const w = mountCanvas()
+		const outs = () => w.findAll('text').filter((t) => t.text() === 'OUT')
+		expect(outs()).toHaveLength(2)
+		await w.setProps({ view: 'outside' })
+		expect(outs()).toHaveLength(2)
+		expect(w.text()).toContain('View from outside')
+		const d = structuredClone(w01) as Design
+		;(d.root as any).children[0].opening = 'in'
+		const w2 = mountCanvas({ design: d })
+		const t = w2.findAll('text').map((x) => x.text())
+		expect(t.filter((x) => x === 'IN')).toHaveLength(1)
+		expect(t.filter((x) => x === 'OUT')).toHaveLength(1)
+	})
+
+	it('flips the swing apex when viewed from outside', async () => {
+		const w = mountCanvas()
+		const pts = () => w.find('polyline').attributes('points')
+		const inside = pts()
+		await w.setProps({ view: 'outside' })
+		expect(pts()).not.toBe(inside)
+	})
+
+	it('exports a clean drawing', () => {
+		const w = mountCanvas({ selectedPath: 'F1.0', issuePaths: ['F1.1'] })
+		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
+		for (const bad of ['#2563EB', '#D97706', 'data-path', 'data-bar', 'cursor']) expect(m).not.toContain(bad)
+	})
+
+	it('ignores non-primary button presses', async () => {
+		const w = mountCanvas()
+		const bar = w.find('[data-bar="M1"]')
+		await bar.trigger('pointerdown', { clientX: 100, pointerId: 1, button: 2 })
+		await bar.trigger('pointermove', { clientX: 120, pointerId: 1 })
+		expect(w.emitted('move-split')).toBeUndefined()
 	})
 
 	it('outlines the selected cell', () => {

@@ -185,6 +185,8 @@ interface Drag {
 let drag: Drag | null = null
 
 function onPointerDown(e: PointerEvent, bar: BarGeom) {
+	if (e.button !== 0 && e.button !== undefined) return
+	e.preventDefault()
 	const split = getNode(props.design, bar.splitPath) as SplitNode
 	drag = { bar, start: bar.dir === 'v' ? e.clientX : e.clientY, original: split.at[bar.index] }
 	const el = e.currentTarget as Element
@@ -193,8 +195,12 @@ function onPointerDown(e: PointerEvent, bar: BarGeom) {
 
 function onPointerMove(e: PointerEvent) {
 	if (!drag) return
-	const cur = drag.bar.dir === 'v' ? e.clientX : e.clientY
-	const delta = (cur - drag.start) / scale.value
+	const vertical = drag.bar.dir === 'v'
+	const r = svg.value?.getBoundingClientRect()
+	const size = r ? (vertical ? r.width : r.height) : 0
+	const k = size ? (vertical ? props.viewW : props.viewH) / size : 1
+	const cur = vertical ? e.clientX : e.clientY
+	const delta = ((cur - drag.start) * k) / scale.value
 	const pos = drag.bar.dir === 'v' ? drag.original + delta : drag.original - delta
 	emit('move-split', { splitPath: drag.bar.splitPath, index: drag.bar.index, pos })
 }
@@ -207,7 +213,19 @@ function onPointerUp(e: PointerEvent) {
 }
 
 function getSvgMarkup(): string {
-	return svg.value ? svg.value.outerHTML : ''
+	if (!svg.value) return ''
+	const clone = svg.value.cloneNode(true) as SVGSVGElement
+	clone.querySelectorAll('*').forEach((el) => {
+		for (const a of Array.from(el.attributes)) {
+			if (a.name.startsWith('data-') || a.name === 'style') el.removeAttribute(a.name)
+		}
+		if (el.classList.contains('hl')) {
+			el.setAttribute('stroke', C.stroke)
+			el.setAttribute('stroke-width', '1')
+			el.removeAttribute('class')
+		}
+	})
+	return clone.outerHTML
 }
 defineExpose({ getSvgMarkup })
 </script>
@@ -243,6 +261,7 @@ defineExpose({ getSvgMarkup })
 				:fill="v.cell.node.type === 'sash' ? C.sash : C.glass"
 				:stroke="v.stroke"
 				:stroke-width="v.strokeWidth"
+				:class="{ hl: v.stroke !== C.stroke }"
 				style="cursor: pointer"
 				@click="emit('select', v.cell.path)"
 			/>
@@ -288,6 +307,23 @@ defineExpose({ getSvgMarkup })
 				:fill="C.dim"
 				pointer-events="none"
 			>{{ v.panelId }}</text>
+			<g v-if="v.cell.node.type === 'sash' && v.cell.node.opening" pointer-events="none">
+				<rect
+					:x="v.glass.x + v.glass.w / 2 - 18"
+					:y="v.glass.y + v.glass.h / 2 + 26"
+					width="36"
+					height="20"
+					fill="#FFFFFF"
+					:stroke="C.dim"
+				/>
+				<text
+					:x="v.glass.x + v.glass.w / 2"
+					:y="v.glass.y + v.glass.h / 2 + 41"
+					text-anchor="middle"
+					font-size="12"
+					:fill="C.dim"
+				>{{ v.cell.node.opening === 'out' ? 'OUT' : 'IN' }}</text>
+			</g>
 			<text
 				:x="v.glass.x + v.glass.w / 2"
 				:y="v.glass.y + v.glass.h / 2 + 14"
@@ -331,8 +367,8 @@ defineExpose({ getSvgMarkup })
 			font-size="12"
 			:fill="C.dim"
 		>GHH = {{ fmt(ghh) }}</text>
-		<text :x="frameBox.x" :y="frameBox.y - 8" font-size="12" font-weight="600" :fill="C.dim">
-			{{ view === 'inside' ? 'INSIDE' : 'OUT' }}
+		<text :x="viewW / 2" :y="viewH - 8" text-anchor="middle" font-size="12" :fill="C.dim">
+			{{ view === 'inside' ? 'View from inside' : 'View from outside' }}
 		</text>
 
 		<g :stroke="C.dim" :fill="C.dim" font-size="12">
