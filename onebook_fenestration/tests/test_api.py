@@ -61,3 +61,14 @@ class TestComputeDesignApi(IntegrationTestCase):
 		frappe.set_user(SALES_EMAIL)
 		out = compute_design(load("w01.json"), self.version)
 		self.assertIs(out["ok"], True)
+
+	def test_api_rejects_draft_version(self):
+		draft = frappe.get_doc({"doctype": "Series Version", "series": "CS400"}).insert()
+		out = compute_design(load("w01.json"), draft.name)
+		self.assertEqual(
+			out, {"ok": False, "error_type": "series", "message": "Series Version must be published"}
+		)
+
+	def test_api_rejects_missing_version(self):
+		out = compute_design(load("w01.json"), "NO-SUCH-VERSION")
+		self.assertEqual(out, {"ok": False, "error_type": "series", "message": "Series Version not found"})
