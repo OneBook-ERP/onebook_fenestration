@@ -3,7 +3,6 @@ from frappe import _
 from frappe.model.document import Document
 
 from onebook_fenestration.engine import SectionError, analyze_dxf
-from onebook_fenestration.series_studio.snapshot import clear_all_snapshots
 
 SECTION_FIELDS = (
 	"area_mm2",
@@ -24,12 +23,6 @@ class FenestrationProfile(Document):
 			self.clear_section()
 		elif self.has_value_changed("dxf_file") or not self.area_mm2:
 			self.fill_section_from_dxf()
-
-	def on_update(self):
-		clear_all_snapshots()
-
-	def on_trash(self):
-		clear_all_snapshots()
 
 	def clear_section(self):
 		for fieldname in SECTION_FIELDS:

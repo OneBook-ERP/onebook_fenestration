@@ -1,4 +1,7 @@
-"""Turn a Series Version into the engine's SeriesSnapshot, with a Redis cache for submitted versions."""
+"""Turn a Series Version into the engine's SeriesSnapshot.
+
+Submitted versions serve the snapshot frozen at publish (cached in Redis); drafts rebuild from live masters.
+"""
 
 import frappe
 from frappe.model.document import Document
@@ -9,23 +12,18 @@ CACHE_KEY = "fen_snapshot"
 
 
 def get_snapshot(series_version: str) -> SeriesSnapshot:
-	"""Snapshot for `series_version`; submitted versions are served from cache, drafts always rebuild."""
+	"""Snapshot for `series_version`; submitted versions use the frozen snapshot_json, drafts always rebuild."""
 	if frappe.db.get_value("Series Version", series_version, "docstatus") != 1:
 		return SeriesSnapshot.from_dict(build_snapshot_dict(series_version))
 	data = frappe.cache.hget(CACHE_KEY, series_version)
 	if data is None:
-		data = build_snapshot_dict(series_version)
+		data = frappe.parse_json(frappe.db.get_value("Series Version", series_version, "snapshot_json"))
 		frappe.cache.hset(CACHE_KEY, series_version, data)
 	return SeriesSnapshot.from_dict(data)
 
 
 def clear_snapshot(series_version: str) -> None:
 	frappe.cache.hdel(CACHE_KEY, series_version)
-
-
-def clear_all_snapshots() -> None:
-	"""Profiles and glasses are live masters baked into every cached snapshot, so any edit drops them all."""
-	frappe.cache.delete_value(CACHE_KEY)
 
 
 def build_snapshot_dict(series_version: str | Document) -> dict:
