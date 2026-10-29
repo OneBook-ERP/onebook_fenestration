@@ -87,10 +87,13 @@ app_license = "mit"
 # ----------
 
 # add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "onebook_fenestration.utils.jinja_methods",
-# 	"filters": "onebook_fenestration.utils.jinja_filters"
-# }
+jinja = {
+	"methods": [
+		"onebook_fenestration.utils.jinja.fen_svg_data_uri",
+		"onebook_fenestration.utils.jinja.fen_design_rows",
+		"onebook_fenestration.utils.jinja.fen_quote_totals",
+	]
+}
 
 # Installation
 # ------------
