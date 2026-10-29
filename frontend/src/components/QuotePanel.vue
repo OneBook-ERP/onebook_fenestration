@@ -65,8 +65,8 @@ let savedTransport = Number(props.info?.transport_charges ?? 0)
 let timer: ReturnType<typeof setTimeout> | undefined
 
 const hasDraft = computed(() => !!status.value?.quotation && status.value.docstatus === 0)
-const statusLabel = computed(() => ['Draft', 'Submitted', 'Cancelled'][status.value?.docstatus ?? 0])
-const statusTheme = computed(() => (['orange', 'green', 'red'] as const)[status.value?.docstatus ?? 0])
+const statusLabel = computed(() => ['Draft', 'Submitted', 'Cancelled'][status.value?.docstatus ?? 0] ?? status.value?.status ?? 'Unknown')
+const statusTheme = computed(() => (['orange', 'green', 'red'] as const)[status.value?.docstatus ?? 0] ?? 'gray')
 const quotationUrl = computed(() =>
 	status.value?.quotation ? printPdfUrl('Quotation', status.value.quotation, 'Fenestration Quotation') : undefined,
 )
@@ -74,34 +74,45 @@ const elevationUrl = computed(() => printPdfUrl('Fenestration Project', props.pr
 const estimateUrl = computed(() => printPdfUrl('Fenestration Project', props.project, 'Fenestration Estimate Confirmation'))
 
 async function refreshStatus() {
-	status.value = await quoteStatus(props.project)
+	try {
+		status.value = await quoteStatus(props.project)
+	} catch (e) {
+		toast.error(e instanceof Error ? e.message : 'Could not load quotation status')
+	}
 }
-watch(() => props.info?.quotation, refreshStatus, { immediate: true })
+watch(
+	() => props.info?.quotation,
+	(name) => {
+		if (!name || status.value?.quotation !== name) refreshStatus()
+	},
+	{ immediate: true },
+)
 watch(() => props.info?.transport_charges, (v) => {
 	transport.value = v ?? 0
 	savedTransport = Number(v ?? 0)
 })
 
-async function saveField(fieldname: string, value: string | number) {
+async function saveField(fieldname: string, value: string | number): Promise<boolean> {
 	try {
 		await setProjectField(props.project, fieldname, value)
 		emit('changed')
+		return true
 	} catch (e) {
 		toast.error(e instanceof Error ? e.message : 'Save failed')
+		return false
 	}
 }
 
 function saveCustomer(value: string | number | null) {
-	if (value) saveField('customer', String(value))
+	saveField('customer', value ? String(value) : '')
 }
 
 function queueTransportSave() {
 	clearTimeout(timer)
-	timer = setTimeout(() => {
+	timer = setTimeout(async () => {
 		const value = Number(transport.value) || 0
 		if (value === savedTransport) return
-		savedTransport = value
-		saveField('transport_charges', value)
+		if (await saveField('transport_charges', value)) savedTransport = value
 	}, 300)
 }
 onBeforeUnmount(() => clearTimeout(timer))
@@ -123,19 +134,22 @@ async function reprice() {
 async function quote() {
 	quoting.value = true
 	const verb = hasDraft.value ? 'updated' : 'created'
+	let res
 	try {
-		const res = await makeQuotation(props.project)
-		if (!res.ok) {
-			toast.error(res.message)
-			return
-		}
-		toast.success(`Quotation ${res.quotation} ${verb}`)
-		await refreshStatus()
-		emit('changed')
+		res = await makeQuotation(props.project)
 	} catch (e) {
 		toast.error(e instanceof Error ? e.message : 'Quotation failed')
-	} finally {
 		quoting.value = false
+		return
 	}
+	if (!res.ok) {
+		toast.error(res.message)
+		quoting.value = false
+		return
+	}
+	toast.success(`Quotation ${res.quotation} ${verb}`)
+	await refreshStatus()
+	emit('changed')
+	quoting.value = false
 }
 </script>

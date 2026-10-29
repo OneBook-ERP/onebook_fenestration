@@ -117,4 +117,56 @@ describe('QuotePanel', () => {
 		expect(toast.success).toHaveBeenCalledWith('Repriced 3 designs, 1 failed')
 		expect(w.emitted('repriced')).toBeTruthy()
 	})
+
+	it('retries the transport save after a failed one', async () => {
+		vi.useFakeTimers()
+		vi.mocked(setProjectField).mockRejectedValueOnce(new Error('denied'))
+		const w = await setup()
+		const input = w.get('input[type="number"]')
+		await input.setValue('900')
+		await input.trigger('blur')
+		await vi.advanceTimersByTimeAsync(500)
+		expect(toast.error).toHaveBeenCalledWith('denied')
+		await input.trigger('blur')
+		await vi.advanceTimersByTimeAsync(500)
+		vi.useRealTimers()
+		expect(setProjectField).toHaveBeenCalledTimes(2)
+	})
+
+	it('toasts a status refresh failure without unhandled rejection', async () => {
+		vi.mocked(quoteStatus).mockRejectedValue(new Error('status down'))
+		const w = await setup({ ...base, quotation: 'QTN-1' })
+		expect(toast.error).toHaveBeenCalledWith('status down')
+		expect(w.exists()).toBe(true)
+	})
+
+	it('reports make_quotation success even when the status refresh fails', async () => {
+		vi.mocked(makeQuotation).mockResolvedValue({ ok: true, quotation: 'QTN-1' })
+		const w = await setup()
+		vi.mocked(quoteStatus).mockRejectedValue(new Error('status down'))
+		await btn(w, 'Create quotation').trigger('click')
+		await flushPromises()
+		expect(toast.success).toHaveBeenCalledWith('Quotation QTN-1 created')
+		expect(toast.error).toHaveBeenCalledWith('status down')
+		expect(toast.error).not.toHaveBeenCalledWith('Quotation failed')
+	})
+
+	it('refreshes status once after make_quotation', async () => {
+		vi.mocked(makeQuotation).mockResolvedValue({ ok: true, quotation: 'QTN-1' })
+		const w = await setup()
+		vi.mocked(quoteStatus).mockClear()
+		vi.mocked(quoteStatus).mockResolvedValue({ quotation: 'QTN-1', docstatus: 0, grand_total: 1 })
+		await btn(w, 'Create quotation').trigger('click')
+		await flushPromises()
+		await w.setProps({ info: { ...base, quotation: 'QTN-1' } })
+		await flushPromises()
+		expect(quoteStatus).toHaveBeenCalledTimes(1)
+	})
+
+	it('clears the customer with an empty value', async () => {
+		const w = await setup()
+		w.findAllComponents(Combobox).find((c) => c.props('label') === 'Customer')!.vm.$emit('update:modelValue', null)
+		await flushPromises()
+		expect(setProjectField).toHaveBeenCalledWith('FP-1', 'customer', '')
+	})
 })
