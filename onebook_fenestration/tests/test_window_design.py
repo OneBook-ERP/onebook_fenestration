@@ -4,7 +4,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 from onebook_fenestration.series_studio.importer import import_snapshot_json
-from onebook_fenestration.tests.test_snapshot import load
+from onebook_fenestration.tests.test_snapshot import import_cs400, load
 
 
 class TestWindowDesign(IntegrationTestCase):
@@ -54,3 +54,26 @@ class TestWindowDesign(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError) as ctx:
 			self.make(load("w01.json"), version=draft.name, design_ref="DRAFT").insert()
 		self.assertIn("Series Version must be published", str(ctx.exception))
+
+	def test_edit_location_after_version_cancelled_saves(self):
+		version = import_cs400()
+		doc = self.make(load("w01.json"), version=version, design_ref="LOC").insert()
+		frappe.get_doc("Series Version", version).cancel()
+		doc.location = "Bedroom 2"
+		doc.save()
+		self.assertEqual(frappe.db.get_value("Window Design", doc.name, "location"), "Bedroom 2")
+		self.assertEqual(doc.area_sqft, 12.013)
+
+	def test_invalid_design_json_message(self):
+		doc = self.make({}, design_ref="BADJSON")
+		doc.design_json = "{"
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			doc.insert()
+		self.assertIn("Design JSON is not valid", str(ctx.exception))
+
+	def test_qty_must_be_at_least_one(self):
+		doc = self.make(load("w01.json"), design_ref="QTY0")
+		doc.qty = 0
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			doc.insert()
+		self.assertIn("Qty must be at least 1", str(ctx.exception))
