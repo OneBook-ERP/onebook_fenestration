@@ -19,10 +19,28 @@ SECTION_FIELDS = (
 
 class FenestrationProfile(Document):
 	def validate(self):
+		self.validate_bar_lengths()
 		if not self.dxf_file:
 			self.clear_section()
 		elif self.has_value_changed("dxf_file") or not self.area_mm2:
 			self.fill_section_from_dxf()
+
+	def validate_bar_lengths(self):
+		"""Bar lengths are comma-separated positive numbers, e.g. "4880, 5800"."""
+		for part in (self.bar_lengths or "").split(","):
+			if not part.strip():
+				continue
+			try:
+				valid = float(part) > 0
+			except ValueError:
+				valid = False
+			if not valid:
+				frappe.throw(
+					_("Bar Lengths must be comma-separated positive numbers, e.g. 4880, 5800 (got {0})").format(
+						frappe.bold(part.strip())
+					),
+					title=_("Invalid Bar Lengths"),
+				)
 
 	def clear_section(self):
 		for fieldname in SECTION_FIELDS:

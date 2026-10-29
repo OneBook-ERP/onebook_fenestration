@@ -45,3 +45,24 @@ class TestProfileDxf(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError) as ctx:
 			profile_doc("TPDXF2", file_doc.file_url).insert()
 		self.assertIn("Could not read section from DXF", str(ctx.exception))
+
+	def test_clearing_dxf_blanks_section(self):
+		file_doc = make_file(FIXTURE.read_bytes())
+		profile = profile_doc("TPDXF3", file_doc.file_url).insert()
+		profile.dxf_file = None
+		profile.save()
+		profile.reload()
+		for fieldname in ("area_mm2", "computed_kg_per_m", "ix_mm4", "section_svg", "section_warnings"):
+			self.assertFalse(profile.get(fieldname), fieldname)
+
+	def test_bad_bar_lengths_message(self):
+		profile = profile_doc("TPBAR1", None)
+		profile.bar_lengths = "4880;5800"
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			profile.insert()
+		self.assertIn("Bar Lengths", str(ctx.exception))
+
+	def test_bar_lengths_with_spaces_accepted(self):
+		profile = profile_doc("TPBAR2", None)
+		profile.bar_lengths = " 4880 , 5800 "
+		profile.insert()
