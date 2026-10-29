@@ -1,0 +1,120 @@
+import { flushPromises, mount } from '@vue/test-utils'
+import { Combobox, toast } from 'frappe-ui'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeQuotation, quoteStatus, repriceProject, setProjectField } from '@/api'
+import QuotePanel from './QuotePanel.vue'
+
+vi.mock('frappe-ui', async (orig) => ({
+	...(await orig<object>()),
+	useList: (await import('@/test-utils')).fakeUseList({
+		Customer: [{ name: 'CUST-1', customer_name: 'Acme Corp' }, { name: 'CUST-2', customer_name: 'Beta Ltd' }],
+	}),
+	toast: { success: vi.fn(), error: vi.fn() },
+}))
+vi.mock('@/api', async (orig) => ({
+	...(await orig<object>()),
+	makeQuotation: vi.fn(),
+	quoteStatus: vi.fn(),
+	repriceProject: vi.fn(),
+	setProjectField: vi.fn(),
+}))
+
+const base = { name: 'FP-1', customer: 'CUST-1', transport_charges: 0, quotation: null as string | null }
+
+async function setup(info = base) {
+	const w = mount(QuotePanel, { props: { project: 'FP-1', info } })
+	await flushPromises()
+	return w
+}
+const btn = (w: ReturnType<typeof mount>, label: string) => w.findAll('button, a').find((b) => b.text() === label)!
+
+beforeEach(() => {
+	vi.clearAllMocks()
+	vi.mocked(quoteStatus).mockResolvedValue({ quotation: null })
+	vi.mocked(setProjectField).mockResolvedValue({})
+})
+
+describe('QuotePanel', () => {
+	it('saves the selected customer through set_value', async () => {
+		const w = await setup()
+		const cb = w.findAllComponents(Combobox).find((c) => c.props('label') === 'Customer')!
+		expect(cb.props('options')).toEqual([
+			{ label: 'Acme Corp', value: 'CUST-1' },
+			{ label: 'Beta Ltd', value: 'CUST-2' },
+		])
+		cb.vm.$emit('update:modelValue', 'CUST-2')
+		await flushPromises()
+		expect(setProjectField).toHaveBeenCalledWith('FP-1', 'customer', 'CUST-2')
+		expect(w.emitted('changed')).toBeTruthy()
+	})
+
+	it('saves transport charges on blur', async () => {
+		vi.useFakeTimers()
+		const w = await setup()
+		const input = w.get('input[type="number"]')
+		await input.setValue('1500')
+		await input.trigger('blur')
+		await vi.advanceTimersByTimeAsync(500)
+		vi.useRealTimers()
+		expect(setProjectField).toHaveBeenCalledWith('FP-1', 'transport_charges', 1500)
+	})
+
+	it('Create quotation calls make_quotation and shows status with grand total', async () => {
+		vi.mocked(makeQuotation).mockResolvedValue({ ok: true, quotation: 'QTN-1' })
+		const w = await setup()
+		vi.mocked(quoteStatus).mockResolvedValue({ quotation: 'QTN-1', docstatus: 0, grand_total: 118000 })
+		await btn(w, 'Create quotation').trigger('click')
+		await flushPromises()
+		expect(makeQuotation).toHaveBeenCalledWith('FP-1')
+		expect(toast.success).toHaveBeenCalledWith('Quotation QTN-1 created')
+		expect(w.text()).toContain('Draft')
+		expect(w.text()).toContain('₹1,18,000.00')
+		expect(btn(w, 'Update quotation')).toBeTruthy()
+		expect(w.emitted('changed')).toBeTruthy()
+	})
+
+	it('shows the gate message when make_quotation refuses', async () => {
+		vi.mocked(makeQuotation).mockResolvedValue({ ok: false, message: 'W01 has errors' })
+		const w = await setup()
+		await btn(w, 'Create quotation').trigger('click')
+		await flushPromises()
+		expect(toast.error).toHaveBeenCalledWith('W01 has errors')
+		expect(toast.success).not.toHaveBeenCalled()
+	})
+
+	it('labels Update and announces updated when a draft exists', async () => {
+		vi.mocked(quoteStatus).mockResolvedValue({ quotation: 'QTN-1', docstatus: 0, grand_total: 100 })
+		vi.mocked(makeQuotation).mockResolvedValue({ ok: true, quotation: 'QTN-1' })
+		const w = await setup({ ...base, quotation: 'QTN-1' })
+		await btn(w, 'Update quotation').trigger('click')
+		await flushPromises()
+		expect(toast.success).toHaveBeenCalledWith('Quotation QTN-1 updated')
+	})
+
+	it('links the three PDFs; disabled without a quotation', async () => {
+		vi.mocked(quoteStatus).mockResolvedValue({ quotation: 'QTN-1', docstatus: 1, grand_total: 100 })
+		const w = await setup({ ...base, quotation: 'QTN-1' })
+		expect(w.text()).toContain('Submitted')
+		const q = 'no_letterhead=0'
+		expect(btn(w, 'Quotation').attributes('href')).toBe(
+			`/api/method/frappe.utils.print_format.download_pdf?doctype=Quotation&name=QTN-1&format=Fenestration+Quotation&${q}`,
+		)
+		expect(btn(w, 'Elevation Report').attributes('href')).toContain('doctype=Fenestration+Project&name=FP-1&format=Fenestration+Elevation')
+		expect(btn(w, 'Estimate Confirmation').attributes('href')).toContain('format=Fenestration+Estimate+Confirmation')
+		vi.mocked(quoteStatus).mockResolvedValue({ quotation: null })
+		const none = await setup()
+		expect(btn(none, 'Quotation').attributes('href')).toBeUndefined()
+		expect(btn(none, 'Quotation').attributes('disabled')).toBeDefined()
+		expect(btn(none, 'Elevation Report').attributes('href')).toBeTruthy()
+	})
+
+	it('Reprice calls the API, toasts and emits repriced', async () => {
+		vi.mocked(repriceProject).mockResolvedValue({ repriced: 3, failed: [{ design: 'WD-9', message: 'x' }] })
+		const w = await setup()
+		await btn(w, 'Reprice').trigger('click')
+		await flushPromises()
+		expect(repriceProject).toHaveBeenCalledWith('FP-1')
+		expect(toast.success).toHaveBeenCalledWith('Repriced 3 designs, 1 failed')
+		expect(w.emitted('repriced')).toBeTruthy()
+	})
+})

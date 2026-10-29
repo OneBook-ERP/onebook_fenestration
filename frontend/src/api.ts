@@ -166,3 +166,35 @@ export async function createProject(values: NewProject): Promise<string> {
 	const doc = await call('frappe.client.insert', { doc: { doctype: 'Fenestration Project', ...values } })
 	return doc.name
 }
+
+const PROJECT_API = 'onebook_fenestration.api.project'
+
+export type MakeQuotationResponse = { ok: true; quotation: string } | { ok: false; message: string }
+export interface QuoteStatus {
+	quotation: string | null
+	docstatus?: number
+	status?: string
+	grand_total?: number
+	net_total?: number
+	total_taxes_and_charges?: number
+}
+export interface RepriceResult {
+	repriced: number
+	failed: { design: string; message: string }[]
+}
+
+export function makeQuotation(project: string): Promise<MakeQuotationResponse> {
+	return call(`${PROJECT_API}.make_quotation`, { project })
+}
+
+export function quoteStatus(project: string): Promise<QuoteStatus> {
+	return call(`${PROJECT_API}.quote_status`, { project })
+}
+
+export function repriceProject(project: string): Promise<RepriceResult> {
+	return call(`${PROJECT_API}.reprice_project`, { project })
+}
+
+export function setProjectField(project: string, fieldname: string, value: string | number | null): Promise<unknown> {
+	return call('frappe.client.set_value', { doctype: 'Fenestration Project', name: project, fieldname, value })
+}

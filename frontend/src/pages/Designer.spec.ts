@@ -13,6 +13,7 @@ vi.mock('@/api', () => ({
 	saveDesign: vi.fn(),
 	getDesign: vi.fn(),
 	getFenestrationDefaults: vi.fn(),
+	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
 }))
 vi.mock('frappe-ui', async (orig) => ({
 	...(await orig<object>()),
