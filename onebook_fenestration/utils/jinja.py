@@ -1,6 +1,6 @@
 import base64
 
-from onebook_fenestration.fenestration.print_context import design_rows, quote_totals
+from onebook_fenestration.fenestration.print_context import company_header, design_rows, quote_totals
 
 
 def fen_svg_data_uri(svg: str | None) -> str:
@@ -16,3 +16,7 @@ def fen_design_rows(doc) -> list[dict]:
 
 def fen_quote_totals(doc, rows: list[dict]) -> dict:
 	return quote_totals(doc, rows)
+
+
+def fen_company_header(company: str | None) -> dict:
+	return company_header(company)

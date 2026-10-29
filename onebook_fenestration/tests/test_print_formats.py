@@ -33,18 +33,18 @@ class TestPrintFormats(IntegrationTestCase):
 				"transport_charges": 1000,
 			}
 		).insert()
-		cls.designs = [cls.make_design("W01", SVG), cls.make_design("W02", "")]
+		cls.designs = [cls.make_design("W01", SVG), cls.make_design("W02", "", "<b>x</b>")]
 		cls.quotation = frappe.get_doc("Quotation", make_quotation(cls.project.name))
 
 	@classmethod
-	def make_design(cls, ref, svg):
+	def make_design(cls, ref, svg, location="Hall"):
 		design = frappe.get_doc(
 			{
 				"doctype": "Window Design",
 				"project": cls.project.name,
 				"design_ref": ref,
 				"qty": 2,
-				"location": "Hall",
+				"location": location,
 				"series_version": cls.version,
 				"design_json": json.dumps(load("w01.json")),
 			}
@@ -103,3 +103,39 @@ class TestPrintFormats(IntegrationTestCase):
 		self.assertEqual(fen_svg_data_uri(None), "")
 		self.assertEqual(fen_svg_data_uri(""), "")
 		self.assertTrue(fen_svg_data_uri(SVG).startswith(DATA_URI))
+
+	def test_quotation_money_uses_quotation_currency(self):
+		frappe.db.set_value("Quotation", self.quotation.name, "currency", "USD")
+		self.addCleanup(frappe.db.set_value, "Quotation", self.quotation.name, "currency", "INR")
+		html = self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)
+		self.assertIn("$", html)
+		self.assertNotIn("\u20b9", html)
+
+	def test_quotation_prints_quotation_lines_not_current_design_price(self):
+		windows = [row for row in self.quotation.items if row.item_code == "FEN-WINDOW"]
+		basic = sum(row.amount for row in windows)
+		design = self.designs[0]
+		design.db_set({"unit_price": 12345.67, "line_total": 24691.34})
+		html = self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)
+		self.assertIn(frappe.format(basic, {"fieldtype": "Currency"}), html)
+		self.assertIn(frappe.format(windows[0].rate, {"fieldtype": "Currency"}), html)
+		self.assertNotIn("12,345.67", html)
+		self.assertNotIn("24,691.34", html)
+
+	def test_user_text_is_escaped(self):
+		pages = [self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)] + [
+			self.printed("Fenestration Project", self.project.name, name) for name in PROJECT_FORMATS
+		]
+		for html in pages:
+			self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
+			self.assertNotIn("<b>x</b>", html)
+
+	def test_design_name_falls_back_to_typology(self):
+		html = self.printed("Fenestration Project", self.project.name, "Fenestration Elevation")
+		self.assertIn("2 sash", html)
+
+	def test_project_formats_print_company_header(self):
+		for print_format in PROJECT_FORMATS:
+			html = self.printed("Fenestration Project", self.project.name, print_format)
+			self.assertIn(test_quotation.COMPANY, html)
+			self.assertIn("Karur", html)

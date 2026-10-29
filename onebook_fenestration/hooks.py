@@ -92,6 +92,7 @@ jinja = {
 		"onebook_fenestration.utils.jinja.fen_svg_data_uri",
 		"onebook_fenestration.utils.jinja.fen_design_rows",
 		"onebook_fenestration.utils.jinja.fen_quote_totals",
+		"onebook_fenestration.utils.jinja.fen_company_header",
 	]
 }
 
