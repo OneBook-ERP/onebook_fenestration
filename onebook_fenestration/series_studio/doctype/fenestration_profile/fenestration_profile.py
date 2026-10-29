@@ -9,6 +9,7 @@ SECTION_FIELDS = (
 	"width_mm",
 	"depth_mm",
 	"perimeter_mm",
+	"total_perimeter_mm",
 	"ix_mm4",
 	"iy_mm4",
 	"computed_kg_per_m",
@@ -57,6 +58,7 @@ class FenestrationProfile(Document):
 		self.width_mm = round(section.width_mm, 1)
 		self.depth_mm = round(section.depth_mm, 1)
 		self.perimeter_mm = round(section.perimeter_mm, 1)
+		self.total_perimeter_mm = self.perimeter_mm
 		self.ix_mm4 = round(section.ix_mm4)
 		self.iy_mm4 = round(section.iy_mm4)
 		self.computed_kg_per_m = round(section.kg_per_m, 3)

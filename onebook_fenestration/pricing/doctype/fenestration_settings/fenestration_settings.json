@@ -1,0 +1,69 @@
+{
+ "issingle": 1,
+ "fields": [
+  {
+   "fieldname": "cost_price_list",
+   "fieldtype": "Link",
+   "label": "Cost Price List",
+   "options": "Price List"
+  },
+  {
+   "fieldname": "default_price_structure",
+   "fieldtype": "Link",
+   "label": "Default Price Structure",
+   "options": "Price Structure"
+  },
+  {
+   "fieldname": "default_finish",
+   "fieldtype": "Link",
+   "label": "Default Finish",
+   "options": "Profile Finish"
+  },
+  {
+   "fieldname": "billing_area_basis",
+   "fieldtype": "Select",
+   "label": "Billing Area Basis",
+   "options": "Frame size",
+   "default": "Frame size"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Fenestration Engineer",
+   "read": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1
+  }
+ ],
+ "actions": [],
+ "creation": "2026-10-30 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "modified": "2026-10-30 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Pricing",
+ "name": "Fenestration Settings",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "cost_price_list",
+  "default_price_structure",
+  "default_finish",
+  "billing_area_basis"
+ ]
+}

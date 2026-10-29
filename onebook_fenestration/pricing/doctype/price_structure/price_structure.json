@@ -1,0 +1,64 @@
+{
+ "autoname": "field:structure_name",
+ "fields": [
+  {
+   "fieldname": "structure_name",
+   "fieldtype": "Data",
+   "label": "Structure Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Is Default"
+  },
+  {
+   "fieldname": "heads",
+   "fieldtype": "Table",
+   "label": "Cost Heads",
+   "options": "Cost Head"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Fenestration Engineer",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1
+  }
+ ],
+ "actions": [],
+ "creation": "2026-10-30 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "modified": "2026-10-30 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Pricing",
+ "name": "Price Structure",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "structure_name",
+  "is_default",
+  "heads"
+ ]
+}

@@ -1,0 +1,71 @@
+{
+ "istable": 1,
+ "editable_grid": 1,
+ "fields": [
+  {
+   "fieldname": "key",
+   "fieldtype": "Data",
+   "label": "Key",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Label",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "calc",
+   "fieldtype": "Select",
+   "label": "Calculation",
+   "options": "Formula\nPercentage\nPer Area Sqft\nPer Visible Perimeter Sqft\nPer Total Perimeter Sqft\nFixed",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Float",
+   "label": "Rate",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "formula",
+   "fieldtype": "Data",
+   "label": "Formula",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "base",
+   "fieldtype": "Data",
+   "label": "Base Heads"
+  },
+  {
+   "fieldname": "condition",
+   "fieldtype": "Data",
+   "label": "Condition"
+  }
+ ],
+ "permissions": [],
+ "actions": [],
+ "creation": "2026-10-30 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "modified": "2026-10-30 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Pricing",
+ "name": "Cost Head",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "key",
+  "label",
+  "calc",
+  "rate",
+  "formula",
+  "base",
+  "condition"
+ ]
+}

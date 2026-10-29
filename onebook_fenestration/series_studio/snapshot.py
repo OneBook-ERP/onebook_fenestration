@@ -46,13 +46,15 @@ def _profiles(series: str) -> dict:
 	rows = frappe.get_all(
 		"Fenestration Profile",
 		filters={"series": series},
-		fields=["profile_code", "profile_name", "kg_per_m", "bar_lengths", "use_computed_weight", "computed_kg_per_m"],
+		fields=["profile_code", "profile_name", "kg_per_m", "bar_lengths", "use_computed_weight", "computed_kg_per_m", "visible_perimeter_mm", "total_perimeter_mm"],
 	)
 	return {
 		p.profile_code: {
 			"name": p.profile_name,
 			"kg_per_m": p.computed_kg_per_m if p.use_computed_weight and p.computed_kg_per_m else p.kg_per_m,
 			"bar_lengths": [float(part) for part in (p.bar_lengths or "").split(",") if part.strip()],
+			"visible_perimeter_mm": p.visible_perimeter_mm or 0,
+			"total_perimeter_mm": p.total_perimeter_mm or 0,
 		}
 		for p in rows
 	}

@@ -18,6 +18,8 @@
   "width_mm",
   "depth_mm",
   "perimeter_mm",
+  "total_perimeter_mm",
+  "visible_perimeter_mm",
   "ix_mm4",
   "iy_mm4",
   "computed_kg_per_m",
@@ -114,6 +116,17 @@
    "fieldtype": "Float",
    "label": "Perimeter (mm)",
    "read_only": 1
+  },
+  {
+   "fieldname": "total_perimeter_mm",
+   "fieldtype": "Float",
+   "label": "Total Perimeter (mm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "visible_perimeter_mm",
+   "fieldtype": "Float",
+   "label": "Visible Perimeter (mm)"
   },
   {
    "fieldname": "ix_mm4",
