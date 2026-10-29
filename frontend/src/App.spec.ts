@@ -47,4 +47,13 @@ describe('App', () => {
     await mountApp('/projects/FP-A')
     expect(loc.href).toBe('/login?redirect-to=' + encodeURIComponent('/fenestration/projects/FP-A?x=1'))
   })
+  it('shows an alert with a reload button when the session fails to load', async () => {
+    vi.mocked(getSession).mockRejectedValue(new Error('417'))
+    const reload = vi.fn()
+    Object.defineProperty(window, 'location', { value: { ...realLocation, reload }, configurable: true })
+    const { wrapper } = await mountApp('/projects')
+    expect(wrapper.text()).toContain('Could not load your session. Reload the page.')
+    await wrapper.findAll('button').find((b) => b.text() === 'Reload')!.trigger('click')
+    expect(reload).toHaveBeenCalled()
+  })
 })

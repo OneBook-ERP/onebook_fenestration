@@ -101,7 +101,7 @@ export interface Session {
 export async function getSession(): Promise<Session> {
 	const user: string = await call('frappe.auth.get_logged_user')
 	if (user === 'Guest') return { user, roles: [] }
-	const roles: string[] = await call('frappe.core.doctype.user.user.get_roles')
+	const roles: string[] = await call('frappe.core.doctype.user.user.get_current_user_roles')
 	return { user, roles }
 }
 
