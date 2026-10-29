@@ -53,3 +53,8 @@ jspm_packages/
 
 # Aider AI Chat
 .aider*
+
+# Client sample reports (contain customer PII)
+doc/*.pdf
+doc/*.mp4
+doc/*.dxf
