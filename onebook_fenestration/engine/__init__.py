@@ -9,7 +9,8 @@ from onebook_fenestration.engine.types import (
 	EngineResult,
 	GlassPane,
 	Issue,
+	RuleError,
 	SeriesSnapshot,
 )
 
-__all__ = ["analyze_dxf", "SectionProperties", "compute", "BomLine", "CutMember", "DesignError", "EngineResult", "GlassPane", "Issue", "SeriesSnapshot"]
+__all__ = ["analyze_dxf", "SectionProperties", "compute", "BomLine", "CutMember", "DesignError", "EngineResult", "GlassPane", "Issue", "RuleError", "SeriesSnapshot"]
