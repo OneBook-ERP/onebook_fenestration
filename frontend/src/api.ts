@@ -92,3 +92,30 @@ export function saveDesign(args: SaveArgs): Promise<SaveResponse> {
 export function getDesign(name: string): Promise<SavedDesign> {
 	return call(`${API}.get_design`, { name })
 }
+
+export interface Session {
+	user: string
+	roles: string[]
+}
+
+export async function getSession(): Promise<Session> {
+	const user: string = await call('frappe.auth.get_logged_user')
+	if (user === 'Guest') return { user, roles: [] }
+	const roles: string[] = await call('frappe.core.doctype.user.user.get_roles')
+	return { user, roles }
+}
+
+export function logout(): Promise<unknown> {
+	return call('logout')
+}
+
+export interface NewProject {
+	project_title: string
+	customer?: string
+	default_series_version: string
+}
+
+export async function createProject(values: NewProject): Promise<string> {
+	const doc = await call('frappe.client.insert', { doc: { doctype: 'Fenestration Project', ...values } })
+	return doc.name
+}
