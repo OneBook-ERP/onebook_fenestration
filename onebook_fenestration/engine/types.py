@@ -36,6 +36,8 @@ class ProfileSpec:
 	name: str
 	kg_per_m: float
 	bar_lengths: tuple[float, ...]
+	visible_perimeter_mm: float = 0.0
+	total_perimeter_mm: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -99,7 +101,9 @@ class SeriesSnapshot:
 		profiles = {}
 		for pcode, p in sections["profiles"].items():
 			spec = _row(ProfileSpec, {**p, "code": pcode}, f"profile {pcode}")
-			profiles[pcode] = ProfileSpec(spec.code, spec.name, spec.kg_per_m, tuple(spec.bar_lengths))
+			profiles[pcode] = ProfileSpec(
+				spec.code, spec.name, spec.kg_per_m, tuple(spec.bar_lengths), spec.visible_perimeter_mm, spec.total_perimeter_mm
+			)
 		member_rules = []
 		for r in sections["member_rules"]:
 			rule = _row(MemberRule, r, f"member rule {r.get('id')}")
