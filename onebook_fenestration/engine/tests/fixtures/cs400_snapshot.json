@@ -1,0 +1,36 @@
+{
+	"code": "CS400",
+	"version": "placeholder-from-eva-pdfs",
+	"deductions": {
+		"bar_end_frame": 24,
+		"bar_end_mullion": 24,
+		"bar_end_transom": 24,
+		"sash_side_frame": 18,
+		"sash_side_mullion": 5.5,
+		"sash_side_transom": 5.5,
+		"sash_glass": 50.5,
+		"fixed_glass_side_frame": 30,
+		"fixed_glass_side_mullion": 30,
+		"fixed_glass_side_transom": 30,
+		"glazing_gasket": 14
+	},
+	"profiles": {
+		"E104156": {"name": "CMT OUTER 40MM X 42MM", "kg_per_m": 0.649, "bar_lengths": [4880, 5800]},
+		"E104159": {"name": "CMT T MULLION 40MM X 60MM", "kg_per_m": 0.809, "bar_lengths": [4800, 5800]},
+		"E104160": {"name": "CMT SASH 40MM X 64.5MM", "kg_per_m": 0.95, "bar_lengths": [4800, 5800]},
+		"CS4807": {"name": "GLAZING BEAD 23MM X 20MM", "kg_per_m": 0.216, "bar_lengths": [5800]}
+	},
+	"member_rules": [
+		{"id": "mr_frame", "role": "frame", "profile": "E104156", "angles": [45, 135], "length": "span"},
+		{"id": "mr_sash", "role": "sash", "profile": "E104160", "angles": [45, 135], "length": "span - d_start - d_end"},
+		{"id": "mr_mullion", "role": "mullion", "profile": "E104159", "angles": [90, 90], "length": "span - d_start - d_end"},
+		{"id": "mr_transom", "role": "transom", "profile": "E104159", "angles": [90, 90], "length": "span - d_start - d_end"}
+	],
+	"hardware_rules": [],
+	"validation_rules": [],
+	"glasses": {
+		"6CTG": {"name": "6 MM CLEAR TOUGHNED GLASS", "thickness_mm": 6},
+		"5TGT": {"name": "5 MM TINTED GREY TG GLASS", "thickness_mm": 5}
+	},
+	"constants": {"glass_density": 2.5}
+}
