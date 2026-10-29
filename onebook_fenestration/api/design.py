@@ -3,14 +3,19 @@ import json
 import frappe
 from frappe import _
 
-from onebook_fenestration.engine import DesignError, RuleError, compute
-from onebook_fenestration.fenestration.doctype.window_design.window_design import result_to_dict
-from onebook_fenestration.series_studio.snapshot import get_snapshot
+from onebook_fenestration.engine import DesignError, RuleError
+from onebook_fenestration.fenestration.doctype.window_design.window_design import (
+	pricing_to_dict,
+	result_to_dict,
+)
+from onebook_fenestration.pricing.rates import price_design
 
 
 @frappe.whitelist()
-def compute_design(design: dict | str, series_version: str) -> dict:
-	"""Compute cut list, weights and issues; bad designs return errors instead of raising."""
+def compute_design(
+	design: dict | str, series_version: str, finish: str | None = None, price_structure: str | None = None
+) -> dict:
+	"""Compute cut list, weights, price and issues; bad designs return errors instead of raising."""
 	docstatus = frappe.db.get_value("Series Version", series_version, "docstatus")
 	if docstatus is None:
 		return {"ok": False, "error_type": "series", "message": _("Series Version not found")}
@@ -23,12 +28,16 @@ def compute_design(design: dict | str, series_version: str) -> dict:
 		except json.JSONDecodeError:
 			return {"ok": False, "error_type": "design", "message": "design is not valid JSON"}
 	try:
-		result = compute(design, get_snapshot(series_version))
+		result, breakdown = price_design(design, series_version, finish, price_structure)
 	except DesignError as exc:
 		return {"ok": False, "error_type": "design", "message": str(exc)}
-	except RuleError as exc:
+	except (RuleError, frappe.DoesNotExistError) as exc:
 		return {"ok": False, "error_type": "series", "message": str(exc)}
-	return {"ok": True, "result": result_to_dict(result)}
+	out = result_to_dict(result)
+	pricing = pricing_to_dict(breakdown)
+	out["issues"] += pricing.pop("issues")
+	out["pricing"] = pricing
+	return {"ok": True, "result": out}
 
 
 @frappe.whitelist()
@@ -42,6 +51,8 @@ def save_design(
 	design_name: str = "",
 	location: str = "",
 	name: str | None = None,
+	finish: str | None = None,
+	price_structure: str | None = None,
 ) -> dict:
 	"""Insert a Window Design, or update `name`; results are recomputed by the doc's validate."""
 	frappe.has_permission("Window Design", "write" if name else "create", doc=name, throw=True)
@@ -65,6 +76,10 @@ def save_design(
 	)
 	if svg:
 		doc.design_svg = svg
+	if finish:
+		doc.finish = finish
+	if price_structure:
+		doc.price_structure = price_structure
 	frappe.db.savepoint("save_design")
 	try:
 		doc.save()
@@ -81,6 +96,8 @@ def save_design(
 			"window_kg": doc.window_kg,
 			"error_count": doc.error_count,
 			"warning_count": doc.warning_count,
+			"unit_price": doc.unit_price,
+			"line_total": doc.line_total,
 		},
 	}
 
@@ -97,11 +114,23 @@ def get_design(name: str) -> dict:
 	"""Return a saved Window Design with its JSON fields parsed."""
 	frappe.has_permission("Window Design", "read", name, throw=True)
 	doc = frappe.get_doc("Window Design", name)
-	out = {
-		f: doc.get(f)
-		for f in ("name", "project", "design_ref", "design_name", "qty", "location", "series_version", "design_svg")
-	}
-	for field in ("design_json", "result_json"):
+	fields = (
+		"name",
+		"project",
+		"design_ref",
+		"design_name",
+		"qty",
+		"location",
+		"series_version",
+		"design_svg",
+		"finish",
+		"price_structure",
+		"unit_price",
+		"rate_per_sqft",
+		"line_total",
+	)
+	out = {f: doc.get(f) for f in fields}
+	for field in ("design_json", "result_json", "pricing_json"):
 		value = doc.get(field)
 		out[field] = json.loads(value) if isinstance(value, str) else value
 	return out

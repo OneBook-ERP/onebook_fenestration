@@ -63,6 +63,22 @@ class TestSaveDesign(IntegrationTestCase):
 		self.assertEqual(frappe.db.get_value("Window Design", res["name"], "qty"), 3)
 		self.assertIn("rect", frappe.db.get_value("Window Design", res["name"], "design_svg"))
 
+	def test_save_design_returns_price(self):
+		res = self.save(design_ref="W-PRICE", qty=2)
+		self.assertTrue(res["ok"])
+		self.assertEqual(res["results"]["line_total"], round(res["results"]["unit_price"] * 2, 2))
+		doc = get_design(res["name"])
+		for key in ("finish", "price_structure", "unit_price", "rate_per_sqft", "line_total"):
+			self.assertIn(key, doc)
+		self.assertIsInstance(doc["pricing_json"], dict)
+
+	def test_save_design_passes_finish(self):
+		res = self.save(design_ref="W-FIN", finish="WOOD")
+		self.assertEqual(frappe.db.get_value("Window Design", res["name"], "finish"), "WOOD")
+		again = self.save(design_ref="W-FIN", name=res["name"])
+		self.assertEqual(frappe.db.get_value("Window Design", res["name"], "finish"), "WOOD")
+		self.assertTrue(again["ok"])
+
 	def test_save_design_duplicate_ref_message(self):
 		self.assertTrue(self.save(design_ref="W-DUP")["ok"])
 		res = self.save(design_ref="W-DUP")

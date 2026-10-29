@@ -18,6 +18,13 @@
   "error_count",
   "warning_count",
   "result_json",
+  "pricing_section",
+  "finish",
+  "price_structure",
+  "unit_price",
+  "rate_per_sqft",
+  "line_total",
+  "pricing_json",
   "design_svg"
  ],
  "fields": [
@@ -108,6 +115,48 @@
    "read_only": 1
   },
   {
+   "fieldname": "pricing_section",
+   "fieldtype": "Section Break",
+   "label": "Pricing"
+  },
+  {
+   "fieldname": "finish",
+   "fieldtype": "Link",
+   "label": "Finish",
+   "options": "Profile Finish"
+  },
+  {
+   "fieldname": "price_structure",
+   "fieldtype": "Link",
+   "label": "Price Structure",
+   "options": "Price Structure"
+  },
+  {
+   "fieldname": "unit_price",
+   "fieldtype": "Currency",
+   "label": "Unit Price",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rate_per_sqft",
+   "fieldtype": "Currency",
+   "label": "Rate per sq.ft",
+   "read_only": 1
+  },
+  {
+   "fieldname": "line_total",
+   "fieldtype": "Currency",
+   "label": "Line Total",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pricing_json",
+   "fieldtype": "JSON",
+   "label": "Pricing JSON",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
    "fieldname": "design_svg",
    "fieldtype": "Long Text",
    "label": "Design SVG",
@@ -115,7 +164,7 @@
    "ignore_xss_filter": 1
   }
  ],
- "modified": "2026-10-30 00:00:01",
+ "modified": "2026-10-30 00:00:02",
  "modified_by": "Administrator",
  "module": "Fenestration",
  "name": "Window Design",

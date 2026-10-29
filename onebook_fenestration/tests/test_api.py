@@ -29,6 +29,23 @@ class TestComputeDesignApi(IntegrationTestCase):
 		self.assertIs(out["ok"], True)
 		self.assertEqual(out["result"]["area_sqft"], 12.013)
 
+	def test_api_returns_pricing(self):
+		out = compute_design(load("w01.json"), self.version)
+		pricing = out["result"]["pricing"]
+		self.assertTrue(pricing["lines"])
+		self.assertGreater(pricing["unit_price"], 0)
+		self.assertIn("rate_per_sqft", pricing)
+
+	def test_api_pricing_issues_join_result_issues(self):
+		frappe.db.set_single_value("Fenestration Settings", "cost_price_list", None)
+		out = compute_design(load("w01.json"), self.version)
+		self.assertTrue(any(i["code"] == "no_rate" for i in out["result"]["issues"]))
+
+	def test_api_unknown_price_structure_is_series_error(self):
+		out = compute_design(load("w01.json"), self.version, price_structure="Nope")
+		self.assertIs(out["ok"], False)
+		self.assertEqual(out["error_type"], "series")
+
 	def test_api_bad_design_returns_error(self):
 		design = load("w01.json")
 		design["root"]["at"] = [0]
