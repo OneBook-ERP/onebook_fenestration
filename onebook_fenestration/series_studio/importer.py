@@ -3,9 +3,10 @@
 import frappe
 
 from onebook_fenestration.engine import SeriesSnapshot
+from onebook_fenestration.engine.glazing import GASKETS
 
 ITEM_GROUP = "Fenestration"
-DEFAULT_HSN_CODES = {"Profile": "760429", "Hardware": "830241"}
+DEFAULT_HSN_CODES = {"Profile": "760429", "Hardware": "830241", "Gasket": "400829"}
 
 
 def import_snapshot_json(
@@ -29,6 +30,7 @@ def import_snapshot_json(
 		_ensure_profile(profile, series_code, roles.get(profile.code, "accessory"))
 	for rule in snap.hardware_rules:
 		_ensure_item(rule.item, rule.name, rule.uom, "Hardware", hsn_codes)
+	ensure_gasket_items(hsn_codes)
 	version = frappe.get_doc(
 		{
 			"doctype": "Series Version",
@@ -42,6 +44,14 @@ def import_snapshot_json(
 	).insert()
 	version.submit()
 	return version.name
+
+
+def ensure_gasket_items(hsn_codes: dict | None = None) -> None:
+	"""Create the gasket Items the engine's glazing rules emit (G21, G23) when missing."""
+	hsn_codes = DEFAULT_HSN_CODES if hsn_codes is None else hsn_codes
+	_ensure_item_group()
+	for code, name in GASKETS.items():
+		_ensure_item(code, name, "Meter", "Gasket", hsn_codes)
 
 
 def _member_row(rule) -> dict:

@@ -5,6 +5,7 @@ from onebook_fenestration.engine.members import FRAME_PANEL
 from onebook_fenestration.engine.types import BomLine, GlassPane, Issue, SeriesSnapshot
 
 GASKET_GROUP = "Gasket"
+GASKETS = {"G21": "FRAME GASKET CASEMENT", "G23": "GASKET 3MM"}
 
 
 def glaze(
@@ -24,7 +25,7 @@ def glaze(
 
 	def add_frame_gasket(panel: str, width: float, height: float):
 		for position, length in (("B", width), ("T", width), ("L", height), ("R", height)):
-			add_gasket("G21", "FRAME GASKET CASEMENT", panel, position, length)
+			add_gasket("G21", GASKETS["G21"], panel, position, length)
 
 	add_frame_gasket(FRAME_PANEL, design["width"], design["height"])
 
@@ -60,5 +61,5 @@ def glaze(
 			continue
 		panes.append(GlassPane(panel, len(panes) + 1, code, width, height, cell.path))
 		for position, length in (("W", width), ("W", width), ("H", height), ("H", height)):
-			add_gasket("G23", "GASKET 3MM", panel, position, length - 2 * gasket)
+			add_gasket("G23", GASKETS["G23"], panel, position, length - 2 * gasket)
 	return panes, bom, issues
