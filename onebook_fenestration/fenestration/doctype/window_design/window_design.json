@@ -1,0 +1,147 @@
+{
+ "actions": [],
+ "creation": "2026-10-29 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "project",
+  "design_ref",
+  "design_name",
+  "qty",
+  "location",
+  "series_version",
+  "design_json",
+  "results_section",
+  "area_m2",
+  "area_sqft",
+  "window_kg",
+  "error_count",
+  "warning_count",
+  "result_json",
+  "design_svg"
+ ],
+ "fields": [
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Fenestration Project",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "design_ref",
+   "fieldtype": "Data",
+   "label": "Design Ref",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "design_name",
+   "fieldtype": "Data",
+   "label": "Design Name"
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "label": "Qty",
+   "default": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "fieldname": "series_version",
+   "fieldtype": "Link",
+   "label": "Series Version",
+   "options": "Series Version",
+   "reqd": 1
+  },
+  {
+   "fieldname": "design_json",
+   "fieldtype": "JSON",
+   "label": "Design JSON",
+   "reqd": 1
+  },
+  {
+   "fieldname": "results_section",
+   "fieldtype": "Section Break",
+   "label": "Results"
+  },
+  {
+   "fieldname": "area_m2",
+   "fieldtype": "Float",
+   "label": "Area (m2)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "area_sqft",
+   "fieldtype": "Float",
+   "label": "Area (sqft)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "window_kg",
+   "fieldtype": "Float",
+   "label": "Window Weight (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error_count",
+   "fieldtype": "Int",
+   "label": "Errors",
+   "read_only": 1
+  },
+  {
+   "fieldname": "warning_count",
+   "fieldtype": "Int",
+   "label": "Warnings",
+   "read_only": 1
+  },
+  {
+   "fieldname": "result_json",
+   "fieldtype": "JSON",
+   "label": "Result JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "design_svg",
+   "fieldtype": "Long Text",
+   "label": "Design SVG",
+   "hidden": 1
+  }
+ ],
+ "modified": "2026-10-29 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Fenestration",
+ "name": "Window Design",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ],
+ "track_changes": 1,
+ "autoname": "format:{project}-{design_ref}",
+ "naming_rule": "Expression"
+}
