@@ -32,7 +32,6 @@
 			<SidebarHeader title="Projects" :show-logo="false" />
 			<div class="flex-1 overflow-y-auto">
 				<SidebarItem label="All projects" icon="lucide-folder-kanban" route="/projects" />
-				<SidebarItem label="Recent" icon="lucide-clock" route="/projects?sort=recent" />
 				<SidebarSection label="Recent projects">
 					<SidebarItem
 						v-for="p in recent"

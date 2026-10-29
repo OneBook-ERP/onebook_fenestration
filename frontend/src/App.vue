@@ -2,7 +2,7 @@
   <FrappeUIProvider>
     <RouterView v-if="$route.meta.fullscreen" />
     <AppShell v-else-if="session" :user="session.user" :roles="session.roles">
-      <RouterView />
+      <RouterView :key="$route.fullPath" />
     </AppShell>
   </FrappeUIProvider>
 </template>
@@ -19,7 +19,8 @@ const session = ref<Session | null>(null)
 onMounted(async () => {
   const s = await getSession()
   if (s.user === 'Guest') {
-    window.location.href = '/login?redirect-to=/fenestration'
+    const { pathname, search } = window.location
+    window.location.href = '/login?redirect-to=' + encodeURIComponent(pathname + search)
     return
   }
   session.value = s
