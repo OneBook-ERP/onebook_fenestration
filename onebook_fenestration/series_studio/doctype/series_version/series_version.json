@@ -1,0 +1,97 @@
+{
+ "actions": [],
+ "creation": "2026-10-29 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "series",
+  "version_note",
+  "deductions",
+  "member_rules",
+  "hardware_rules",
+  "validation_rules",
+  "constants"
+ ],
+ "fields": [
+  {
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "label": "Series",
+   "options": "Profile Series",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "version_note",
+   "fieldtype": "Small Text",
+   "label": "Version Note"
+  },
+  {
+   "fieldname": "deductions",
+   "fieldtype": "Table",
+   "label": "Deductions",
+   "options": "Series Deduction"
+  },
+  {
+   "fieldname": "member_rules",
+   "fieldtype": "Table",
+   "label": "Member Rules",
+   "options": "Series Member Rule"
+  },
+  {
+   "fieldname": "hardware_rules",
+   "fieldtype": "Table",
+   "label": "Hardware Rules",
+   "options": "Series Hardware Rule"
+  },
+  {
+   "fieldname": "validation_rules",
+   "fieldtype": "Table",
+   "label": "Validation Rules",
+   "options": "Series Validation Rule"
+  },
+  {
+   "fieldname": "constants",
+   "fieldtype": "Table",
+   "label": "Constants",
+   "options": "Series Constant"
+  }
+ ],
+ "modified": "2026-10-29 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Series Studio",
+ "name": "Series Version",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "role": "Fenestration Engineer",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  }
+ ],
+ "autoname": "format:{series}-V{##}",
+ "naming_rule": "Expression",
+ "is_submittable": 1,
+ "track_changes": 1
+}

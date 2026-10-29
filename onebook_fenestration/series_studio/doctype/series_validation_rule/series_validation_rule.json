@@ -1,0 +1,54 @@
+{
+ "actions": [],
+ "creation": "2026-10-29 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "rule_id",
+  "when_expr",
+  "severity",
+  "message",
+  "hint"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_id",
+   "fieldtype": "Data",
+   "label": "Rule Id",
+   "reqd": 1
+  },
+  {
+   "fieldname": "when_expr",
+   "fieldtype": "Data",
+   "label": "When Expr",
+   "reqd": 1
+  },
+  {
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Severity",
+   "options": "error\nwarn",
+   "reqd": 1
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Small Text",
+   "label": "Message",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hint",
+   "fieldtype": "Small Text",
+   "label": "Hint"
+  }
+ ],
+ "modified": "2026-10-29 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Series Studio",
+ "name": "Series Validation Rule",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "istable": 1,
+ "editable_grid": 1
+}

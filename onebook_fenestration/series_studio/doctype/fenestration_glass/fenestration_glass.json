@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "creation": "2026-10-29 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "glass_code",
+  "glass_name",
+  "thickness_mm",
+  "item"
+ ],
+ "fields": [
+  {
+   "fieldname": "glass_code",
+   "fieldtype": "Data",
+   "label": "Glass Code",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "glass_name",
+   "fieldtype": "Data",
+   "label": "Glass Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "thickness_mm",
+   "fieldtype": "Float",
+   "label": "Thickness Mm",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item"
+  }
+ ],
+ "modified": "2026-10-29 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Series Studio",
+ "name": "Fenestration Glass",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Fenestration Engineer",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ],
+ "autoname": "field:glass_code"
+}

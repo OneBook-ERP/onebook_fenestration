@@ -1,0 +1,85 @@
+{
+ "actions": [],
+ "creation": "2026-10-29 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "rule_id",
+  "item",
+  "item_name",
+  "per",
+  "when_expr",
+  "qty_expr",
+  "length_expr",
+  "uom",
+  "bom_group"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_id",
+   "fieldtype": "Data",
+   "label": "Rule Id",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "fetch_from": "item.item_name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "per",
+   "fieldtype": "Select",
+   "label": "Per",
+   "options": "frame_member\nsash_member\nmullion\ntransom_member\nsash\nglass\nwindow",
+   "reqd": 1
+  },
+  {
+   "fieldname": "when_expr",
+   "fieldtype": "Data",
+   "label": "When Expr",
+   "default": "True"
+  },
+  {
+   "fieldname": "qty_expr",
+   "fieldtype": "Data",
+   "label": "Qty Expr",
+   "reqd": 1
+  },
+  {
+   "fieldname": "length_expr",
+   "fieldtype": "Data",
+   "label": "Length Expr"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "Uom",
+   "options": "UOM",
+   "default": "Nos"
+  },
+  {
+   "fieldname": "bom_group",
+   "fieldtype": "Data",
+   "label": "Bom Group",
+   "default": "Fabrication Hardware"
+  }
+ ],
+ "modified": "2026-10-29 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Series Studio",
+ "name": "Series Hardware Rule",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "istable": 1,
+ "editable_grid": 1
+}

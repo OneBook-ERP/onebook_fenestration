@@ -1,0 +1,35 @@
+{
+ "actions": [],
+ "creation": "2026-10-29 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "constant_key",
+  "value"
+ ],
+ "fields": [
+  {
+   "fieldname": "constant_key",
+   "fieldtype": "Data",
+   "label": "Constant Key",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Float",
+   "label": "Value",
+   "reqd": 1,
+   "in_list_view": 1
+  }
+ ],
+ "modified": "2026-10-29 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Series Studio",
+ "name": "Series Constant",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "istable": 1,
+ "editable_grid": 1
+}
