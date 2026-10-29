@@ -1,6 +1,7 @@
 """Resolve ERPNext Item Prices into the pure pricing engine's input."""
 
 import frappe
+from frappe.utils import getdate
 
 from onebook_fenestration.engine import EngineResult, PriceBreakdown, PricingInput, SeriesSnapshot, compute, price
 from onebook_fenestration.pricing.doctype.price_structure.price_structure import to_cost_heads
@@ -71,15 +72,25 @@ def _item_map(doctype: str, code_field: str, codes: set) -> dict[str, str]:
 
 
 def _item_prices(price_list: str, codes: set) -> dict[str, float]:
+	"""Current, party-independent rate per item. Rates are read as per kg / m2 / m by ruling (uom not converted)."""
 	if not codes:
 		return {}
 	rows = frappe.get_all(
 		"Item Price",
 		filters={"price_list": price_list, "item_code": ["in", list(codes)]},
-		fields=["item_code", "price_list_rate"],
-		order_by="modified desc",
+		fields=["item_code", "price_list_rate", "valid_from", "valid_upto", "customer", "supplier"],
+		order_by="valid_from desc, modified desc",
 	)
+	today = getdate()
 	prices = {}
 	for row in rows:
+		if row.customer or row.supplier or not _is_valid(row, today):
+			continue
 		prices.setdefault(row.item_code, row.price_list_rate)
 	return prices
+
+
+def _is_valid(row, today) -> bool:
+	return (not row.valid_from or getdate(row.valid_from) <= today) and (
+		not row.valid_upto or getdate(row.valid_upto) >= today
+	)

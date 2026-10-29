@@ -1,8 +1,9 @@
 import frappe
 from frappe.tests import IntegrationTestCase
+from frappe.utils import add_days, today
 
 from onebook_fenestration.engine import compute
-from onebook_fenestration.pricing.rates import build_pricing_input, price_design
+from onebook_fenestration.pricing.rates import _item_prices, build_pricing_input, price_design
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.tests.test_snapshot import import_cs400, load
 
@@ -71,6 +72,38 @@ class TestRates(IntegrationTestCase):
 				"price_list_rate": rate,
 			}
 		).insert()
+
+	def add_price(self, price_list, rate, **extra):
+		frappe.get_doc(
+			{"doctype": "Item Price", "price_list": price_list, "item_code": "H401", "uom": "Nos", "price_list_rate": rate, **extra}
+		).insert(ignore_links=True)
+
+	def validity_list(self):
+		name = f"Fen Test {self._testMethodName}"
+		if not frappe.db.exists("Price List", name):
+			frappe.get_doc(
+				{"doctype": "Price List", "price_list_name": name, "currency": "INR", "buying": 1, "selling": 1, "enabled": 1}
+			).insert()
+		return name
+
+	def test_expired_price_is_ignored(self):
+		pl = self.validity_list()
+		self.add_price(pl, 10, valid_from=add_days(today(), -30))
+		self.add_price(pl, 99, valid_from=add_days(today(), -20), valid_upto=add_days(today(), -1))
+		self.add_price(pl, 77, valid_from=add_days(today(), 5))
+		self.assertEqual(_item_prices(pl, {"H401"}), {"H401": 10})
+
+	def test_customer_specific_price_is_ignored(self):
+		pl = self.validity_list()
+		self.add_price(pl, 10)
+		self.add_price(pl, 99, customer="Fen Test Customer")
+		self.assertEqual(_item_prices(pl, {"H401"}), {"H401": 10})
+
+	def test_latest_valid_from_wins(self):
+		pl = self.validity_list()
+		self.add_price(pl, 10, valid_from=add_days(today(), -30))
+		self.add_price(pl, 20, valid_from=add_days(today(), -10))
+		self.assertEqual(_item_prices(pl, {"H401"}), {"H401": 20})
 
 	def build(self, price_list=PRICE_LIST):
 		return build_pricing_input(self.snapshot, self.result, "GREY", "Standard", price_list)
