@@ -21,7 +21,7 @@ STANDARD = (
 )
 
 
-def _inputs(result, heads=STANDARD, finish="Powder Coat", visible=False, **kw):
+def _inputs(result, heads=STANDARD, finish="Powder Coat", **kw):
 	profiles = {m.profile for m in result.members}
 	items = {b.item for b in result.bom}
 	return PricingInput(
@@ -34,10 +34,12 @@ def _inputs(result, heads=STANDARD, finish="Powder Coat", visible=False, **kw):
 	)
 
 
-def _setup(with_perimeter=False):
+def _setup(with_perimeter=False, total=False):
 	snap = snapshot()
 	if with_perimeter:
 		snap.profiles["E104156"] = replace(snap.profiles["E104156"], visible_perimeter_mm=100)
+	if total:
+		snap.profiles["E104156"] = replace(snap.profiles["E104156"], total_perimeter_mm=200)
 	return compute(load("w01.json"), snap), snap
 
 
@@ -47,7 +49,7 @@ class TestPricing(unittest.TestCase):
 		out = price(result, snap, _inputs(result))
 		kg = sum(m.length / 1000 * snap.profiles[m.profile].kg_per_m for m in result.members)
 		self.assertAlmostEqual(out.variables["profile_cost"], round(kg * 300, 2), places=2)
-		self.assertAlmostEqual(out.variables["glass_cost"], 2 * 0.333 * 1.083 * 1000, places=0)
+		self.assertAlmostEqual(out.variables["glass_cost"], sum(g.width * g.height / 1e6 * 1000 for g in result.glass), places=2)
 		hw = sum(b.qty * 10 for b in result.bom if b.group != "Gasket")
 		gk = sum(b.length / 1000 * 20 for b in result.bom if b.group == "Gasket")
 		self.assertGreater(gk, 0)
@@ -98,3 +100,47 @@ class TestPricing(unittest.TestCase):
 		out = price(result, snap, _inputs(result))
 		self.assertEqual(out.unit_price, round(sum(line.amount for line in out.lines), 2))
 		self.assertEqual(out.rate_per_sqft, round(out.unit_price / result.area_sqft, 2))
+
+	def test_reserved_and_duplicate_keys_rejected(self):
+		result, snap = _setup()
+		for heads in (
+			(CostHead("area_sqft", "A", "Fixed", rate=1),),
+			(CostHead("a", "A", "Fixed", rate=1), CostHead("a", "A2", "Fixed", rate=1)),
+		):
+			with self.assertRaises(RuleError) as ctx:
+				price(result, snap, _inputs(result, heads))
+			self.assertIn("duplicate or reserved cost head key", str(ctx.exception))
+
+	def test_fixed_and_area_amounts(self):
+		result, snap = _setup()
+		heads = (CostHead("f", "F", "Fixed", rate=12.5), CostHead("a", "A", "Per Area Sqft", rate=3))
+		out = price(result, snap, _inputs(result, heads))
+		self.assertEqual(out.variables["f"], 12.5)
+		self.assertEqual(out.variables["a"], round(3 * result.area_sqft, 2))
+
+	def test_total_perimeter_amount(self):
+		result, snap = _setup(total=True)
+		out = price(result, snap, _inputs(result, (CostHead("t", "T", "Per Total Perimeter Sqft", rate=40),)))
+		self.assertGreater(out.variables["total_perimeter_sqft"], 0)
+		self.assertEqual(out.variables["t"], round(40 * out.variables["total_perimeter_sqft"], 2))
+
+	def test_percentage_of_skipped_head_is_zero(self):
+		result, snap = _setup()
+		heads = (
+			CostHead("a", "A", "Fixed", rate=100, condition="finish_type == 'Wood'"),
+			CostHead("b", "B", "Percentage", rate=10, base="a"),
+		)
+		out = price(result, snap, _inputs(result, heads))
+		self.assertEqual([line.amount for line in out.lines], [0, 0])
+
+	def test_bad_base_raises_even_when_condition_false(self):
+		result, snap = _setup()
+		heads = (CostHead("a", "A", "Percentage", rate=5, base="zzz", condition="False"),)
+		with self.assertRaises(RuleError):
+			price(result, snap, _inputs(result, heads))
+
+	def test_unknown_calc_names_key(self):
+		result, snap = _setup()
+		with self.assertRaises(RuleError) as ctx:
+			price(result, snap, _inputs(result, (CostHead("weird", "W", "Bogus"),)))
+		self.assertIn("weird", str(ctx.exception))

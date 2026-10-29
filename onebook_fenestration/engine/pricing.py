@@ -6,6 +6,20 @@ from onebook_fenestration.engine.formula import evaluate, evaluate_number
 from onebook_fenestration.engine.types import EngineResult, Issue, RuleError, SeriesSnapshot
 
 SQFT_PER_M2 = 10.764
+_RESERVED = frozenset(
+	(
+		"profile_cost",
+		"hardware_cost",
+		"gasket_cost",
+		"glass_cost",
+		"area_sqft",
+		"area_m2",
+		"window_kg",
+		"visible_perimeter_sqft",
+		"total_perimeter_sqft",
+		"finish_type",
+	)
+)
 
 
 @dataclass(frozen=True)
@@ -48,7 +62,11 @@ class PriceBreakdown:
 def price(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingInput) -> PriceBreakdown:
 	variables = _variables(result, snapshot, pricing)
 	lines = []
+	seen = set()
 	for head in pricing.heads:
+		if head.key in _RESERVED or head.key in seen:
+			raise RuleError(f"{head.key}: duplicate or reserved cost head key")
+		seen.add(head.key)
 		amount = round(_amount(head, variables), 2)
 		variables[head.key] = amount
 		lines.append(PriceLine(head.key, head.label, amount))
@@ -85,12 +103,13 @@ def _perimeter_sqft(result: EngineResult, snapshot: SeriesSnapshot, attr: str) -
 
 
 def _amount(head: CostHead, variables: dict) -> float:
+	base = _base(head, variables) if head.calc == "Percentage" else 0.0
 	if head.condition and not evaluate(head.condition, variables, head.key):
 		return 0.0
 	if head.calc == "Formula":
 		return evaluate_number(head.formula, variables, head.key)
 	if head.calc == "Percentage":
-		return head.rate / 100 * _base(head, variables)
+		return head.rate / 100 * base
 	if head.calc == "Per Area Sqft":
 		return head.rate * variables["area_sqft"]
 	if head.calc == "Per Visible Perimeter Sqft":
@@ -110,8 +129,3 @@ def _base(head: CostHead, variables: dict) -> float:
 		total += variables[key]
 	return total
 
-
-_RESERVED = frozenset(
-	("profile_cost", "hardware_cost", "gasket_cost", "glass_cost", "area_sqft", "area_m2", "window_kg",
-	"visible_perimeter_sqft", "total_perimeter_sqft", "finish_type")
-)
