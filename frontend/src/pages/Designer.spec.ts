@@ -249,6 +249,49 @@ describe('Designer page', () => {
 		expect(unload()).toBe(false)
 	})
 
+	it('a stale load failure does not touch the current route', async () => {
+		let reject!: (e: Error) => void
+		vi.mocked(getDesign)
+			.mockImplementationOnce(() => new Promise((_, r) => (reject = r)))
+			.mockResolvedValueOnce({ ...w01, name: 'WD-2', design_ref: 'W02' } as never)
+		const { wrapper, router } = await setup('/projects/P1/designs/WD-1')
+		await router.push('/projects/P1/designs/WD-2')
+		await flushPromises()
+		reject(new Error('gone'))
+		await flushPromises()
+		expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+		expect(button(wrapper, 'Save').attributes('disabled')).toBeUndefined()
+		expect((field(wrapper, 'Design ref').element as HTMLInputElement).value).toBe('W02')
+	})
+
+	it('a stale load finishing does not clear loading for the current route', async () => {
+		let resolve1!: (v: never) => void
+		let resolve2!: (v: never) => void
+		vi.mocked(getDesign)
+			.mockImplementationOnce(() => new Promise((r) => (resolve1 = r as never)))
+			.mockImplementationOnce(() => new Promise((r) => (resolve2 = r as never)))
+		const { wrapper, router } = await setup('/projects/P1/designs/WD-1')
+		await router.push('/projects/P1/designs/WD-2')
+		await flushPromises()
+		resolve1(w01 as never)
+		await flushPromises()
+		expect(wrapper.text()).toContain('Loading design...')
+		expect(button(wrapper, 'Save').attributes('disabled')).toBeDefined()
+		resolve2({ ...w01, name: 'WD-2', design_ref: 'W02' } as never)
+		await flushPromises()
+		expect(wrapper.text()).not.toContain('Loading design...')
+	})
+
+	it('view toggle exposes its state with aria-pressed', async () => {
+		const { wrapper } = await setup()
+		const toggle = () => wrapper.findAll('button').find((b) => b.text() === 'Outside view')!
+		expect(toggle().attributes('aria-pressed')).toBe('false')
+		expect(toggle().attributes('aria-label')).toBe('Outside view')
+		await toggle().trigger('click')
+		expect(toggle().attributes('aria-pressed')).toBe('true')
+		expect(wrapper.find('svg').text()).toContain('View from outside')
+	})
+
 	it('unmount cancels pending compute', async () => {
 		const { wrapper } = await setup()
 		wrapper.unmount()

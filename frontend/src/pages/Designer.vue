@@ -57,9 +57,10 @@ async function load(name: string | null) {
 		store.reset(parseJson(doc.design_json), doc.series_version)
 		loadedName = name
 	} catch (e) {
+		if (name !== savedName.value) return
 		loadError.value = e instanceof Error ? e.message : 'Could not load design'
 	} finally {
-		loading.value = false
+		if (name === savedName.value) loading.value = false
 	}
 }
 watch(savedName, load, { immediate: true })
@@ -145,8 +146,8 @@ async function save() {
 				<Button label="Undo" aria-label="Undo" class="min-h-9" :disabled="!store.past.length" @click="store.undo()" />
 				<Button label="Redo" aria-label="Redo" class="min-h-9" :disabled="!store.future.length" @click="store.redo()" />
 				<Button
-					:label="view === 'inside' ? 'Inside' : 'Outside'"
-					aria-label="Toggle inside or outside view"
+					label="Outside view"
+					:aria-pressed="view === 'outside'"
 					class="min-h-9"
 					@click="view = view === 'inside' ? 'outside' : 'inside'"
 				/>

@@ -66,7 +66,7 @@ function cellSize(design: Design, path: string): { w: number; h: number } {
 }
 
 export function splitCell(design: Design, path: string, dir: SplitDir, count = 2): Design {
-	if (count < 2) throw new Error('count must be >= 2')
+	if (!Number.isInteger(count) || count < 2) throw new Error('count must be an integer >= 2')
 	const target = getNode(design, path)
 	if (target.type === 'split') throw new Error(`not a leaf: ${path}`)
 	const { w, h } = cellSize(design, path)

@@ -21,7 +21,7 @@
 					href="/app/profile-series"
 				/>
 			</div>
-			<Dropdown :options="userMenu" placement="right">
+			<Dropdown :options="userMenu" side="right" align="end">
 				<SidebarRailItem label="Account" variant="ghost">
 					<Avatar :label="user" size="md" />
 				</SidebarRailItem>

@@ -113,6 +113,23 @@ describe('WindowCanvas', () => {
 		expect(pts()).not.toBe(inside)
 	})
 
+	it('draws a top-hung swing with the apex at the top edge centre', async () => {
+		const d = structuredClone(w01) as Design
+		;(d.root as any).children[0].hinge = 'top'
+		const w = mountCanvas({ design: d })
+		const apex = () => {
+			const pts = w.find('polyline').attributes('points')!.split(' ').map((p) => p.split(',').map(Number))
+			return { pts, apex: pts[1] }
+		}
+		for (const view of ['inside', 'outside']) {
+			await w.setProps({ view })
+			const { pts, apex: [ax, ay] } = apex()
+			expect(ay).toBeLessThan(pts[0][1])
+			expect(pts[0][1]).toBe(pts[2][1])
+			expect(ax).toBeCloseTo((pts[0][0] + pts[2][0]) / 2, 6)
+		}
+	})
+
 	it('exports a clean drawing', () => {
 		const w = mountCanvas({ selectedPath: 'F1.0', issuePaths: ['F1.1'] })
 		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()

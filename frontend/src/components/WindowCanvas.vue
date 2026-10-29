@@ -88,15 +88,20 @@ interface CellView {
 	lines: string[]
 }
 
-function hingeSide(c: CellGeom): 'left' | 'right' | null {
+type HingeSide = 'left' | 'right' | 'top'
+
+function hingeSide(c: CellGeom): HingeSide | null {
 	const node = c.node
 	if (node.type !== 'sash' || !node.hinge) return null
+	if (node.hinge === 'top') return 'top'
 	const h = node.hinge === 'right' ? 'right' : 'left'
 	if (props.view === 'inside') return h
 	return h === 'left' ? 'right' : 'left'
 }
 
-function openingLines(b: Box, side: 'left' | 'right'): string[] {
+/** Swing triangle: the apex sits on the hinged edge. */
+function openingLines(b: Box, side: HingeSide): string[] {
+	if (side === 'top') return [`${b.x},${b.y + b.h} ${b.x + b.w / 2},${b.y} ${b.x + b.w},${b.y + b.h}`]
 	const apexX = side === 'left' ? b.x : b.x + b.w
 	const farX = side === 'left' ? b.x + b.w : b.x
 	const midY = b.y + b.h / 2

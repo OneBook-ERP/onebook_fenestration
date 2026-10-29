@@ -43,6 +43,22 @@ describe('designer store', () => {
 		s.select('F1.0')
 		expect(s.selectedPath).toBe('F1.0')
 	})
+	it('undo and redo fall back to the nearest existing ancestor', () => {
+		const s = useDesignerStore()
+		s.apply((d) => splitCell(d, 'F1', 'v'))
+		s.apply((d) => splitCell(d, 'F1.0', 'h'))
+		s.select('F1.0.1')
+		s.undo()
+		expect(s.selectedPath).toBe('F1.0')
+		s.undo()
+		expect(s.selectedPath).toBe('F1')
+		s.redo()
+		expect(s.selectedPath).toBe('F1')
+		s.select('F1.1')
+		s.undo()
+		expect(s.selectedPath).toBe('F1')
+	})
+
 	it('a drag is one undo step', () => {
 		const s = useDesignerStore()
 		s.apply((d) => splitCell(d, 'F1', 'v'))

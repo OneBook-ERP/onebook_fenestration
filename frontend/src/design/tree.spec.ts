@@ -127,7 +127,8 @@ describe('guards', () => {
 		}
 	})
 	it('splitCell rejects count < 2', () => {
-		expect(() => splitCell(base(), 'F1', 'v', 1)).toThrow('count must be >= 2')
+		expect(() => splitCell(base(), 'F1', 'v', 1)).toThrow('count must be an integer >= 2')
+		for (const n of [2.5, NaN, Infinity]) expect(() => splitCell(base(), 'F1', 'v', n)).toThrow('count must be')
 	})
 	it('setSize rejects invalid sizes', () => {
 		for (const [w, h] of [[0, 100], [100, -1], [NaN, 100], [100, Infinity]])

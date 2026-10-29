@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computeDesign, type ComputeResult } from '@/api'
-import { newDesign, validateDesign } from '@/design/tree'
+import { getNode, newDesign, validateDesign } from '@/design/tree'
 import type { Design } from '@/design/types'
 
 export const HISTORY_CAP = 50
@@ -64,12 +64,20 @@ export const useDesignerStore = defineStore('designer', {
 			if (!prev) return
 			this.future.push(this.design)
 			this.setDesign(prev)
+			this.keepSelection()
 		},
 		redo() {
 			const next = this.future.pop()
 			if (!next) return
 			this.past.push(this.design)
 			this.setDesign(next)
+			this.keepSelection()
+		},
+		/** After undo/redo the selected node may be gone: select its nearest existing ancestor. */
+		keepSelection() {
+			let path = this.selectedPath
+			while (path.includes('.') && !hasNode(this.design, path)) path = path.slice(0, path.lastIndexOf('.'))
+			this.selectedPath = path
 		},
 		select(path: string) {
 			this.selectedPath = path
@@ -114,3 +122,12 @@ export const useDesignerStore = defineStore('designer', {
 		},
 	},
 })
+
+function hasNode(design: Design, path: string): boolean {
+	try {
+		getNode(design, path)
+		return true
+	} catch {
+		return false
+	}
+}

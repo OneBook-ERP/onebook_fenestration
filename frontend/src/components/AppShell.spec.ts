@@ -24,6 +24,15 @@ async function setup(roles: string[]) {
 }
 
 describe('AppShell', () => {
+	// First test: frappe-ui warns about a removed prop only once per module.
+	it('mounts without frappe-ui prop warnings', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+		const w = await setup(['Sales User'])
+		expect(warn.mock.calls.flat().join(' ')).not.toContain('[Dropdown]')
+		w.unmount()
+		warn.mockRestore()
+	})
+
 	it('renders the rail modules and the sidebar sub-navigation', async () => {
 		const w = await setup(['Sales User'])
 		const text = w.text()

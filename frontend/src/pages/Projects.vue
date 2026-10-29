@@ -20,7 +20,7 @@
 		<Dialog v-model="showNew" title="New project">
 			<div class="space-y-3">
 				<FormControl v-model="form.project_title" label="Title" />
-				<FormControl v-model="form.customer" label="Customer (optional)" />
+				<Combobox v-model="form.customer" label="Customer (optional)" placeholder="Select a customer" :options="customerOptions" />
 				<FormControl
 					v-model="form.default_series_version"
 					type="select"
@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { Alert, Button, Dialog, FormControl, useList } from 'frappe-ui'
+import { Alert, Button, Combobox, Dialog, FormControl, useList } from 'frappe-ui'
 import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { createProject } from '@/api'
@@ -54,13 +54,19 @@ const search = ref('')
 const showNew = ref(false)
 const saving = ref(false)
 const error = ref('')
-const form = reactive({ project_title: '', customer: '', default_series_version: '' })
+const form = reactive({ project_title: '', customer: null as string | null, default_series_version: '' })
 
 const projects = useList<ProjectRow>({
 	doctype: 'Fenestration Project',
 	fields: ['name', 'project_title', 'customer', 'modified'],
 	orderBy: 'modified desc',
 	limit: 100,
+})
+const customers = useList<{ name: string }>({
+	doctype: 'Customer',
+	fields: ['name'],
+	orderBy: 'name asc',
+	limit: 500,
 })
 const versions = useList<{ name: string }>({
 	doctype: 'Series Version',
@@ -75,6 +81,7 @@ const filtered = computed(() => {
 	if (!q) return rows
 	return rows.filter((p) => [p.name, p.project_title, p.customer].some((v) => (v ?? '').toLowerCase().includes(q)))
 })
+const customerOptions = computed(() => (customers.data ?? []).map((c) => ({ label: c.name, value: c.name })))
 const versionOptions = computed(() => (versions.data ?? []).map((v) => ({ label: v.name, value: v.name })))
 const canCreate = computed(() => !!form.project_title.trim() && !!form.default_series_version)
 
@@ -84,7 +91,7 @@ async function create() {
 	try {
 		const name = await createProject({
 			project_title: form.project_title.trim(),
-			customer: form.customer.trim() || undefined,
+			customer: form.customer?.trim() || undefined,
 			default_series_version: form.default_series_version,
 		})
 		showNew.value = false
