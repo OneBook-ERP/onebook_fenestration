@@ -29,3 +29,69 @@ def compute_design(design: dict | str, series_version: str) -> dict:
 	except RuleError as exc:
 		return {"ok": False, "error_type": "series", "message": str(exc)}
 	return {"ok": True, "result": result_to_dict(result)}
+
+
+@frappe.whitelist()
+def save_design(
+	project: str,
+	design_ref: str,
+	series_version: str,
+	design: dict | str,
+	svg: str = "",
+	qty: int = 1,
+	design_name: str = "",
+	location: str = "",
+	name: str | None = None,
+) -> dict:
+	"""Insert a Window Design, or update `name`; results are recomputed by the doc's validate."""
+	frappe.has_permission("Window Design", "write" if name else "create", doc=name, throw=True)
+	if isinstance(design, str):
+		try:
+			design = json.loads(design)
+		except json.JSONDecodeError:
+			return {"ok": False, "message": _("Design JSON is not valid")}
+	doc = frappe.get_doc("Window Design", name) if name else frappe.new_doc("Window Design")
+	doc.update(
+		{
+			"project": project,
+			"design_ref": design_ref,
+			"series_version": series_version,
+			"design_json": json.dumps(design),
+			"qty": qty,
+			"design_name": design_name,
+			"location": location,
+		}
+	)
+	if svg:
+		doc.design_svg = svg
+	try:
+		doc.save()
+	except frappe.DuplicateEntryError:
+		return {"ok": False, "message": _("A design with this ref already exists in this project")}
+	except frappe.ValidationError as exc:
+		return {"ok": False, "message": str(exc)}
+	return {
+		"ok": True,
+		"name": doc.name,
+		"results": {
+			"area_sqft": doc.area_sqft,
+			"window_kg": doc.window_kg,
+			"error_count": doc.error_count,
+			"warning_count": doc.warning_count,
+		},
+	}
+
+
+@frappe.whitelist()
+def get_design(name: str) -> dict:
+	"""Return a saved Window Design with its JSON fields parsed."""
+	frappe.has_permission("Window Design", "read", name, throw=True)
+	doc = frappe.get_doc("Window Design", name)
+	out = {
+		f: doc.get(f)
+		for f in ("name", "project", "design_ref", "design_name", "qty", "location", "series_version", "design_svg")
+	}
+	for field in ("design_json", "result_json"):
+		value = doc.get(field)
+		out[field] = json.loads(value) if isinstance(value, str) else value
+	return out

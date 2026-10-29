@@ -7,6 +7,7 @@ from frappe.model.document import Document
 from frappe.utils import cint
 
 from onebook_fenestration.engine import DesignError, EngineResult, RuleError, compute
+from onebook_fenestration.fenestration.svg import sanitize_svg
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 
@@ -21,6 +22,8 @@ class WindowDesign(Document):
 			frappe.throw(_("Qty must be at least 1"))
 		if self.is_new() or self.has_value_changed("design_json") or self.has_value_changed("series_version"):
 			self.compute_results()
+		if self.design_svg and (self.is_new() or self.has_value_changed("design_svg")):
+			self.design_svg = sanitize_svg(self.design_svg)
 
 	def compute_results(self):
 		"""Run the engine on the design; only called when its inputs change, so stored results stay frozen."""
