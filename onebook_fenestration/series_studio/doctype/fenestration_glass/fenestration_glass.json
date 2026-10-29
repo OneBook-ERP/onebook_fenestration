@@ -48,6 +48,10 @@
  "sort_order": "DESC",
  "permissions": [
   {
+   "role": "Sales User",
+   "read": 1
+  },
+  {
    "role": "System Manager",
    "read": 1,
    "write": 1,
