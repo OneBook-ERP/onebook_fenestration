@@ -8,6 +8,8 @@ const LEAF_TYPES = ['sash', 'fixed', 'louver']
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v))
 
 const round1 = (n: number) => Math.round(n * 10) / 10
+const ceil1 = (n: number) => Math.ceil(Math.round(n * 1000) / 100) / 10
+const floor1 = (n: number) => Math.floor(Math.round(n * 1000) / 100) / 10
 
 export function newDesign(width: number, height: number, root?: DesignNode): Design {
 	return { width, height, root: root ?? { type: 'fixed', glass: '6CTG' } }
@@ -78,19 +80,36 @@ export function splitCell(design: Design, path: string, dir: SplitDir, count = 2
 	}))
 }
 
+/** Move bar `index` of the split at `path`, keeping both neighbours (and their nested splits) valid. */
 export function moveSplit(design: Design, path: string, index: number, pos: number): Design {
 	if (!Number.isFinite(pos)) return design
 	const node = getNode(design, path)
 	if (node.type !== 'split' || index < 0 || index >= node.at.length) throw new Error(`no split bar ${index} at ${path}`)
 	const { w, h } = cellSize(design, path)
-	const span = node.dir === 'v' ? w : h
-	const prev = index === 0 ? 0 : node.at[index - 1]
-	const next = index === node.at.length - 1 ? span : node.at[index + 1]
-	const clamped = Math.min(Math.max(pos, prev + MIN_CELL), next - MIN_CELL)
+	const v = node.dir === 'v'
+	const bounds = [0, ...node.at, v ? w : h]
+	const [before, after] = [node.children[index], node.children[index + 1]]
+	// Round inward to the 0.1 mm grid so no cell ends up under its minimum.
+	const lo = ceil1(bounds[index] + minSpan(before, node.dir))
+	const hi = floor1(bounds[index + 2] - minSpan(after, node.dir))
+	if (lo > hi) return design
+	const bar = round1(Math.min(Math.max(pos, lo), hi))
 	return replaceAt(design, path, (n) => {
-		;(n as SplitNode).at[index] = round1(clamped)
-		return n
+		const split = n as SplitNode
+		const resize = (child: DesignNode, oldSize: number, size: number) =>
+			rescale(child, v ? oldSize : w, v ? h : oldSize, v ? size : w, v ? h : size)
+		resize(split.children[index], bounds[index + 1] - bounds[index], bar - bounds[index])
+		resize(split.children[index + 1], bounds[index + 2] - bounds[index + 1], bounds[index + 2] - bar)
+		split.at[index] = bar
+		return split
 	})
+}
+
+/** Smallest span along `dir` that keeps every cell under `node` at least MIN_CELL. */
+function minSpan(node: DesignNode, dir: SplitDir): number {
+	if (node.type !== 'split') return MIN_CELL
+	const spans = node.children.map((c) => minSpan(c, dir))
+	return node.dir === dir ? spans.reduce((a, b) => a + b, 0) : Math.max(...spans)
 }
 
 export function removeSplit(design: Design, path: string): Design {
@@ -104,12 +123,14 @@ export function setLeaf(design: Design, path: string, leaf: LeafNode): Design {
 	return replaceAt(design, path, () => clone(leaf))
 }
 
-function clampAt(at: number[], span: number): number[] {
+/** Clamp bar offsets so child i spans at least mins[i]; falls back to equal division when impossible. */
+function clampAt(at: number[], span: number, mins: number[]): number[] {
 	const n = at.length + 1
-	if (span < n * MIN_CELL) return at.map((_, i) => round1((span * (i + 1)) / n))
-	const out = [...at]
-	for (let i = 0; i < out.length; i++) out[i] = Math.max(out[i], (i === 0 ? 0 : out[i - 1]) + MIN_CELL)
-	for (let i = out.length - 1; i >= 0; i--) out[i] = Math.min(out[i], (i === out.length - 1 ? span : out[i + 1]) - MIN_CELL)
+	if (span < mins.reduce((a, b) => a + b, 0)) return at.map((_, i) => round1((span * (i + 1)) / n))
+	// Round first: bounds below are on the 0.1 mm grid, so clamping keeps the result on it.
+	const out = at.map(round1)
+	for (let i = 0; i < out.length; i++) out[i] = Math.max(out[i], (i === 0 ? 0 : out[i - 1]) + mins[i])
+	for (let i = out.length - 1; i >= 0; i--) out[i] = Math.min(out[i], (i === out.length - 1 ? span : out[i + 1]) - mins[i + 1])
 	return out.map(round1)
 }
 
@@ -118,7 +139,8 @@ function rescale(node: DesignNode, oldW: number, oldH: number, w: number, h: num
 	const v = node.dir === 'v'
 	const [oldSpan, span] = v ? [oldW, w] : [oldH, h]
 	const oldBounds = [0, ...node.at, oldSpan]
-	node.at = clampAt(node.at.map((a) => round1((a * span) / oldSpan)), span)
+	const mins = node.children.map((c) => minSpan(c, node.dir))
+	node.at = clampAt(node.at.map((a) => (a * span) / oldSpan), span, mins)
 	const bounds = [0, ...node.at, span]
 	node.children.forEach((child, i) => {
 		const oldSize = oldBounds[i + 1] - oldBounds[i]

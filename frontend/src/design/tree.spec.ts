@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import w01 from './__fixtures__/w01.json'
+import { layoutGeom } from './geometry'
 import { MIN_CELL, getNode, moveSplit, newDesign, removeSplit, setLeaf, setSize, splitCell, validateDesign } from './tree'
 import type { Design, DesignNode, SplitNode } from './types'
 
@@ -131,5 +132,67 @@ describe('guards', () => {
 	it('setSize rejects invalid sizes', () => {
 		for (const [w, h] of [[0, 100], [100, -1], [NaN, 100], [100, Infinity]])
 			expect(() => setSize(base(), w, h)).toThrow('invalid size')
+	})
+})
+
+describe('moveSplit keeps nested splits valid', () => {
+	const sq = () => newDesign(1200, 1200)
+	const at = (d: Design, path: string) => (getNode(d, path) as SplitNode).at
+	function expectSound(d: Design) {
+		expect(validateDesign(d)).toBeNull()
+		for (const c of layoutGeom(d).cells) {
+			expect(c.w).toBeGreaterThanOrEqual(MIN_CELL)
+			expect(c.h).toBeGreaterThanOrEqual(MIN_CELL)
+		}
+	}
+	const extremes = (d: Design, path: string) => [0, -50, 1200, 5000].map((pos) => moveSplit(d, path, 0, pos))
+
+	it('nested same-direction split on the left', () => {
+		const d = splitCell(splitCell(sq(), 'F1', 'v'), 'F1.0', 'v')
+		const moved = moveSplit(d, 'F1', 0, 200)
+		expectSound(moved)
+		expect(at(moved, 'F1')).toEqual([200])
+		extremes(d, 'F1').forEach(expectSound)
+		expect(at(moveSplit(d, 'F1', 0, 0), 'F1')).toEqual([200])
+	})
+
+	it('nested same-direction split on the right', () => {
+		const d = splitCell(splitCell(sq(), 'F1', 'v'), 'F1.1', 'v', 3)
+		extremes(d, 'F1').forEach(expectSound)
+		expect(at(moveSplit(d, 'F1', 0, 1200), 'F1')).toEqual([900])
+		const moved = moveSplit(d, 'F1', 0, 300)
+		expectSound(moved)
+		expect(at(moved, 'F1.1')).toEqual([300, 600])
+	})
+
+	it('nested cross-direction split needs only one cell of width', () => {
+		let d = splitCell(splitCell(sq(), 'F1', 'v'), 'F1.0', 'h', 3)
+		d = splitCell(d, 'F1.1', 'h')
+		extremes(d, 'F1').forEach(expectSound)
+		expect(at(moveSplit(d, 'F1', 0, 0), 'F1')).toEqual([100])
+		expect(at(moveSplit(d, 'F1', 0, 0), 'F1.0')).toEqual(at(d, 'F1.0'))
+	})
+
+	it('cross split holding a same-direction split takes the max', () => {
+		let d = splitCell(splitCell(sq(), 'F1', 'v'), 'F1.0', 'h')
+		d = splitCell(d, 'F1.0.1', 'v', 3)
+		extremes(d, 'F1').forEach(expectSound)
+		expect(at(moveSplit(d, 'F1', 0, 0), 'F1')).toEqual([300])
+	})
+
+	it('middle bar of three with nested splits on both sides', () => {
+		let d = splitCell(newDesign(1500, 1200), 'F1', 'v', 3)
+		d = splitCell(splitCell(d, 'F1.0', 'v'), 'F1.1', 'v')
+		for (const pos of [0, 2000]) expectSound(moveSplit(d, 'F1', 1, pos))
+		for (const pos of [0, 2000]) expectSound(moveSplit(d, 'F1', 0, pos))
+	})
+
+	it('keeps 0.1 mm grid and >= 100 mm after an odd split', () => {
+		const d = splitCell(splitCell(newDesign(1000, 1000), 'F1', 'v', 3), 'F1.2', 'v', 3)
+		for (const pos of [0, 1000, 412.37]) {
+			const m = moveSplit(d, 'F1', 1, pos)
+			expectSound(m)
+			for (const a of [...at(m, 'F1'), ...at(m, 'F1.2')]) expect(Math.round(a * 10) / 10).toBe(a)
+		}
 	})
 })
