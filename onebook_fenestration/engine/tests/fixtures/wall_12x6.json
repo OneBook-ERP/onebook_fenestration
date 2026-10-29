@@ -1,0 +1,1 @@
+{"width": 3638, "height": 1809, "series": "CS400", "finish": "GREY", "root": {"type": "split", "dir": "v", "at": [1212.7, 2425.3], "children": [{"type": "sash", "opening": "out", "hinge": "left", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"}, {"type": "sash", "opening": "out", "hinge": "right", "glass": "6CTG"}]}}

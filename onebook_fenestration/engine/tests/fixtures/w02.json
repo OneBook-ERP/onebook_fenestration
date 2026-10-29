@@ -1,0 +1,1 @@
+{"width": 915, "height": 610, "series": "CS400", "finish": "GREY", "root": {"type": "split", "dir": "v", "at": [685], "children": [{"type": "louver", "glass": "5TGT", "blades": 9}, {"type": "fixed", "glass": "6CTG"}]}}

@@ -15,22 +15,275 @@
 		"glazing_gasket": 14
 	},
 	"profiles": {
-		"E104156": {"name": "CMT OUTER 40MM X 42MM", "kg_per_m": 0.649, "bar_lengths": [4880, 5800]},
-		"E104159": {"name": "CMT T MULLION 40MM X 60MM", "kg_per_m": 0.809, "bar_lengths": [4800, 5800]},
-		"E104160": {"name": "CMT SASH 40MM X 64.5MM", "kg_per_m": 0.95, "bar_lengths": [4800, 5800]},
-		"CS4807": {"name": "GLAZING BEAD 23MM X 20MM", "kg_per_m": 0.216, "bar_lengths": [5800]}
+		"E104156": {
+			"name": "CMT OUTER 40MM X 42MM",
+			"kg_per_m": 0.649,
+			"bar_lengths": [
+				4880,
+				5800
+			]
+		},
+		"E104159": {
+			"name": "CMT T MULLION 40MM X 60MM",
+			"kg_per_m": 0.809,
+			"bar_lengths": [
+				4800,
+				5800
+			]
+		},
+		"E104160": {
+			"name": "CMT SASH 40MM X 64.5MM",
+			"kg_per_m": 0.95,
+			"bar_lengths": [
+				4800,
+				5800
+			]
+		},
+		"CS4807": {
+			"name": "GLAZING BEAD 23MM X 20MM",
+			"kg_per_m": 0.216,
+			"bar_lengths": [
+				5800
+			]
+		}
 	},
 	"member_rules": [
-		{"id": "mr_frame", "role": "frame", "profile": "E104156", "angles": [45, 135], "length": "span"},
-		{"id": "mr_sash", "role": "sash", "profile": "E104160", "angles": [45, 135], "length": "span - d_start - d_end"},
-		{"id": "mr_mullion", "role": "mullion", "profile": "E104159", "angles": [90, 90], "length": "span - d_start - d_end"},
-		{"id": "mr_transom", "role": "transom", "profile": "E104159", "angles": [90, 90], "length": "span - d_start - d_end"}
+		{
+			"id": "mr_frame",
+			"role": "frame",
+			"profile": "E104156",
+			"angles": [
+				45,
+				135
+			],
+			"length": "span"
+		},
+		{
+			"id": "mr_sash",
+			"role": "sash",
+			"profile": "E104160",
+			"angles": [
+				45,
+				135
+			],
+			"length": "span - d_start - d_end"
+		},
+		{
+			"id": "mr_mullion",
+			"role": "mullion",
+			"profile": "E104159",
+			"angles": [
+				90,
+				90
+			],
+			"length": "span - d_start - d_end"
+		},
+		{
+			"id": "mr_transom",
+			"role": "transom",
+			"profile": "E104159",
+			"angles": [
+				90,
+				90
+			],
+			"length": "span - d_start - d_end"
+		}
 	],
-	"hardware_rules": [],
-	"validation_rules": [],
+	"hardware_rules": [
+		{
+			"id": "hw_corner_cleat_frame",
+			"item": "H401",
+			"name": "CORNER CLEAT",
+			"per": "frame_member",
+			"qty": "2",
+			"when": "position in ('B','T')"
+		},
+		{
+			"id": "hw_chevron_frame",
+			"item": "H266",
+			"name": "CHEVRON",
+			"per": "frame_member",
+			"qty": "2",
+			"when": "position in ('B','T')"
+		},
+		{
+			"id": "hw_corner_cleat_sash",
+			"item": "H401",
+			"name": "CORNER CLEAT",
+			"per": "sash_member",
+			"qty": "2",
+			"when": "position in ('B','T')"
+		},
+		{
+			"id": "hw_chevron_sash",
+			"item": "H266",
+			"name": "CHEVRON",
+			"per": "sash_member",
+			"qty": "2",
+			"when": "position in ('B','T')"
+		},
+		{
+			"id": "hw_hole_cap",
+			"item": "H912",
+			"name": "HOLE CAP",
+			"per": "frame_member",
+			"qty": "ceil(len/500)",
+			"when": "True"
+		},
+		{
+			"id": "hw_drain_cap",
+			"item": "H913",
+			"name": "DRAIN CAP",
+			"per": "frame_member",
+			"qty": "2",
+			"when": "position == 'B'"
+		},
+		{
+			"id": "hw_packer_1",
+			"item": "H904",
+			"name": "PACKER 1",
+			"per": "frame_member",
+			"qty": "ceil(len/500)",
+			"when": "True"
+		},
+		{
+			"id": "hw_packer_2",
+			"item": "H903",
+			"name": "PACKER 2",
+			"per": "frame_member",
+			"qty": "ceil(len/500)",
+			"when": "True"
+		},
+		{
+			"id": "hw_packer_3",
+			"item": "H902",
+			"name": "PACKER 3",
+			"per": "frame_member",
+			"qty": "ceil(len/1000)",
+			"when": "True"
+		},
+		{
+			"id": "hw_packer_5",
+			"item": "H901",
+			"name": "PACKER 5",
+			"per": "frame_member",
+			"qty": "ceil(len/1000)",
+			"when": "True"
+		},
+		{
+			"id": "hw_wall_fastener",
+			"item": "H911",
+			"name": "WALL FASTENER",
+			"per": "frame_member",
+			"qty": "ceil(len/500)",
+			"when": "True"
+		},
+		{
+			"id": "hw_mullion_screw",
+			"item": "H412",
+			"name": "MULLION SCREW",
+			"per": "mullion",
+			"qty": "4",
+			"when": "True"
+		},
+		{
+			"id": "hw_lifting_wedge",
+			"item": "H411",
+			"name": "LIFTING WEDGE",
+			"per": "sash",
+			"qty": "1",
+			"when": "True"
+		},
+		{
+			"id": "hw_friction_stay",
+			"item": "H416",
+			"name": "FRICTION STAY",
+			"per": "sash",
+			"qty": "1",
+			"when": "True",
+			"uom": "Pairs"
+		},
+		{
+			"id": "hw_stay_screw",
+			"item": "H429",
+			"name": "STAY SCREW",
+			"per": "sash",
+			"qty": "6",
+			"when": "True"
+		},
+		{
+			"id": "hw_espag_handle",
+			"item": "H425",
+			"name": "ESPAG HANDLE",
+			"per": "sash",
+			"qty": "1",
+			"when": "True"
+		},
+		{
+			"id": "hw_espag_1200",
+			"item": "H422C",
+			"name": "ESPAG 1200",
+			"per": "sash",
+			"qty": "1",
+			"when": "True"
+		},
+		{
+			"id": "hw_locking_plate",
+			"item": "H423",
+			"name": "LOCKING PLATE",
+			"per": "sash",
+			"qty": "2",
+			"when": "True"
+		},
+		{
+			"id": "hw_glass_packer",
+			"item": "H905",
+			"name": "GLASS PACKER",
+			"per": "glass",
+			"qty": "8",
+			"when": "True"
+		},
+		{
+			"id": "hw_masking_tape",
+			"item": "H915",
+			"name": "MASKING TAPE",
+			"per": "window",
+			"qty": "1",
+			"when": "True",
+			"uom": "m",
+			"length": "round(2*perimeter_m, 3)"
+		},
+		{
+			"id": "hw_sealant",
+			"item": "H914",
+			"name": "SEALANT",
+			"per": "window",
+			"qty": "round(2*perimeter_m/6, 3)",
+			"when": "True",
+			"uom": "CAN"
+		}
+	],
+	"validation_rules": [
+		{
+			"id": "v_shutter_kg",
+			"when": "max_shutter_kg > 0 and shutter_kg > max_shutter_kg",
+			"severity": "error",
+			"message": "Shutter {panel} weighs {shutter_kg} kg, above friction stay limit {max_shutter_kg} kg",
+			"hint": "Use a larger stay, add a transom, or split the sash"
+		}
+	],
 	"glasses": {
-		"6CTG": {"name": "6 MM CLEAR TOUGHNED GLASS", "thickness_mm": 6},
-		"5TGT": {"name": "5 MM TINTED GREY TG GLASS", "thickness_mm": 5}
+		"6CTG": {
+			"name": "6 MM CLEAR TOUGHNED GLASS",
+			"thickness_mm": 6
+		},
+		"5TGT": {
+			"name": "5 MM TINTED GREY TG GLASS",
+			"thickness_mm": 5
+		}
 	},
-	"constants": {"glass_density": 2.5}
+	"constants": {
+		"glass_density": 2.5,
+		"max_shutter_kg": 25
+	}
 }
