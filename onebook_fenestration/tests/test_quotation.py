@@ -1,10 +1,12 @@
 import json
+from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
 
 from onebook_fenestration.api.project import make_quotation as api_make_quotation
 from onebook_fenestration.fenestration.quotation import make_quotation, quote_status, reprice_project
+from onebook_fenestration.fenestration.quote_party import company_address
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -12,6 +14,25 @@ PRICE_LIST = "Fen Test Cost"
 COMPANY = "Hilux System Windows Pvt Ltd"
 IN_STATE_CUSTOMER = "Fen Test Customer"
 OUT_STATE_CUSTOMER = "Fen Test Customer KA"
+SEZ_CUSTOMER = "Fen Test Customer SEZ"
+OVERSEAS_CUSTOMER = "Fen Test Customer US"
+OFFICE_CUSTOMER = "Fen Test Customer Office"
+SHIP_CUSTOMER = "Fen Test Customer Ship"
+IN_STATE = "Output GST In-state - Hilux"
+OUT_STATE = "Output GST Out-state - Hilux"
+
+
+def gstin_with_check_digit(first_14):
+	code_points = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	factor, total = 1, 0
+	for char in first_14:
+		digit = factor * code_points.find(char)
+		total += digit // 36 + digit % 36
+		factor = 2 if factor == 1 else 1
+	return first_14 + code_points[(36 - total % 36) % 36]
+
+
+SEZ_GSTIN = gstin_with_check_digit("33AAACF1234K1Z")
 
 
 class TestQuotation(IntegrationTestCase):
@@ -52,44 +73,83 @@ class TestQuotation(IntegrationTestCase):
 
 	@classmethod
 	def set_up_parties(cls):
-		"""A company address (india_compliance needs one on every quotation) and two unregistered customers."""
-		if not frappe.db.exists(
-			"Dynamic Link", {"parenttype": "Address", "link_doctype": "Company", "link_name": COMPANY}
-		):
+		"""A company address (india_compliance needs one on every quotation) and test customers."""
+		if not company_address(COMPANY):
 			cls.make_address(
 				"Fen Test Office", "Tamil Nadu", "639001", "Company", COMPANY, gstin="33AAHCH3108G1Z0"
 			)
-		for customer in (IN_STATE_CUSTOMER, OUT_STATE_CUSTOMER):
-			if not frappe.db.exists("Customer", customer):
-				frappe.get_doc(
-					{
-						"doctype": "Customer",
-						"customer_name": customer,
-						"customer_type": "Individual",
-						"gst_category": "Unregistered",
-					}
-				).insert()
+		cls.make_customer(IN_STATE_CUSTOMER)
+		cls.make_customer(OUT_STATE_CUSTOMER)
 		cls.make_address("Fen Test KA", "Karnataka", "560001", "Customer", OUT_STATE_CUSTOMER)
+		cls.make_customer(SEZ_CUSTOMER, "SEZ", gstin=SEZ_GSTIN)
+		cls.make_address(
+			"Fen Test SEZ",
+			"Tamil Nadu",
+			"600001",
+			"Customer",
+			SEZ_CUSTOMER,
+			gstin=SEZ_GSTIN,
+			gst_category="SEZ",
+		)
+		cls.make_customer(OVERSEAS_CUSTOMER, "Overseas")
+		cls.make_address(
+			"Fen Test US",
+			"California",
+			"94105",
+			"Customer",
+			OVERSEAS_CUSTOMER,
+			country="United States",
+			gst_state=None,
+			gst_category="Overseas",
+		)
+		cls.make_customer(OFFICE_CUSTOMER)
+		cls.make_address(
+			"Fen Test Office KA", "Karnataka", "560001", "Customer", OFFICE_CUSTOMER, address_type="Office"
+		)
+		cls.make_customer(SHIP_CUSTOMER)
+		cls.make_address("Fen Test Bill TN", "Tamil Nadu", "600001", "Customer", SHIP_CUSTOMER)
+		cls.make_address(
+			"Fen Test Ship KA",
+			"Karnataka",
+			"560001",
+			"Customer",
+			SHIP_CUSTOMER,
+			address_type="Shipping",
+			is_primary_address=0,
+			is_shipping_address=1,
+		)
 
 	@staticmethod
-	def make_address(title, state, pincode, link_doctype, link_name, gstin=None):
-		return frappe.get_doc(
-			{
-				"doctype": "Address",
-				"address_title": title,
-				"address_type": "Billing",
-				"address_line1": "1 Test Street",
-				"city": "Test City",
-				"state": state,
-				"gst_state": state,
-				"pincode": pincode,
-				"country": "India",
-				"gstin": gstin,
-				"is_primary_address": 1,
-				"is_your_company_address": int(link_doctype == "Company"),
-				"links": [{"link_doctype": link_doctype, "link_name": link_name}],
-			}
-		).insert()
+	def make_customer(name, gst_category="Unregistered", gstin=None):
+		if not frappe.db.exists("Customer", name):
+			frappe.get_doc(
+				{
+					"doctype": "Customer",
+					"customer_name": name,
+					"customer_type": "Company",
+					"gst_category": gst_category,
+					"gstin": gstin,
+				}
+			).insert()
+
+	@staticmethod
+	def make_address(title, state, pincode, link_doctype, link_name, gstin=None, **extra):
+		address = {
+			"doctype": "Address",
+			"address_title": title,
+			"address_type": "Billing",
+			"address_line1": "1 Test Street",
+			"city": "Test City",
+			"state": state,
+			"gst_state": state,
+			"pincode": pincode,
+			"country": "India",
+			"gstin": gstin,
+			"is_primary_address": 1,
+			"is_your_company_address": int(link_doctype == "Company"),
+			"links": [{"link_doctype": link_doctype, "link_name": link_name}],
+		}
+		return frappe.get_doc({**address, **extra}).insert()
 
 	@classmethod
 	def make_quote_project(cls, customer=IN_STATE_CUSTOMER, refs=("W01", "W02"), transport=0):
@@ -228,3 +288,112 @@ class TestQuotation(IntegrationTestCase):
 		project, _designs = self.make_quote_project(customer=None)
 		out = api_make_quotation(project.name)
 		self.assertEqual(out, {"ok": False, "message": "Set a customer on the project"})
+
+	def enable_overseas(self):
+		frappe.db.set_single_value("GST Settings", "enable_overseas_transactions", 1)
+		frappe.clear_document_cache("GST Settings", "GST Settings")
+		self.addCleanup(frappe.clear_document_cache, "GST Settings", "GST Settings")
+		self.addCleanup(frappe.db.set_single_value, "GST Settings", "enable_overseas_transactions", 0)
+
+	def quote(self, customer=IN_STATE_CUSTOMER, refs=("W01",)):
+		project, _designs = self.make_quote_project(customer=customer, refs=refs)
+		return frappe.get_doc("Quotation", make_quotation(project.name))
+
+	def test_requote_after_customer_change_refreshes_gst(self):
+		project, _designs = self.make_quote_project(refs=("W01",))
+		first = make_quotation(project.name)
+		project.reload()
+		project.customer = OUT_STATE_CUSTOMER
+		project.save()
+		quotation = frappe.get_doc("Quotation", make_quotation(project.name))
+		ka_address = frappe.db.get_value("Address", {"address_title": "Fen Test KA"})
+		self.assertEqual(quotation.name, first)
+		self.assertEqual(quotation.party_name, OUT_STATE_CUSTOMER)
+		self.assertEqual(quotation.customer_name, OUT_STATE_CUSTOMER)
+		self.assertEqual(quotation.taxes_and_charges, OUT_STATE)
+		self.assertEqual(quotation.place_of_supply, "29-Karnataka")
+		self.assertEqual(quotation.customer_address, ka_address)
+		self.assertIn("Karnataka", quotation.address_display)
+		self.assertIn("IGST", " ".join(row.account_head for row in quotation.taxes))
+
+	def test_sez_customer_in_state_uses_out_state(self):
+		self.enable_overseas()
+		quotation = self.quote(SEZ_CUSTOMER)
+		self.assertEqual(quotation.taxes_and_charges, OUT_STATE)
+		self.assertEqual(quotation.is_export_with_gst, 1)
+		self.assertIn("IGST", " ".join(row.account_head for row in quotation.taxes))
+
+	def test_overseas_customer_uses_out_state(self):
+		self.enable_overseas()
+		quotation = self.quote(OVERSEAS_CUSTOMER)
+		self.assertEqual(quotation.taxes_and_charges, OUT_STATE)
+		self.assertEqual(quotation.place_of_supply, "96-Other Countries")
+
+	def test_primary_address_of_any_type_counts_as_billing(self):
+		self.assertEqual(self.quote(OFFICE_CUSTOMER).taxes_and_charges, OUT_STATE)
+
+	def test_shipping_address_basis(self):
+		self.assertEqual(self.quote(SHIP_CUSTOMER).taxes_and_charges, IN_STATE)
+		frappe.db.set_single_value(
+			"Accounts Settings", "determine_address_tax_category_from", "Shipping Address"
+		)
+		frappe.clear_document_cache("Accounts Settings", "Accounts Settings")
+		try:
+			self.assertEqual(self.quote(SHIP_CUSTOMER).taxes_and_charges, OUT_STATE)
+		finally:
+			frappe.db.set_single_value(
+				"Accounts Settings", "determine_address_tax_category_from", "Billing Address"
+			)
+			frappe.clear_document_cache("Accounts Settings", "Accounts Settings")
+
+	def test_pricing_rule_does_not_change_design_rate(self):
+		frappe.get_doc(
+			{
+				"doctype": "Pricing Rule",
+				"title": "Fen Test Window Discount",
+				"apply_on": "Item Code",
+				"items": [{"item_code": "FEN-WINDOW"}],
+				"selling": 1,
+				"company": COMPANY,
+				"rate_or_discount": "Discount Percentage",
+				"discount_percentage": 10,
+			}
+		).insert()
+		project, designs = self.make_quote_project(refs=("W01",))
+		quotation = frappe.get_doc("Quotation", make_quotation(project.name))
+		self.assertEqual(quotation.ignore_pricing_rule, 1)
+		self.assertEqual(
+			quotation.items[0].rate, frappe.db.get_value("Window Design", designs[0].name, "unit_price")
+		)
+		self.assertFalse(quotation.items[0].discount_percentage)
+
+	def test_error_and_missing_price_message(self):
+		project, designs = self.make_quote_project()
+		frappe.db.set_value("Window Design", designs[0].name, "error_count", 1)
+		frappe.db.set_value("Window Design", designs[1].name, "pricing_warning_count", 2)
+		out = api_make_quotation(project.name)
+		self.assertEqual(
+			out,
+			{"ok": False, "message": "Fix these designs before quoting: W01 (errors), W02 (missing prices)"},
+		)
+
+	def test_no_designs_refused(self):
+		project, _designs = self.make_quote_project(refs=())
+		self.assertEqual(
+			api_make_quotation(project.name), {"ok": False, "message": "Add at least one window design"}
+		)
+
+	def test_no_company_refused(self):
+		project, _designs = self.make_quote_project()
+		project.db_set("company", None)
+		with patch("onebook_fenestration.fenestration.quotation.default_company", return_value=None):
+			out = api_make_quotation(project.name)
+		self.assertEqual(out, {"ok": False, "message": "Set a company on the project"})
+
+	def test_no_company_address_refused(self):
+		project, _designs = self.make_quote_project()
+		with patch("onebook_fenestration.fenestration.quotation.company_address", return_value=None):
+			out = api_make_quotation(project.name)
+		self.assertEqual(
+			out, {"ok": False, "message": "Add your company address (with GSTIN) before quoting"}
+		)

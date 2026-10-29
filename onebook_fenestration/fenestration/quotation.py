@@ -8,6 +8,13 @@ from onebook_fenestration.engine.layout import layout
 from onebook_fenestration.fenestration.doctype.fenestration_project.fenestration_project import (
 	default_company,
 )
+from onebook_fenestration.fenestration.quote_party import (
+	company_address,
+	customer_addresses,
+	gst_template,
+	is_export,
+	tax_address,
+)
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 WINDOW_ITEM = "FEN-WINDOW"
@@ -15,6 +22,23 @@ TRANSPORT_ITEM = "FEN-TRANSPORT"
 DEFAULT_TERMS = "Hilux Standard Terms"
 DEFAULT_LETTER_HEAD = "Company Letterhead"
 QUOTE_VALIDITY_DAYS = 10
+# Party-derived fields ERPNext and india_compliance only fill when empty; cleared so a requote re-derives them.
+PARTY_FIELDS = (
+	"customer_name",
+	"customer_address",
+	"address_display",
+	"shipping_address_name",
+	"shipping_address",
+	"contact_person",
+	"contact_display",
+	"contact_email",
+	"contact_mobile",
+	"customer_group",
+	"territory",
+	"billing_address_gstin",
+	"gst_category",
+	"place_of_supply",
+)
 DESIGN_FIELDS = (
 	"name",
 	"design_ref",
@@ -84,6 +108,10 @@ def quote_status(project: str) -> dict:
 def check_quotable(project, designs: list[dict]) -> None:
 	if not project.customer:
 		raise QuoteNotReady(_("Set a customer on the project"))
+	if not project.company:
+		raise QuoteNotReady(_("Set a company on the project"))
+	if not company_address(project.company):
+		raise QuoteNotReady(_("Add your company address (with GSTIN) before quoting"))
 	if not designs:
 		raise QuoteNotReady(_("Add at least one window design"))
 	problems = []
@@ -122,13 +150,19 @@ class QuotationBuilder:
 	def set_header(self):
 		quotation, project = self.quotation, self.project
 		today = nowdate()
-		address = billing_address("Customer", project.customer)
+		if not quotation.is_new():
+			for fieldname in PARTY_FIELDS:
+				if quotation.meta.has_field(fieldname):
+					quotation.set(fieldname, None)
+		billing, shipping = customer_addresses(project.customer)
 		quotation.update(
 			{
 				"company": project.company,
 				"quotation_to": "Customer",
 				"party_name": project.customer,
-				"customer_address": address,
+				"customer_address": billing,
+				"shipping_address_name": shipping,
+				"ignore_pricing_rule": 1,
 				"transaction_date": today,
 				"valid_till": add_days(today, QUOTE_VALIDITY_DAYS),
 				"fen_project": project.name,
@@ -158,60 +192,14 @@ class QuotationBuilder:
 
 	def set_taxes(self):
 		"""Choose the GST template; ERPNext loads its rows and india_compliance validates them against the place of supply."""
-		self.quotation.taxes_and_charges = gst_template(self.project.company, self.quotation.customer_address)
+		address = tax_address(self.quotation.customer_address, self.quotation.shipping_address_name)
+		self.quotation.taxes_and_charges = gst_template(self.project.company, self.project.customer, address)
+		if self.quotation.meta.has_field("is_export_with_gst"):
+			# The quote shows IGST for SEZ/Overseas; india_compliance rejects GST rows on exports under LUT.
+			self.quotation.is_export_with_gst = int(is_export(self.project.customer, address))
 		self.quotation.set("taxes", [])
 		self.quotation.run_method("set_missing_values")
 		self.quotation.calculate_taxes_and_totals()
-
-
-def gst_template(company: str, customer_address: str | None) -> str:
-	abbr = frappe.get_cached_value("Company", company, "abbr")
-	customer_state = customer_address and frappe.db.get_value("Address", customer_address, "gst_state")
-	company_state = _company_state(company)
-	out_of_state = customer_state and company_state and customer_state != company_state
-	return f"Output GST {'Out' if out_of_state else 'In'}-state - {abbr}"
-
-
-def billing_address(link_doctype: str, link_name: str, company_address: bool = False) -> str | None:
-	"""The party's billing address, primary first."""
-	address = frappe.qb.DocType("Address")
-	link = frappe.qb.DocType("Dynamic Link")
-	query = (
-		frappe.qb.from_(address)
-		.join(link)
-		.on(link.parent == address.name)
-		.select(address.name)
-		.where(link.parenttype == "Address")
-		.where(link.link_doctype == link_doctype)
-		.where(link.link_name == link_name)
-		.where(address.disabled == 0)
-		.orderby(address.is_primary_address, order=frappe.qb.desc)
-		.limit(1)
-	)
-	query = (
-		query.where(address.is_your_company_address == 1)
-		if company_address
-		else query.where(address.address_type == "Billing")
-	)
-	rows = query.run()
-	return rows[0][0] if rows else None
-
-
-def _company_state(company: str) -> str | None:
-	address = billing_address("Company", company, company_address=True)
-	state = address and frappe.db.get_value("Address", address, "gst_state")
-	if state:
-		return state
-	gstin = (
-		frappe.get_cached_value("Company", company, "gstin")
-		if frappe.get_meta("Company").has_field("gstin")
-		else None
-	)
-	if not gstin:
-		return None
-	from india_compliance.gst_india.constants import STATE_NUMBERS
-
-	return next((name for name, number in STATE_NUMBERS.items() if number == gstin[:2]), None)
 
 
 def design_line_text(design) -> tuple[str, str]:
