@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import w01 from './__fixtures__/w01.json'
 import { MIN_CELL, getNode, moveSplit, newDesign, removeSplit, setLeaf, setSize, splitCell, validateDesign } from './tree'
-import type { Design, SplitNode } from './types'
+import type { Design, DesignNode, SplitNode } from './types'
 
 const base = () => newDesign(915, 1220)
 
@@ -102,5 +102,34 @@ describe('validateDesign', () => {
 		;(d.root as SplitNode).at = [100, 200]
 		expect(validateDesign(d)).not.toBeNull()
 		expect(validateDesign({ width: 10, height: 10, root: { type: 'fixed', glass: 5 } } as unknown as Design)).not.toBeNull()
+	})
+
+	it('rejects trees deeper than 32 nodes (engine MAX_DEPTH parity)', () => {
+		const chain = (splits: number): Design => {
+			let node: DesignNode = { type: 'fixed', glass: '6CTG' }
+			for (let i = 0; i < splits; i++) node = { type: 'split', dir: 'v', at: [1], children: [{ type: 'fixed', glass: '6CTG' }, node] }
+			return newDesign(100000, 100000, node)
+		}
+		// root is depth 1, so 31 splits + a leaf = depth 32 (ok); 32 splits + a leaf = depth 33 (too deep)
+		expect(validateDesign(chain(31))).toBeNull()
+		expect(validateDesign(chain(32))).toMatch(/depth exceeds 32/)
+	})
+})
+
+describe('guards', () => {
+	it('moveSplit ignores non-finite pos and returns the same object', () => {
+		const d = w01 as Design
+		for (const pos of [NaN, Infinity, -Infinity]) {
+			const out = moveSplit(d, 'F1', 0, pos)
+			expect(out).toBe(d)
+			expect((out.root as SplitNode).at).toEqual([457.5])
+		}
+	})
+	it('splitCell rejects count < 2', () => {
+		expect(() => splitCell(base(), 'F1', 'v', 1)).toThrow('count must be >= 2')
+	})
+	it('setSize rejects invalid sizes', () => {
+		for (const [w, h] of [[0, 100], [100, -1], [NaN, 100], [100, Infinity]])
+			expect(() => setSize(base(), w, h)).toThrow('invalid size')
 	})
 })

@@ -1,6 +1,7 @@
 import type { Design, DesignNode, LeafNode, SplitDir, SplitNode } from './types'
 
 export const MIN_CELL = 100
+const MAX_DEPTH = 32
 const LEAF_TYPES = ['sash', 'fixed', 'louver']
 
 // JSON clone, not structuredClone: store state is a Vue reactive proxy, which structuredClone rejects.
@@ -63,6 +64,7 @@ function cellSize(design: Design, path: string): { w: number; h: number } {
 }
 
 export function splitCell(design: Design, path: string, dir: SplitDir, count = 2): Design {
+	if (count < 2) throw new Error('count must be >= 2')
 	const target = getNode(design, path)
 	if (target.type === 'split') throw new Error(`not a leaf: ${path}`)
 	const { w, h } = cellSize(design, path)
@@ -77,6 +79,7 @@ export function splitCell(design: Design, path: string, dir: SplitDir, count = 2
 }
 
 export function moveSplit(design: Design, path: string, index: number, pos: number): Design {
+	if (!Number.isFinite(pos)) return design
 	const node = getNode(design, path)
 	if (node.type !== 'split' || index < 0 || index >= node.at.length) throw new Error(`no split bar ${index} at ${path}`)
 	const { w, h } = cellSize(design, path)
@@ -125,6 +128,7 @@ function rescale(node: DesignNode, oldW: number, oldH: number, w: number, h: num
 }
 
 export function setSize(design: Design, width: number, height: number): Design {
+	if (!isReal(width) || !isReal(height) || width <= 0 || height <= 0) throw new Error('invalid size')
 	const next = clone(design)
 	rescale(next.root, design.width, design.height, width, height)
 	next.width = width
@@ -140,10 +144,11 @@ export function validateDesign(design: Design): string | null {
 	if (!isReal(design?.width) || !isReal(design?.height) || design.width <= 0 || design.height <= 0)
 		return `F1: width and height must be positive numbers, got ${design?.width} x ${design?.height}`
 	if (!design.root) return 'F1: design has no root node'
-	return validateNode(design.root, 'F1', design.width, design.height)
+	return validateNode(design.root, 'F1', 1, design.width, design.height)
 }
 
-function validateNode(node: DesignNode, path: string, w: number, h: number): string | null {
+function validateNode(node: DesignNode, path: string, depth: number, w: number, h: number): string | null {
+	if (depth > MAX_DEPTH) return `${path}: design tree depth exceeds ${MAX_DEPTH}`
 	if (!node || typeof node !== 'object') return `${path}: node must be an object`
 	if (LEAF_TYPES.includes(node.type)) {
 		const glass = (node as LeafNode).glass
@@ -160,7 +165,7 @@ function validateNode(node: DesignNode, path: string, w: number, h: number): str
 	if (bounds.some((b, i) => i > 0 && !(bounds[i - 1] < b))) return `${path}: split positions must increase strictly inside (0, ${span})`
 	for (let i = 0; i < children.length; i++) {
 		const size = bounds[i + 1] - bounds[i]
-		const err = validateNode(children[i], `${path}.${i}`, node.dir === 'v' ? size : w, node.dir === 'v' ? h : size)
+		const err = validateNode(children[i], `${path}.${i}`, depth + 1, node.dir === 'v' ? size : w, node.dir === 'v' ? h : size)
 		if (err) return err
 	}
 	return null
