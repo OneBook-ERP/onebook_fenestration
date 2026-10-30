@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { toast } from 'frappe-ui'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '@/router'
 import { copyDesign, quoteStatus } from '@/api'
@@ -27,6 +27,11 @@ vi.mock('frappe-ui', async (orig) => ({
 		],
 	}),
 }))
+
+beforeEach(() => {
+	vi.mocked(quoteStatus).mockReset()
+	vi.mocked(quoteStatus).mockResolvedValue({ quotation: null })
+})
 
 async function setup(query = '') {
 	const router = createRouter({ history: createMemoryHistory('/fenestration'), routes })
@@ -98,6 +103,7 @@ describe('ProjectWorkspace', () => {
 		await flushPromises()
 		expect(toast.error).not.toHaveBeenCalledWith('Copy failed')
 		expect(toast.error).not.toHaveBeenCalledWith('nav')
+		expect(toast.error).toHaveBeenCalledWith('Copied as WD-9, but could not open it')
 	})
 	it('New design button has a 36px touch target', async () => {
 		const { w } = await setup()
@@ -145,7 +151,15 @@ describe('ProjectWorkspace', () => {
 			const { w } = await setup()
 			const tabs = w.findAll('[role="tab"]')
 			expect(tabs.map((t) => t.text())).toEqual(['Designs · 2', 'Quote', 'Order', 'Production', 'Install', 'Reports'])
-			expect(tabs.slice(2).every((t) => t.attributes('disabled') !== undefined)).toBe(true)
+			expect(tabs.slice(2).every((t) => t.attributes('aria-disabled') === 'true' && t.attributes('disabled') === undefined)).toBe(true)
+			expect(tabs[2].attributes('aria-describedby')).toBeTruthy()
+			expect(w.get(`#${tabs[2].attributes('aria-describedby')}`).text()).toBe('Coming soon')
+			expect(w.get('[role="tablist"]').element.children.length).toBe(6)
+			expect(tabs[0].attributes('aria-selected')).toBe('true')
+			expect(w.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe(tabs[0].attributes('id'))
+			await tabs[2].trigger('click')
+			await flushPromises()
+			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(2)
 			expect(w.find('[data-testid="quote-panel"]').exists()).toBe(false)
 			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(2)
 			await tabs[1].trigger('click')
@@ -157,6 +171,11 @@ describe('ProjectWorkspace', () => {
 			const { w } = await setup('?tab=quote')
 			expect(w.find('[data-testid="quote-panel"]').exists()).toBe(true)
 			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(0)
+		})
+		it.each(['?tab=bogus', '?tab=order'])('%s falls back to Designs', async (q) => {
+			const { w } = await setup(q)
+			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(2)
+			expect(w.find('[data-testid="quote-panel"]').exists()).toBe(false)
 		})
 		it('clicking a tab syncs the query', async () => {
 			const { w, router } = await setup()
@@ -179,7 +198,16 @@ describe('ProjectWorkspace', () => {
 			expect(h.text()).toContain('Not quoted')
 			expect(h.get('[data-testid="kpi-windows"]').text()).toContain('320')
 			expect(h.get('[data-testid="kpi-area"]').text()).toContain('3603.380')
+			expect(h.get('[data-testid="kpi-weight"]').text()).toContain('3030.0')
 			expect(h.get('[data-testid="kpi-value"]').text()).toContain('₹43,48,987.20')
+			expect(h.get('[data-testid="kpi-grand"]').text()).toContain('—')
+		})
+		it('does not claim Not quoted when the status call fails', async () => {
+			vi.mocked(quoteStatus).mockRejectedValue(new Error('down'))
+			const { w } = await setup()
+			const h = header(w)
+			expect(h.text()).toContain('Status unavailable')
+			expect(h.text()).not.toContain('Not quoted')
 			expect(h.get('[data-testid="kpi-grand"]').text()).toContain('—')
 		})
 		it('draft quote', async () => {
@@ -215,6 +243,7 @@ describe('ProjectWorkspace', () => {
 			expect(c1.text()).toContain('Saved price ₹42,58,987.20')
 			expect(c1.text()).toContain('Priced 30 Oct 2026')
 			expect(c2.text()).toContain('OK')
+			expect(c2.text()).toContain('8.000 sq.ft · 5.0 kg')
 			expect(c2.text()).toContain('W02 · Fixed')
 			expect(c2.text()).toContain('—')
 		})

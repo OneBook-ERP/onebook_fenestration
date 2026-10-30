@@ -26,6 +26,7 @@ describe('ProjectWorkspace empty project', () => {
 		const h = w.get('[data-testid="project-header"]')
 		expect(h.get('[data-testid="kpi-windows"]').text()).toContain('0')
 		expect(h.get('[data-testid="kpi-area"]').text()).toContain('0.000')
+		expect(h.get('[data-testid="kpi-weight"]').text()).toContain('0.0')
 		expect(h.get('[data-testid="kpi-grand"]').text()).toContain('—')
 		expect(h.text()).toContain('Not quoted')
 		expect(w.text()).toContain('Designs · 0')
