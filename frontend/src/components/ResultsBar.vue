@@ -14,10 +14,12 @@ const tab = ref('Cut list')
 
 function readCollapsed() {
 	try {
-		return localStorage.getItem(COLLAPSED_KEY) === '1'
+		const stored = localStorage.getItem(COLLAPSED_KEY)
+		if (stored !== null) return stored === '1'
 	} catch {
-		return false
+		// Storage unavailable: fall through to the viewport default.
 	}
+	return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 767px)').matches
 }
 const collapsed = ref(readCollapsed())
 watch(collapsed, (v) => {

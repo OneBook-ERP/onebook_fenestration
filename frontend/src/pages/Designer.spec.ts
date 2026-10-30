@@ -110,6 +110,17 @@ describe('Designer page', () => {
 	})
 	afterEach(() => vi.useRealTimers())
 
+	it('uses a column layout on phone and side-by-side from md', async () => {
+		const { wrapper } = await setup()
+		const body = wrapper.get('nav[aria-label="Tools"]').element.parentElement!
+		expect(body.className).toContain('flex-col')
+		expect(body.className).toContain('md:flex-row')
+		const nav = wrapper.get('nav[aria-label="Tools"]').classes()
+		for (const c of ['flex-row', 'overflow-x-auto', 'md:flex-col', 'md:w-36']) expect(nav).toContain(c)
+		expect(wrapper.get('main').classes()).toContain('min-h-[50vh]')
+		expect(wrapper.get('main').classes()).toContain('md:min-h-0')
+	})
+
 	it('applies the template from the query on a new design', async () => {
 		await setup('/projects/P1/designs/new?series_version=SV1&template=ventilator')
 		const root = useDesignerStore().design.root

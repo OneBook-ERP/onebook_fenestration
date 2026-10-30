@@ -195,7 +195,7 @@ async function copy() {
 </script>
 
 <template>
-	<div class="flex h-screen flex-col bg-gray-50 text-gray-900">
+	<div class="flex min-h-screen flex-col bg-gray-50 md:h-screen text-gray-900">
 		<header class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-2">
 			<nav aria-label="Breadcrumb" class="flex items-center gap-1 text-sm">
 				<RouterLink :to="`/projects/${project}`" class="min-h-9 content-center text-gray-600 hover:text-gray-900">
@@ -228,26 +228,26 @@ async function copy() {
 			</template>
 		</Alert>
 
-		<div class="flex min-h-0 flex-1">
-			<nav class="flex w-36 shrink-0 flex-col gap-2 border-r border-gray-200 bg-white p-3" aria-label="Tools">
-				<p v-if="!selectedLeaf" class="text-xs text-gray-500">{{ toolHint }}</p>
+		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
+			<nav class="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 bg-white p-3 md:w-36 md:flex-col md:overflow-x-visible md:border-b-0 md:border-r" aria-label="Tools">
+				<p v-if="!selectedLeaf" class="shrink-0 self-center text-xs text-gray-500 md:self-auto">{{ toolHint }}</p>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Split vertical" aria-label="Split vertical" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="split('v')" />
+					<Button label="Split vertical" aria-label="Split vertical" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="split('v')" />
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Split horizontal" aria-label="Split horizontal" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="split('h')" />
+					<Button label="Split horizontal" aria-label="Split horizontal" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="split('h')" />
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Sash" aria-label="Sash" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="convert('sash')" />
+					<Button label="Sash" aria-label="Sash" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('sash')" />
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Fixed glass" aria-label="Fixed glass" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="convert('fixed')" />
+					<Button label="Fixed glass" aria-label="Fixed glass" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('fixed')" />
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Louver" aria-label="Louver" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="convert('louver')" />
+					<Button label="Louver" aria-label="Louver" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('louver')" />
 				</Tooltip>
 			</nav>
-			<main class="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-2">
+			<main class="flex min-h-[50vh] min-w-0 flex-1 md:min-h-0 items-center justify-center overflow-hidden p-2">
 				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
 				<WindowCanvas
 					v-else-if="!loadError"

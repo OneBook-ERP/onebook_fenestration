@@ -94,7 +94,7 @@ function optNum(e: Event): number | undefined {
 </script>
 
 <template>
-	<aside class="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l border-gray-200 bg-white p-4">
+	<aside class="flex w-full shrink-0 flex-col gap-4 border-t border-gray-200 md:w-72 md:overflow-y-auto md:border-l md:border-t-0 bg-white p-4">
 		<details open>
 			<summary class="cursor-pointer text-sm font-semibold">Basic info</summary>
 			<div class="mt-3 flex flex-col gap-3">

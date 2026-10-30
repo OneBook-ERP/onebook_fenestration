@@ -11,22 +11,22 @@
 				<Badge :theme="badge.theme" :label="badge.label" data-testid="quote-badge" />
 				<span v-if="quote?.quotation" class="text-sm text-ink-gray-5">{{ quote.quotation }}</span>
 			</div>
-			<dl class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
-				<div v-for="k in kpis" :key="k.id" :data-testid="`kpi-${k.id}`" class="rounded border p-3">
+			<dl class="mt-3 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+				<div v-for="k in kpis" :key="k.id" :data-testid="`kpi-${k.id}`" class="rounded border p-3 sm:min-w-32 sm:flex-1">
 					<dt class="text-xs text-ink-gray-5">{{ k.label }}</dt>
 					<dd class="text-lg font-semibold">{{ k.value }}</dd>
 				</div>
 			</dl>
 		</header>
 
-		<div role="tablist" aria-label="Project sections" class="mb-4 flex flex-wrap gap-1 border-b">
+		<div role="tablist" aria-label="Project sections" class="mb-4 flex gap-1 overflow-x-auto border-b">
 			<button
 				v-for="t in tabs"
 				:id="`tab-${t.id}`"
 				:key="t.id"
 				type="button"
 				role="tab"
-				class="min-h-9 border-b-2 px-3 text-sm"
+				class="min-h-9 shrink-0 whitespace-nowrap border-b-2 px-3 text-sm"
 				:class="tabClass(t)"
 				:aria-selected="activeTab === t.id"
 				:aria-disabled="t.disabled ? 'true' : undefined"

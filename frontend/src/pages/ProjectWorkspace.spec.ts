@@ -196,6 +196,8 @@ describe('ProjectWorkspace', () => {
 			expect(h.text()).toContain('FP-2026-00001')
 			expect(h.text()).toContain('Villa Rose')
 			expect(h.text()).toContain('Not quoted')
+			expect(h.get('[data-testid="kpi-windows"]').element.parentElement!.classList.value.split(' ')).toEqual(expect.arrayContaining(['grid-cols-2', 'sm:flex']))
+			expect(w.get('[role="tablist"]').classes()).toContain('overflow-x-auto')
 			expect(h.get('[data-testid="kpi-windows"]').text()).toContain('320')
 			expect(h.get('[data-testid="kpi-area"]').text()).toContain('3603.380')
 			expect(h.get('[data-testid="kpi-weight"]').text()).toContain('3030.0')

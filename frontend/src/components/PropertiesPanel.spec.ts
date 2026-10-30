@@ -51,6 +51,11 @@ describe('PropertiesPanel', () => {
 		glassState.loading = false
 	})
 
+	it('is full width on phone and w-72 from md', () => {
+		const w = mountPanel([], 'F1', [])
+		expect(w.get('aside').classes()).toEqual(expect.arrayContaining(['w-full', 'md:w-72']))
+	})
+
 	it('panel label: header uses the engine panel id', () => {
 		const w = mountPanel([sash, fixed], 'F1.0', [])
 		expect(w.text()).toContain('Selected panel F1-S1')

@@ -39,6 +39,26 @@ describe('ResultsBar', () => {
 		localStorage.clear()
 	})
 
+	describe('phone default', () => {
+		const mockPhone = (matches: boolean) =>
+			vi.stubGlobal('matchMedia', vi.fn((q: string) => ({ matches: matches && q === '(max-width: 767px)' })))
+		afterEach(() => vi.unstubAllGlobals())
+
+		it('is collapsed on phone when nothing is stored', () => {
+			mockPhone(true)
+			expect(mountBar(base).text()).toContain('Show results')
+		})
+		it('stored preference wins over the phone default', () => {
+			mockPhone(true)
+			localStorage.setItem('fen.resultsCollapsed', '0')
+			expect(mountBar(base).text()).toContain('Hide results')
+		})
+		it('stays expanded on wider screens', () => {
+			mockPhone(false)
+			expect(mountBar(base).text()).toContain('Hide results')
+		})
+	})
+
 	it('error pill green when zero, no warnings badge at zero, amber for 2', () => {
 		let w = mountBar(base)
 		expect(w.text()).toContain('0 errors')
