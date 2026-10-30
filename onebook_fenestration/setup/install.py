@@ -9,9 +9,11 @@ ENGINEER_ROLE = "Fenestration Engineer"
 
 def after_install():
 	_sync()
+	setup_production_items()
 
 
 def after_migrate():
+	"""Only creates what is missing; settings and Item flags an admin may have changed are left alone."""
 	_sync()
 
 
@@ -29,7 +31,7 @@ def _sync():
 	_ensure_engineer_role()
 	seed_pricing()
 	seed_quote_masters()
-	setup_production_items()
+	ensure_production_uoms()
 
 
 def _ensure_engineer_role():
@@ -219,11 +221,16 @@ def _seed_terms():
 PRODUCTION_UOMS = ("Kg", "Meter", "Square Meter")
 
 
-def setup_production_items():
-	"""D6 item setup: FEN-WINDOW batched, and material Items stocked in the units the BOM uses. Idempotent."""
+def ensure_production_uoms():
 	for uom in PRODUCTION_UOMS:
 		if not frappe.db.exists("UOM", uom):
 			frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(ignore_permissions=True)
+
+
+def setup_production_items():
+	"""D6 item setup: FEN-WINDOW batched, Work Orders make batches, and material Items stocked in the units the BOM
+	uses. Runs once, from after_install and the production_item_setup patch, so later admin changes survive migrate."""
+	ensure_production_uoms()
 	_batch_window_item()
 	frappe.db.set_single_value("Manufacturing Settings", "make_serial_no_batch_from_work_order", 1)
 	for item in _items_to_restock():
