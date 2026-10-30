@@ -1,19 +1,50 @@
 <template>
 	<div class="p-6">
-		<div class="mb-4 flex flex-wrap items-center gap-4">
-			<div>
+		<header data-testid="project-header" class="mb-4">
+			<nav aria-label="Breadcrumb" class="mb-1 text-sm text-ink-gray-5">
+				<router-link to="/projects" data-testid="breadcrumb-projects" class="hover:text-ink-gray-8">Projects</router-link>
+				<span aria-hidden="true"> / </span>
+				<span>{{ project }}</span>
+			</nav>
+			<div class="flex flex-wrap items-center gap-3">
 				<h1 class="text-xl font-semibold">{{ info?.project_title || project }}</h1>
-				<p class="text-sm text-ink-gray-5">
-					{{ totals.windows }} windows · {{ totals.area.toFixed(3) }} sq.ft · {{ totals.weight.toFixed(3) }} kg · Value {{ formatMoney(totals.value) }}
-				</p>
+				<Badge :theme="badge.theme" :label="badge.label" data-testid="quote-badge" />
+				<span v-if="quote?.quotation" class="text-sm text-ink-gray-5">{{ quote.quotation }}</span>
 			</div>
-			<FormControl v-model="search" class="ml-auto w-56" type="text" placeholder="Search designs" aria-label="Search designs" />
-			<Dropdown :options="templateOptions">
-				<Button variant="solid" data-testid="new-design" :disabled="!info?.default_series_version">New design</Button>
-			</Dropdown>
+			<dl class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+				<div v-for="k in kpis" :key="k.id" :data-testid="`kpi-${k.id}`" class="rounded border p-3">
+					<dt class="text-xs text-ink-gray-5">{{ k.label }}</dt>
+					<dd class="text-lg font-semibold">{{ k.value }}</dd>
+				</div>
+			</dl>
+		</header>
+
+		<div role="tablist" class="mb-4 flex flex-wrap gap-1 border-b">
+			<template v-for="t in tabs" :key="t.id">
+				<Tooltip v-if="t.disabled" text="Coming soon">
+					<button type="button" role="tab" disabled class="min-h-9 cursor-not-allowed px-3 text-sm text-ink-gray-4" :aria-selected="false">{{ t.label }}</button>
+				</Tooltip>
+				<button
+					v-else
+					type="button"
+					role="tab"
+					class="min-h-9 border-b-2 px-3 text-sm"
+					:class="activeTab === t.id ? 'border-ink-gray-9 font-medium' : 'border-transparent text-ink-gray-6'"
+					:aria-selected="activeTab === t.id"
+					@click="selectTab(t.id)"
+				>{{ t.label }}</button>
+			</template>
 		</div>
 
-		<QuotePanel :project="project" :info="info" @changed="projectList.reload()" @repriced="designList.reload()" />
+		<QuotePanel v-if="activeTab === 'quote'" :project="project" :info="info" @changed="onQuoteChanged" @repriced="onRepriced" />
+
+		<template v-if="activeTab === 'designs'">
+		<div class="mb-4 flex flex-wrap items-center gap-4">
+			<FormControl v-model="search" class="ml-auto w-56" type="text" placeholder="Search designs" aria-label="Search designs" />
+			<Dropdown :options="templateOptions">
+				<Button class="min-h-9" variant="solid" data-testid="new-design" :disabled="!info?.default_series_version">New design</Button>
+			</Dropdown>
+		</div>
 
 		<p v-if="!designs.length" class="text-sm text-ink-gray-5">No designs yet.</p>
 		<p v-else-if="!shown.length" class="text-sm text-ink-gray-5">No designs match.</p>
@@ -24,13 +55,20 @@
 					<span v-else class="text-xs text-ink-gray-5">No preview</span>
 				</div>
 				<div class="flex items-center gap-2">
-					<span class="font-medium">{{ d.design_ref }} × {{ d.qty }}</span>
-					<Badge v-if="d.error_count" theme="red" :label="`${d.error_count} errors`" />
-					<Badge v-else-if="d.warning_count" theme="orange" :label="`${d.warning_count} warnings`" />
+					<span class="font-medium">{{ d.design_ref }} · {{ typologyOf(d) }}</span>
+					<span class="text-sm text-ink-gray-5">× {{ d.qty }}</span>
+					<Badge v-if="d.error_count" class="ml-auto" theme="red" :label="`${d.error_count} errors`" />
+					<Badge v-else-if="d.warning_count" class="ml-auto" theme="amber" :label="`${d.warning_count} warnings`" />
+					<Badge v-else class="ml-auto" theme="green" label="OK" />
 				</div>
-				<p class="text-sm font-medium">{{ formatMoney(d.line_total) }} <span class="font-normal text-ink-gray-5">for {{ d.qty }}</span></p>
+				<p class="text-sm text-ink-gray-5">{{ d.series_version }} · {{ glassOf(d) }}<template v-if="d.location"> · {{ d.location }}</template></p>
+				<p class="flex items-center gap-1.5 text-sm text-ink-gray-5">
+					<span data-testid="finish-swatch" class="inline-block size-3 rounded-full border" :style="{ backgroundColor: finishColor(d.finish) }" aria-hidden="true"></span>
+					{{ finishName(d.finish) }}
+				</p>
+				<p class="text-sm text-ink-gray-5">{{ d.area_sqft }} sq.ft · {{ d.window_kg }} kg</p>
+				<p class="text-sm font-medium">Saved price {{ formatMoney(d.line_total) }}</p>
 				<p v-if="pricedOn(d)" class="text-sm text-ink-gray-5">Priced {{ pricedOn(d) }}</p>
-				<p class="text-sm text-ink-gray-5">{{ d.series_version }} · {{ d.area_sqft }} sq.ft<template v-if="d.location"> · {{ d.location }}</template></p>
 				<Button
 					class="mt-2 min-h-9"
 					variant="subtle"
@@ -48,15 +86,18 @@
 				/>
 			</article>
 		</div>
+		</template>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { Badge, Button, Dropdown, FormControl, toast, useList } from 'frappe-ui'
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { copyDesign } from '@/api'
+import { Badge, Button, Dropdown, FormControl, Tooltip, toast, useList } from 'frappe-ui'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { copyDesign, quoteStatus, type QuoteStatus } from '@/api'
 import QuotePanel from '@/components/QuotePanel.vue'
+import type { Design, DesignNode } from '@/design/types'
+import { typology } from '@/design/typology'
 import { TEMPLATES } from '@/design/templates'
 import { formatMoney } from '@/money'
 
@@ -71,6 +112,8 @@ interface DesignRow {
 	warning_count: number
 	design_svg: string
 	design_name?: string
+	finish?: string | null
+	design_json?: Design | string | null
 	location: string
 	line_total: number
 	pricing_json?: string | { priced_on?: string } | null
@@ -86,6 +129,7 @@ interface ProjectInfo {
 
 const props = defineProps<{ project: string }>()
 const router = useRouter()
+const route = useRoute()
 
 const projectList = useList<ProjectInfo>({
 	doctype: 'Fenestration Project',
@@ -97,12 +141,95 @@ const designList = useList<DesignRow>({
 	doctype: 'Window Design',
 	fields: [
 		'name', 'design_ref', 'qty', 'series_version', 'area_sqft', 'window_kg',
-		'error_count', 'warning_count', 'design_svg', 'design_name', 'location', 'line_total', 'pricing_json',
+		'error_count', 'warning_count', 'design_svg', 'design_name', 'finish', 'design_json', 'location', 'line_total', 'pricing_json',
 	],
 	filters: { project: props.project },
 	orderBy: 'design_ref asc',
 	limit: 200,
 })
+
+const finishList = useList<{ name: string; finish_name?: string; color?: string }>({
+	doctype: 'Profile Finish',
+	fields: ['name', 'finish_name', 'color'],
+	limit: 200,
+})
+
+const quote = ref<QuoteStatus | null>(null)
+async function loadQuote() {
+	try {
+		quote.value = await quoteStatus(props.project)
+	} catch {
+		quote.value = null
+	}
+}
+onMounted(loadQuote)
+function onQuoteChanged() {
+	projectList.reload()
+	loadQuote()
+}
+function onRepriced() {
+	designList.reload()
+	loadQuote()
+}
+
+const badge = computed<{ label: string; theme: 'gray' | 'blue' | 'amber' | 'red' }>(() => {
+	const q = quote.value
+	if (!q?.quotation) return { label: 'Not quoted', theme: 'gray' }
+	if (q.is_stale) return { label: 'Out of date', theme: 'red' }
+	if (q.docstatus === 0) return { label: 'Draft quote', theme: 'amber' }
+	return { label: q.status || '—', theme: 'blue' }
+})
+const kpis = computed(() => [
+	{ id: 'windows', label: 'Windows', value: String(totals.value.windows) },
+	{ id: 'area', label: 'Area (sq.ft)', value: totals.value.area.toFixed(3) },
+	{ id: 'value', label: 'Basic value', value: formatMoney(totals.value.value) },
+	{ id: 'grand', label: 'Grand total incl. GST', value: quote.value?.quotation && quote.value.rounded_total != null ? formatMoney(quote.value.rounded_total) : '—' },
+])
+
+const TAB_IDS = ['designs', 'quote'] as const
+const activeTab = computed(() => {
+	const t = String(route.query.tab ?? '')
+	return (TAB_IDS as readonly string[]).includes(t) ? t : 'designs'
+})
+const tabs = computed(() => [
+	{ id: 'designs', label: `Designs · ${designs.value.length}`, disabled: false },
+	{ id: 'quote', label: 'Quote', disabled: false },
+	{ id: 'order', label: 'Order', disabled: true },
+	{ id: 'production', label: 'Production', disabled: true },
+	{ id: 'install', label: 'Install', disabled: true },
+	{ id: 'reports', label: 'Reports', disabled: true },
+])
+function selectTab(id: string) {
+	router.replace({ query: { ...route.query, tab: id === 'designs' ? undefined : id } })
+}
+
+function parseTree(d: DesignRow): DesignNode | null {
+	try {
+		const doc = typeof d.design_json === 'string' ? JSON.parse(d.design_json || 'null') : d.design_json
+		return doc?.root ?? null
+	} catch {
+		return null
+	}
+}
+function leafGlass(node: DesignNode): string[] {
+	return node.type === 'split' ? node.children.flatMap(leafGlass) : [node.glass]
+}
+function typologyOf(d: DesignRow): string {
+	const root = parseTree(d)
+	return root ? typology(root) : '—'
+}
+function glassOf(d: DesignRow): string {
+	const root = parseTree(d)
+	const names = root ? [...new Set(leafGlass(root).filter(Boolean))] : []
+	return names.length ? names.join(', ') : '—'
+}
+const finishes = computed(() => new Map((finishList.data ?? []).map((f) => [f.name, f])))
+function finishName(code?: string | null): string {
+	return code ? finishes.value.get(code)?.finish_name || code : '—'
+}
+function finishColor(code?: string | null): string {
+	return (code && finishes.value.get(code)?.color) || '#9ca3af'
+}
 
 const info = computed(() => projectList.data?.[0])
 const designs = computed(() => designList.data ?? [])
@@ -153,13 +280,17 @@ const duplicating = ref(false)
 async function duplicate(name: string) {
 	if (duplicating.value) return
 	duplicating.value = true
+	let copy: string
 	try {
-		const copy = await copyDesign(name)
-		await router.push(`/projects/${props.project}/designs/${copy}`)
+		copy = await copyDesign(name)
 	} catch (e) {
 		toast.error(e instanceof Error ? e.message : 'Copy failed')
+		return
 	} finally {
 		duplicating.value = false
 	}
+	await router.push(`/projects/${props.project}/designs/${copy}`).catch(() => {
+		toast.error(`Copied as ${copy}, but could not open it`)
+	})
 }
 </script>
