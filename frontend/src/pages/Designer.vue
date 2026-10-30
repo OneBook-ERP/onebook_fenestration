@@ -2,7 +2,7 @@
 import { Alert, Badge, Button, toast, useList } from 'frappe-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { getDesign, getFenestrationDefaults, saveDesign, type SavedDesign } from '@/api'
+import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type SavedDesign } from '@/api'
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
 import WindowCanvas from '@/components/WindowCanvas.vue'
@@ -29,7 +29,14 @@ const saving = ref(false)
 const loadError = ref('')
 const loading = ref(false)
 let loadedName: string | null = null
-const blocked = computed(() => loading.value || !!loadError.value || saving.value)
+const lockedBy = ref<{ doctype: string; name: string } | null>(null)
+const copying = ref(false)
+const blocked = computed(() => loading.value || !!loadError.value || saving.value || !!lockedBy.value)
+const lockMessage = computed(() =>
+	lockedBy.value
+		? `${meta.value.ref} is on ${lockedBy.value.doctype} ${lockedBy.value.name}. Copy the design to change it.`
+		: '',
+)
 const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
 
 const finishList = useList<FinishRow>({
@@ -59,6 +66,7 @@ async function load(name: string | null) {
 	loadError.value = ''
 	if (!name) {
 		loadedName = null
+		lockedBy.value = null
 		meta.value = { ref: '', qty: 1, location: '' }
 		let defaults = { default_finish: '', default_price_structure: '' }
 		try {
@@ -82,6 +90,7 @@ async function load(name: string | null) {
 		if (name !== savedName.value) return
 		meta.value = { ref: doc.design_ref, qty: doc.qty, location: doc.location ?? '' }
 		store.reset(parseJson(doc.design_json), doc.series_version, doc.finish ?? '', doc.price_structure ?? '')
+		lockedBy.value = doc.locked_by ?? null
 		loadedName = name
 	} catch (e) {
 		if (name !== savedName.value) return
@@ -163,6 +172,18 @@ async function save() {
 	}
 }
 
+async function copy() {
+	if (!savedName.value || copying.value) return
+	copying.value = true
+	try {
+		const copyName = await copyDesign(savedName.value)
+		await router.push({ name: 'Designer', params: { project: project.value, name: copyName } })
+	} catch (e) {
+		toast.error(e instanceof Error ? e.message : 'Copy failed')
+	} finally {
+		copying.value = false
+	}
+}
 </script>
 
 <template>
@@ -184,6 +205,11 @@ async function save() {
 			</div>
 		</header>
 		<Alert v-if="loadError" role="alert" theme="red" :title="loadError" />
+		<Alert v-if="lockedBy" role="status" theme="yellow" :title="lockMessage">
+			<template #actions>
+				<Button label="Copy design" aria-label="Copy design" :loading="copying" @click="copy" />
+			</template>
+		</Alert>
 
 		<div class="flex min-h-0 flex-1">
 			<nav class="flex w-36 shrink-0 flex-col gap-2 border-r border-gray-200 bg-white p-3" aria-label="Tools">

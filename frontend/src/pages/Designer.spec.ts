@@ -4,7 +4,7 @@ import { toast } from 'frappe-ui'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { h } from 'vue'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
-import { computeDesign, getDesign, getFenestrationDefaults, saveDesign } from '@/api'
+import { computeDesign, copyDesign, getDesign, getFenestrationDefaults, saveDesign } from '@/api'
 import { routes } from '@/router'
 import { useDesignerStore } from '@/stores/designer'
 
@@ -12,6 +12,7 @@ vi.mock('@/api', () => ({
 	computeDesign: vi.fn(),
 	saveDesign: vi.fn(),
 	getDesign: vi.fn(),
+	copyDesign: vi.fn(),
 	getFenestrationDefaults: vi.fn(),
 	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
 }))
@@ -237,6 +238,25 @@ describe('Designer page', () => {
 		expect(wrapper.find('svg').text()).toContain('M1')
 		expect((field(wrapper, 'Design ref').element as HTMLInputElement).value).toBe('W01')
 		expect(field(wrapper, 'Design ref').attributes('readonly')).toBeDefined()
+		expect(button(wrapper, 'Save').attributes('disabled')).toBeUndefined()
+	})
+
+	it('locked design shows the lock banner, disables Save and copies to a new design', async () => {
+		vi.mocked(getDesign).mockResolvedValue({ ...w01, locked_by: { doctype: 'Quotation', name: 'SAL-QTN-1' } } as never)
+		vi.mocked(copyDesign).mockResolvedValue('WD-2')
+		const { wrapper, router } = await setup('/projects/P1/designs/WD-1')
+		expect(wrapper.text()).toContain('W01 is on Quotation SAL-QTN-1. Copy the design to change it.')
+		expect(button(wrapper, 'Save').attributes('disabled')).toBeDefined()
+		await button(wrapper, 'Copy design').trigger('click')
+		await flushPromises()
+		expect(copyDesign).toHaveBeenCalledWith('WD-1')
+		expect(router.currentRoute.value.params.name).toBe('WD-2')
+	})
+
+	it('unlocked design shows no lock banner', async () => {
+		vi.mocked(getDesign).mockResolvedValue({ ...w01, locked_by: null } as never)
+		const { wrapper } = await setup('/projects/P1/designs/WD-1')
+		expect(button(wrapper, 'Copy design').exists()).toBe(false)
 		expect(button(wrapper, 'Save').attributes('disabled')).toBeUndefined()
 	})
 
