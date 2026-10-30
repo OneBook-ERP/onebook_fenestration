@@ -1,0 +1,128 @@
+{
+ "actions": [],
+ "creation": "2026-10-30 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "modified": "2026-10-31 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "owner": "Administrator",
+ "name": "Cutting Plan",
+ "autoname": "CUT-.YYYY.-.#####",
+ "is_submittable": 1,
+ "track_changes": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "kerf_mm",
+   "fieldtype": "Float",
+   "label": "Kerf (mm)",
+   "description": "Defaults from Fenestration Settings."
+  },
+  {
+   "fieldname": "min_rest_mm",
+   "fieldtype": "Float",
+   "label": "Minimum Rest (mm)",
+   "description": "A remainder this long or longer is a reusable Rest, shorter is Waste."
+  },
+  {
+   "fieldname": "orders_section",
+   "fieldtype": "Section Break",
+   "label": "Sales Orders"
+  },
+  {
+   "fieldname": "orders",
+   "fieldtype": "Table",
+   "label": "Orders",
+   "options": "Cutting Plan Order",
+   "reqd": 1
+  },
+  {
+   "fieldname": "summary_section",
+   "fieldtype": "Section Break",
+   "label": "Wastage Summary"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Table",
+   "label": "Summary",
+   "options": "Cutting Plan Summary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unplaced_count",
+   "fieldtype": "Int",
+   "label": "Unplaced Pieces",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "plan_json",
+   "fieldtype": "JSON",
+   "label": "Plan JSON",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Cutting Plan",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "field_order": [
+  "company",
+  "kerf_mm",
+  "min_rest_mm",
+  "orders_section",
+  "orders",
+  "summary_section",
+  "summary",
+  "unplaced_count",
+  "plan_json",
+  "amended_from"
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "print": 1,
+   "email": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "print": 1,
+   "email": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  }
+ ]
+}

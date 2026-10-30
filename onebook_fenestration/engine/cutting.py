@@ -86,7 +86,7 @@ def _used(bar: list[Piece], kerf: float) -> float:
 
 
 def _plan(bar: list[Piece], lengths: list[float], kerf: float, min_rest: float) -> BarPlan:
-	used = _used(bar, kerf)
+	used = round(_used(bar, kerf), 3)
 	bar_length = next(length for length in lengths if length >= used)
-	remainder = bar_length - used
+	remainder = round(bar_length - used, 3)
 	return BarPlan(bar_length, tuple(bar), used, remainder, remainder >= min_rest)

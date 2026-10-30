@@ -67,3 +67,29 @@ class TestCutting(unittest.TestCase):
 		self.assertEqual((w["kg_bars"], w["kg_used"]), (12.0, 7.5))
 		self.assertEqual((w["waste_pct_incl_rest"], w["waste_pct_excl_rest"]), (37.5, 0.25))
 		self.assertEqual(w["kg_per_m"], 1.0)
+
+	def test_best_fit_beats_first_fit(self):
+		r = optimize(_pieces((3400, "p1"), (2700, "p2"), (2600, "p3"), (800, "p4"), (500, "p0")), [6000])
+		self.assertEqual([[p.label for p in b.pieces] for b in r.bars], [["p1", "p4"], ["p2", "p3", "p0"]])
+
+	def test_tie_goes_to_earlier_bar(self):
+		r = optimize(_pieces((3000, "a"), (3000, "b"), (1000, "c")), [6000])
+		self.assertEqual([[p.label for p in b.pieces] for b in r.bars], [["a", "c"], ["b"]])
+
+	def test_piece_plus_kerf_equal_to_longest_bar_is_placed(self):
+		r = optimize(_pieces((5990, "fits"), (5991, "over")), [6000])
+		self.assertEqual([p.label for p in r.bars[0].pieces], ["fits"])
+		self.assertEqual(r.bars[0].remainder_mm, 0)
+		self.assertEqual([p.label for p in r.unplaced], ["over"])
+
+	def test_rest_boundary_ignores_float_noise(self):
+		r = optimize(_pieces((2.3, "a")), [512.3], kerf=10.0, min_rest=500.0)
+		self.assertEqual(r.bars[0].remainder_mm, 500.0)
+		self.assertTrue(r.bars[0].is_rest)
+
+	def test_empty_pieces(self):
+		r = optimize([], [6000])
+		self.assertEqual((r.bars, r.unplaced), ([], []))
+		w = wastage(r, 1.5)
+		self.assertEqual((w["bar_count"], w["pieces"], w["bars"]), (0, 0, {}))
+		self.assertEqual((w["waste_pct_incl_rest"], w["waste_pct_excl_rest"], w["kg_bars"]), (0.0, 0.0, 0.0))
