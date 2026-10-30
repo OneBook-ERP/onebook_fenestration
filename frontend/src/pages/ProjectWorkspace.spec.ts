@@ -19,11 +19,12 @@ vi.mock('frappe-ui', async (orig) => ({
 		'Fenestration Project': [
 			{ name: 'FP-2026-00001', project_title: 'Villa Rose', default_series_version: 'CS400-V01', customer: 'CUST-1', transport_charges: 0, quotation: null },
 		],
+		'Fenestration Glass': [{ name: '6CTG', glass_name: '6 mm clear TG' }],
 		'Profile Finish': [{ name: 'RAL9016', finish_name: 'White', color: '#f4f4f4' }],
 		Customer: [{ name: 'CUST-1', customer_name: 'Acme Corp' }],
 		'Window Design': [
-			{ name: 'WD-1', design_ref: 'W01', qty: 260, series_version: 'CS400-V01', area_sqft: 12.013, window_kg: 10.5, error_count: 1, warning_count: 0, design_svg: svg, location: 'Hall', finish: 'RAL9016', design_json: JSON.stringify({ width: 1000, height: 1000, root: { type: 'split', dir: 'v', at: [500], children: [{ type: 'sash', glass: '5mm Clear' }, { type: 'sash', glass: '5mm Clear' }] } }), line_total: 4258987.2, pricing_json: JSON.stringify({ priced_on: '2026-10-30T10:15:00' }) },
-			{ name: 'WD-2', design_ref: 'W02', qty: 60, series_version: 'CS400-V01', area_sqft: 8, window_kg: 5, error_count: 0, warning_count: 0, design_svg: '', location: '', finish: '', design_json: JSON.stringify({ width: 1000, height: 1000, root: { type: 'fixed', glass: 'Tinted' } }), line_total: 90000, pricing_json: '' },
+			{ name: 'WD-1', design_ref: 'W01', qty: 260, series_version: 'CS400-V01', area_sqft: 12.013, window_kg: 10.5, error_count: 1, warning_count: 0, design_svg: svg, location: 'Hall', finish: 'RAL9016', design_json: JSON.stringify({ width: 1000, height: 1000, root: { type: 'split', dir: 'v', at: [500], children: [{ type: 'sash', glass: '6CTG' }, { type: 'sash', glass: '6CTG' }] } }), unit_price: 16380.72, line_total: 4258987.2, pricing_json: JSON.stringify({ priced_on: '2026-10-30T10:15:00' }) },
+			{ name: 'WD-2', design_ref: 'W02', qty: 60, series_version: 'CS400-V01', area_sqft: 8, window_kg: 5, error_count: 0, warning_count: 0, design_svg: '', location: '', finish: '', design_json: JSON.stringify({ width: 1000, height: 1000, root: { type: 'fixed', glass: 'Tinted' } }), unit_price: null, line_total: 90000, pricing_json: '' },
 		],
 	}),
 }))
@@ -237,16 +238,20 @@ describe('ProjectWorkspace', () => {
 			const [c1, c2] = w.findAll('[data-testid="design-card"]')
 			expect(c1.text()).toContain('W01 · 2-sash casement')
 			expect(c1.text()).toContain('× 260')
-			expect(c1.text()).toContain('CS400-V01 · 5mm Clear')
+			expect(c1.text()).toContain('CS400-V01 · 6 mm clear TG')
+			expect(c1.text()).not.toContain('6CTG')
 			expect(c1.text()).toContain('White')
 			expect(c1.get('[data-testid="finish-swatch"]').attributes('style')).toContain('background-color')
 			expect(c1.text()).not.toContain('OK')
 			expect(c1.text()).toContain('12.013 sq.ft · 10.5 kg')
-			expect(c1.text()).toContain('Saved price ₹42,58,987.20')
+			expect(c1.text()).toContain('₹16,380.72 each')
+			expect(c1.text()).toContain('Line ₹42,58,987.20')
 			expect(c1.text()).toContain('Priced 30 Oct 2026')
 			expect(c2.text()).toContain('OK')
 			expect(c2.text()).toContain('8.000 sq.ft · 5.0 kg')
 			expect(c2.text()).toContain('W02 · Fixed')
+			expect(c2.text()).toContain('CS400-V01 · Tinted')
+			expect(c2.text()).toContain('— each')
 			expect(c2.text()).toContain('—')
 		})
 	})

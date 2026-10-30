@@ -48,7 +48,8 @@
 					</Dropdown>
 				</div>
 
-				<p v-if="!designs.length" class="text-sm text-ink-gray-5">No designs yet.</p>
+				<p v-if="designsLoading" class="text-sm text-ink-gray-5">Loading designs…</p>
+				<p v-else-if="!designs.length" class="text-sm text-ink-gray-5">No designs yet.</p>
 				<p v-else-if="!shown.length" class="text-sm text-ink-gray-5">No designs match.</p>
 				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					<article v-for="d in shown" :key="d.name" data-testid="design-card" class="rounded border p-3">
@@ -69,7 +70,8 @@
 							{{ finishName(d.finish) }}
 						</p>
 						<p class="text-sm text-ink-gray-5">{{ fixed(d.area_sqft, 3) }} sq.ft · {{ fixed(d.window_kg, 1) }} kg</p>
-						<p class="text-sm font-medium">Saved price {{ formatMoney(d.line_total) }}</p>
+						<p class="text-sm text-ink-gray-5">{{ money(d.unit_price) }} each</p>
+						<p class="text-sm font-medium">Line {{ money(d.line_total) }}</p>
 						<p v-if="pricedOn(d)" class="text-sm text-ink-gray-5">Priced {{ pricedOn(d) }}</p>
 						<Button
 							class="mt-2 min-h-9"
@@ -118,7 +120,8 @@ interface DesignRow {
 	finish?: string | null
 	design_json?: Design | string | null
 	location: string
-	line_total: number
+	unit_price: number | null
+	line_total: number | null
 	pricing_json?: string | { priced_on?: string } | null
 }
 interface ProjectInfo {
@@ -144,11 +147,17 @@ const designList = useList<DesignRow>({
 	doctype: 'Window Design',
 	fields: [
 		'name', 'design_ref', 'qty', 'series_version', 'area_sqft', 'window_kg',
-		'error_count', 'warning_count', 'design_svg', 'design_name', 'finish', 'design_json', 'location', 'line_total', 'pricing_json',
+		'error_count', 'warning_count', 'design_svg', 'design_name', 'finish', 'design_json', 'location', 'unit_price', 'line_total', 'pricing_json',
 	],
 	filters: { project: props.project },
 	orderBy: 'design_ref asc',
 	limit: 200,
+})
+
+const glassList = useList<{ name: string; glass_name?: string }>({
+	doctype: 'Fenestration Glass',
+	fields: ['name', 'glass_name'],
+	limit: 100,
 })
 
 const finishList = useList<{ name: string; finish_name?: string; color?: string }>({
@@ -186,13 +195,14 @@ const badge = computed<{ label: string; theme: 'gray' | 'blue' | 'amber' | 'red'
 	if (q.docstatus === 0) return { label: 'Draft quote', theme: 'amber' }
 	return { label: q.status || '—', theme: 'blue' }
 })
+const designsLoading = computed(() => designList.data == null)
 const kpis = computed(() => [
 	{ id: 'windows', label: 'Windows', value: String(totals.value.windows) },
 	{ id: 'area', label: 'Area (sq.ft)', value: totals.value.area.toFixed(3) },
 	{ id: 'weight', label: 'Weight (kg)', value: totals.value.weight.toFixed(1) },
 	{ id: 'value', label: 'Basic value', value: formatMoney(totals.value.value) },
 	{ id: 'grand', label: 'Grand total incl. GST', value: quote.value?.quotation && quote.value.rounded_total != null ? formatMoney(quote.value.rounded_total) : '—' },
-])
+].map((k) => (designsLoading.value ? { ...k, value: '—' } : k)))
 
 const TAB_IDS = ['designs', 'quote'] as const
 const activeTab = computed(() => {
@@ -235,9 +245,16 @@ function typologyOf(d: DesignRow): string {
 	const root = parseTree(d)
 	return root ? typology(root) : '—'
 }
+const glasses = computed(() => new Map((glassList.data ?? []).map((g) => [g.name, g.glass_name])))
+function glassName(code: string): string {
+	return glasses.value.get(code) || code
+}
+function money(n: number | null | undefined): string {
+	return n == null ? '—' : formatMoney(n)
+}
 function glassOf(d: DesignRow): string {
 	const root = parseTree(d)
-	const names = root ? [...new Set(leafGlass(root).filter(Boolean))] : []
+	const names = root ? [...new Set(leafGlass(root).filter(Boolean).map(glassName))] : []
 	return names.length ? names.join(', ') : '—'
 }
 const finishes = computed(() => new Map((finishList.data ?? []).map((f) => [f.name, f])))
