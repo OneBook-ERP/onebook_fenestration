@@ -1,12 +1,32 @@
 <script setup lang="ts">
-import { Alert, Badge, TabButtons } from 'frappe-ui'
-import { computed, ref } from 'vue'
+import { Alert, Badge, Button, TabButtons } from 'frappe-ui'
+import { computed, ref, watch } from 'vue'
 import type { BomRow, Member } from '@/api'
+import { useProfileNames } from '@/composables/profiles'
 import { formatMoney } from '@/money'
 import { useDesignerStore } from '@/stores/designer'
 
+const COLLAPSED_KEY = 'fen.resultsCollapsed'
+
 const store = useDesignerStore()
+const profileNames = useProfileNames()
 const tab = ref('Cut list')
+
+function readCollapsed() {
+	try {
+		return localStorage.getItem(COLLAPSED_KEY) === '1'
+	} catch {
+		return false
+	}
+}
+const collapsed = ref(readCollapsed())
+watch(collapsed, (v) => {
+	try {
+		localStorage.setItem(COLLAPSED_KEY, v ? '1' : '0')
+	} catch {
+		// Storage unavailable: the state just won't persist.
+	}
+})
 
 const result = computed(() => store.result)
 const issues = computed(() => result.value?.issues ?? [])
@@ -19,22 +39,52 @@ const shutters = computed(() => {
 	return typeof s === 'number' ? [['', s] as [string, number]] : Object.entries(s)
 })
 
+/** Angles arrive as an array or a string like "[45, 45]". */
+function formatAngles(a: Member['angles'] | number[]): string {
+	let list: unknown = a
+	if (typeof a === 'string') {
+		try {
+			list = JSON.parse(a)
+		} catch {
+			return a || '\u2014'
+		}
+	}
+	return Array.isArray(list) && list.length ? list.map((x) => `${x}\u00b0`).join(' / ') : '\u2014'
+}
+const dash = (v: unknown) => (v == null || v === '' ? '\u2014' : String(v))
+
 const cutList = computed(() => {
 	const rows = new Map<string, { m: Member; qty: number }>()
 	for (const m of result.value?.members ?? []) {
-		const key = `${m.profile}|${m.length}|${m.angles}`
+		const key = `${m.profile}|${m.length}|${formatAngles(m.angles)}|${m.position}|${m.panel}`
 		const row = rows.get(key)
 		if (row) row.qty += 1
 		else rows.set(key, { m, qty: 1 })
 	}
-	return [...rows.values()]
+	return [...rows.entries()].map(([key, r]) => ({ key, ...r }))
 })
 const hardware = computed<BomRow[]>(() => (result.value?.bom ?? []).filter((b) => b.group !== 'Gasket'))
+const gaskets = computed(() => {
+	const rows = new Map<string, { item: string; name: string; metres: number }>()
+	for (const b of (result.value?.bom ?? []).filter((r) => r.group === 'Gasket')) {
+		const row = rows.get(b.item) ?? { item: b.item, name: b.name, metres: 0 }
+		row.metres += (b.length ?? 0) / 1000
+		rows.set(b.item, row)
+	}
+	return [...rows.values()]
+})
 
+const counts = computed<Record<string, number>>(() => ({
+	'Cut list': cutList.value.length,
+	Hardware: hardware.value.length,
+	Gaskets: gaskets.value.length,
+	Glass: result.value?.glass?.length ?? 0,
+	Issues: issues.value.length,
+}))
 const tabOptions = computed(() =>
-	['Cut list', 'Hardware', 'Glass', 'Pricing', 'Issues'].map((t) => ({
+	['Cut list', 'Hardware', 'Gaskets', 'Glass', 'Pricing', 'Issues'].map((t) => ({
 		value: t,
-		label: t === 'Issues' ? `Issues (${issues.value.length})` : t,
+		label: t === 'Pricing' ? t : `${t} \u00b7 ${counts.value[t]}`,
 	})),
 )
 
@@ -55,24 +105,39 @@ const td = 'px-3 py-1.5 text-sm'
 					Shutter {{ panel }} {{ Number(kg).toFixed(3) }} kg
 				</span>
 				<template v-if="pricing">
-					<span class="font-semibold">Unit price {{ formatMoney(pricing.unit_price) }}</span>
+					<span class="font-semibold">Live price {{ formatMoney(pricing.unit_price) }}</span>
 					<span>{{ formatMoney(pricing.rate_per_sqft) }}/sq.ft</span>
+					<span class="text-xs text-gray-500">From current rates; saved designs keep their priced value until repriced.</span>
 				</template>
-				<Badge theme="red" :label="`${errors} errors`" />
-				<Badge theme="amber" :label="`${warnings} warnings`" />
+				<Badge :theme="errors ? 'red' : 'green'" :label="`${errors} errors`" />
+				<Badge v-if="warnings" theme="amber" :label="`${warnings} warnings`" />
+				<Button
+					class="ml-auto min-h-9"
+					:label="collapsed ? 'Show results' : 'Hide results'"
+					:aria-expanded="!collapsed"
+					@click="collapsed = !collapsed"
+				/>
 			</div>
-			<p v-else-if="!store.error" class="px-4 py-2 text-sm text-gray-500">Computing...</p>
+			<div v-else-if="!store.error" class="flex items-center px-4 py-2 text-sm text-gray-500">
+				<span>Computing...</span>
+				<Button
+					class="ml-auto min-h-9"
+					:label="collapsed ? 'Show results' : 'Hide results'"
+					:aria-expanded="!collapsed"
+					@click="collapsed = !collapsed"
+				/>
+			</div>
 
-			<div class="px-2 py-1">
+			<div v-if="!collapsed" class="px-2 py-1">
 				<TabButtons v-model="tab" :options="tabOptions" />
 			</div>
 
-		<div class="max-h-48 overflow-auto">
+		<div v-if="!collapsed" class="max-h-48 overflow-auto">
 			<table v-if="tab === 'Cut list'" class="w-full">
-				<thead><tr><th :class="th">Profile</th><th :class="th">Length</th><th :class="th">Angles</th><th :class="th">Qty</th></tr></thead>
+				<thead><tr><th :class="th">Profile</th><th :class="th">Code</th><th :class="th">Length (mm)</th><th :class="th">Angles</th><th :class="th">Qty</th><th :class="th">Position</th><th :class="th">Panel</th></tr></thead>
 				<tbody>
-					<tr v-for="r in cutList" :key="`${r.m.profile}|${r.m.length}|${r.m.angles}`">
-						<td :class="td">{{ r.m.profile }}</td><td :class="td">{{ r.m.length }}</td><td :class="td">{{ r.m.angles }}</td><td :class="td">{{ r.qty }}</td>
+					<tr v-for="r in cutList" :key="r.key">
+						<td :class="td">{{ dash(profileNames[r.m.profile]) }}</td><td :class="td">{{ r.m.profile }}</td><td :class="td">{{ Number(r.m.length).toFixed(1) }}</td><td :class="td">{{ formatAngles(r.m.angles) }}</td><td :class="td">{{ r.qty }}</td><td :class="td">{{ dash(r.m.position) }}</td><td :class="td">{{ dash(r.m.panel) }}</td>
 					</tr>
 				</tbody>
 			</table>
@@ -81,6 +146,14 @@ const td = 'px-3 py-1.5 text-sm'
 				<tbody>
 					<tr v-for="(b, i) in hardware" :key="i">
 						<td :class="td">{{ b.item }}</td><td :class="td">{{ b.name }}</td><td :class="td">{{ b.qty }}</td><td :class="td">{{ b.uom }}</td><td :class="td">{{ b.panel }}</td>
+					</tr>
+				</tbody>
+			</table>
+			<table v-else-if="tab === 'Gaskets'" class="w-full">
+				<thead><tr><th :class="th">Item</th><th :class="th">Name</th><th :class="th">Length (m)</th></tr></thead>
+				<tbody>
+					<tr v-for="g in gaskets" :key="g.item">
+						<td :class="td">{{ g.item }}</td><td :class="td">{{ g.name }}</td><td :class="td">{{ g.metres.toFixed(3) }}</td>
 					</tr>
 				</tbody>
 			</table>

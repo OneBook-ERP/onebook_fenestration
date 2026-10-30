@@ -129,7 +129,7 @@ describe('Designer page', () => {
 		const { wrapper } = await setup()
 		await vi.advanceTimersByTimeAsync(300)
 		await flushPromises()
-		expect(wrapper.text()).toContain('Unit price ₹16,380.72')
+		expect(wrapper.text()).toContain('Live price ₹16,380.72')
 		expect(wrapper.text()).toContain('₹1,363.63/sq.ft')
 		await tab(wrapper, 'Pricing').trigger('click')
 		await flushPromises()
@@ -150,6 +150,17 @@ describe('Designer page', () => {
 		expect(subtotal.text()).toContain('Material Subtotal')
 		expect(subtotal.classes()).toEqual(expect.arrayContaining(['italic', 'text-gray-500']))
 		expect(profit.classes()).not.toContain('italic')
+	})
+
+	it('tools explain their disabled state', async () => {
+		const { wrapper } = await setup()
+		const hint = 'Select a panel on the drawing to use these tools'
+		expect(wrapper.find('nav[aria-label="Tools"]').text()).not.toContain(hint)
+		expect(button(wrapper, 'Sash').attributes('disabled')).toBeUndefined()
+		useDesignerStore().select('nope')
+		await flushPromises()
+		expect(wrapper.find('nav[aria-label="Tools"]').text()).toContain(hint)
+		expect(button(wrapper, 'Sash').attributes('disabled')).toBeDefined()
 	})
 
 	it('split vertical shows M1 on canvas', async () => {

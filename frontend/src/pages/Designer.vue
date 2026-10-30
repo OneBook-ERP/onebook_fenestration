@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Alert, Badge, Button, toast, useList } from 'frappe-ui'
+import { Alert, Badge, Button, Tooltip, toast, useList } from 'frappe-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type SavedDesign } from '@/api'
@@ -37,6 +37,7 @@ const lockMessage = computed(() =>
 		? `${meta.value.ref} is on ${lockedBy.value.doctype} ${lockedBy.value.name}. Copy the design to change it.`
 		: '',
 )
+const toolHint = 'Select a panel on the drawing to use these tools'
 const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
 
 const finishList = useList<FinishRow>({
@@ -213,11 +214,22 @@ async function copy() {
 
 		<div class="flex min-h-0 flex-1">
 			<nav class="flex w-36 shrink-0 flex-col gap-2 border-r border-gray-200 bg-white p-3" aria-label="Tools">
-				<Button label="Split vertical" aria-label="Split vertical" class="min-h-9" :disabled="!selectedLeaf" @click="split('v')" />
-				<Button label="Split horizontal" aria-label="Split horizontal" class="min-h-9" :disabled="!selectedLeaf" @click="split('h')" />
-				<Button label="Sash" aria-label="Sash" class="min-h-9" :disabled="!selectedLeaf" @click="convert('sash')" />
-				<Button label="Fixed glass" aria-label="Fixed glass" class="min-h-9" :disabled="!selectedLeaf" @click="convert('fixed')" />
-				<Button label="Louver" aria-label="Louver" class="min-h-9" :disabled="!selectedLeaf" @click="convert('louver')" />
+				<p v-if="!selectedLeaf" class="text-xs text-gray-500">{{ toolHint }}</p>
+				<Tooltip :text="selectedLeaf ? '' : toolHint">
+					<Button label="Split vertical" aria-label="Split vertical" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="split('v')" />
+				</Tooltip>
+				<Tooltip :text="selectedLeaf ? '' : toolHint">
+					<Button label="Split horizontal" aria-label="Split horizontal" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="split('h')" />
+				</Tooltip>
+				<Tooltip :text="selectedLeaf ? '' : toolHint">
+					<Button label="Sash" aria-label="Sash" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="convert('sash')" />
+				</Tooltip>
+				<Tooltip :text="selectedLeaf ? '' : toolHint">
+					<Button label="Fixed glass" aria-label="Fixed glass" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="convert('fixed')" />
+				</Tooltip>
+				<Tooltip :text="selectedLeaf ? '' : toolHint">
+					<Button label="Louver" aria-label="Louver" class="min-h-9 w-full" :disabled="!selectedLeaf" @click="convert('louver')" />
+				</Tooltip>
 			</nav>
 			<main class="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden p-2">
 				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
