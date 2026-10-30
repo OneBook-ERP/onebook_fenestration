@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, today
@@ -140,11 +142,12 @@ class TestRates(IntegrationTestCase):
 		self.assertTrue(any(i.code == "no_rate" and "H912" in i.message for i in breakdown.issues))
 
 	def test_live_perimeters_override_zero_snapshot(self):
-		self.assertEqual(self.snapshot.profiles["E104156"].visible_perimeter_mm, 0)
+		profile = replace(self.snapshot.profiles["E104156"], visible_perimeter_mm=0, total_perimeter_mm=0)
+		snapshot = replace(self.snapshot, profiles={**self.snapshot.profiles, "E104156": profile})
 		frappe.db.set_value("Fenestration Profile", "E104156", {"visible_perimeter_mm": 150, "total_perimeter_mm": 300})
-		pricing = self.build()
+		pricing = build_pricing_input(snapshot, self.result, "GREY", "Standard", PRICE_LIST)
 		self.assertEqual(pricing.profile_perimeters["E104156"], (150, 300))
-		breakdown = price(self.result, self.snapshot, pricing)
+		breakdown = price(self.result, snapshot, pricing)
 		self.assertGreater(breakdown.variables["visible_perimeter_sqft"], 0)
 		self.assertFalse(any(i.code == "no_perimeter" and "E104156" in i.message for i in breakdown.issues))
 
