@@ -9,6 +9,7 @@
   "design_name",
   "qty",
   "location",
+  "superseded_by",
   "series_version",
   "design_json",
   "results_section",
@@ -60,6 +61,15 @@
    "fieldname": "location",
    "fieldtype": "Data",
    "label": "Location"
+  },
+  {
+   "fieldname": "superseded_by",
+   "fieldtype": "Link",
+   "label": "Superseded By",
+   "options": "Window Design",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "The copy made to requote this design. Superseded designs are left out of new quotations and assembly prints."
   },
   {
    "fieldname": "series_version",
@@ -171,7 +181,7 @@
    "ignore_xss_filter": 1
   }
  ],
- "modified": "2026-10-31 00:00:00",
+ "modified": "2026-10-31 12:00:00",
  "modified_by": "Administrator",
  "module": "Fenestration",
  "name": "Window Design",

@@ -103,6 +103,15 @@ class TestDesignLock(IntegrationTestCase):
 		self.assertFalse(frappe.get_all("Quotation Item", {"fen_window_design": first.name}))
 		self.change_json(first.name)
 
+	def test_copy_marks_locked_original_superseded(self):
+		project, design, _quotation = self.submitted_quotation()
+		copy = copy_design(design.name)
+		self.assertEqual(frappe.db.get_value("Window Design", design.name, "superseded_by"), copy)
+		self.assertIsNone(frappe.db.get_value("Window Design", copy, "superseded_by"))
+		frappe.db.set_value("Window Design", copy, "pricing_warning_count", 0)  # fixture prices only a few items
+		quotation = frappe.get_doc("Quotation", make_quotation(project.name))
+		self.assertEqual([line.fen_window_design for line in quotation.items if line.fen_window_design], [copy])
+
 	def test_copy_design_requires_project_write(self):
 		_project, design, _quotation = self.submitted_quotation()
 		frappe.set_user("Guest")

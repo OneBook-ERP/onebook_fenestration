@@ -232,6 +232,17 @@ class TestAssemblyPrints(IntegrationTestCase):
 		self.assertEqual(keys, sorted(keys))
 		self.assertTrue(all("/" in p["angles"] and p["profile_name"] and p["qty_per_window"] >= 1 for p in pieces))
 
+	def test_assembly_prints_skip_superseded(self):
+		w02 = frappe.db.get_value("Window Design", {"project": self.project.name, "design_ref": "W02"})
+		w03 = frappe.db.get_value("Window Design", {"project": self.project.name, "design_ref": "W03"})
+		frappe.db.savepoint("fen_superseded")
+		self.addCleanup(frappe.db.rollback, save_point="fen_superseded")
+		frappe.db.set_value("Window Design", w02, "superseded_by", w03)
+		groups = print_context.assembly_summary(self.project)
+		self.assertEqual(groups[0]["refs"], "W01")
+		self.assertEqual(groups[0]["qty"], 2)
+		self.assertEqual([b["ref"] for b in print_context.assembly_detail(self.project)], ["W01", "W03"])
+
 	def test_assembly_prints_render(self):
 		for print_format in ASSEMBLY_FORMATS:
 			html = frappe.get_print("Fenestration Project", self.project.name, print_format=print_format)

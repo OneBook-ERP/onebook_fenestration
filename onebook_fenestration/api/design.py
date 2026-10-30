@@ -161,7 +161,8 @@ COPY_FIELDS = (
 
 @frappe.whitelist()
 def copy_design(name: str) -> str:
-	"""Copy a design's inputs into a new, unlocked design in the same project; returns its name."""
+	"""Copy a design's inputs into a new, unlocked design in the same project and mark the original superseded by it;
+	returns the copy's name."""
 	frappe.has_permission("Window Design", "read", name, throw=True)
 	source = frappe.get_doc("Window Design", name)
 	frappe.has_permission("Fenestration Project", "write", source.project, throw=True)
@@ -174,6 +175,8 @@ def copy_design(name: str) -> str:
 	doc.update({f: source.get(f) for f in COPY_FIELDS})
 	doc.update({"project": source.project, "design_ref": f"{source.design_ref}-R{number}"})
 	doc.insert()
+	# Not a locked input, so allowed on a quoted design: new quotations and assembly prints use the copy instead.
+	source.db_set("superseded_by", doc.name, update_modified=False)
 	return doc.name
 
 

@@ -5,7 +5,7 @@ from frappe.utils import escape_html, flt
 
 from onebook_fenestration.engine import compute
 from onebook_fenestration.engine.layout import layout
-from onebook_fenestration.fenestration.quotation import TRANSPORT_ITEM, _typology
+from onebook_fenestration.fenestration.quotation import TRANSPORT_ITEM, _typology, current_designs
 from onebook_fenestration.fenestration.quote_party import company_address
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 
@@ -44,9 +44,9 @@ POSITION_ORDER = "BTLRHW"
 
 
 def assembly_summary(doc) -> list[dict]:
-	"""Designs of a project grouped by width x height, largest first, for the Assembly Summary format."""
+	"""Current designs of a project grouped by width x height, largest first, for the Assembly Summary format."""
 	groups: dict[tuple, dict] = {}
-	for row in design_rows(doc):
+	for row in map(_row, current_designs(doc.name, DESIGN_FIELDS)):
 		group = groups.setdefault(
 			(row["width"], row["height"]),
 			{
@@ -70,8 +70,8 @@ def assembly_summary(doc) -> list[dict]:
 
 
 def assembly_detail(doc) -> list[dict]:
-	"""One block per design with its cut pieces (panel, position, profile, length, angles) for the Assembly Detail format."""
-	return [_detail_block(design) for design in _project_designs(doc)]
+	"""One block per current design with its cut pieces (panel, position, profile, length, angles) for the Assembly Detail format."""
+	return [_detail_block(design) for design in current_designs(doc.name, DESIGN_FIELDS)]
 
 
 def _detail_block(design) -> dict:

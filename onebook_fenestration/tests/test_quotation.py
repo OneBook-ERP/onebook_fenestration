@@ -490,6 +490,23 @@ class TestQuotation(IntegrationTestCase):
 		self.assertIn("W02", stale["removed"][0])
 		self.assertEqual(stale["changed"], [])
 
+	def test_superseded_design_counts_as_removed_not_added(self):
+		project, designs = self.stale_quote()
+		copy = self.make_design("W01-R1", project.name)
+		designs[0].db_set("superseded_by", copy.name)
+		stale = quote_status(project.name)["stale"]
+		self.assertEqual(stale["added"], ["W01-R1"])
+		self.assertEqual(len(stale["removed"]), 1)
+		self.assertIn("W01", stale["removed"][0])
+		self.assertEqual(stale["changed"], [])
+
+	def test_superseded_design_change_is_not_reported(self):
+		project, designs = self.stale_quote()
+		copy = self.make_design("W09", project.name)
+		designs[0].db_set("superseded_by", copy.name)
+		designs[0].db_set("unit_price", 1)  # a change the quotation would otherwise flag
+		self.assertEqual(quote_status(project.name)["stale"]["changed"], [])
+
 	def test_transport_change_is_flagged(self):
 		project, _designs = self.stale_quote(transport=500)
 		frappe.db.set_value("Fenestration Project", project.name, "transport_charges", 900)
