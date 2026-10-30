@@ -15,9 +15,14 @@ describe('typology', () => {
 	it('a lone sash is Casement', () => expect(typology(sash)).toBe('Casement'))
 	it('all sash is n-sash casement', () => expect(typology(split(sash, sash))).toBe('2-sash casement'))
 	it('mixed joins the unique kinds', () => expect(typology(split(sash, fixed))).toBe('Casement + fixed'))
+	it('mixed order does not matter', () => expect(typology(split(fixed, sash))).toBe('Casement + fixed'))
+	it('sash, fixed, sash has its own label', () => {
+		expect(typology(split(sash, fixed, sash))).toBe('Sash · fixed · sash')
+		expect(typology(split(fixed, sash, fixed))).toBe('Casement + fixed')
+	})
 	it('any louver is Ventilator', () => expect(typology(split(sash, louver))).toBe('Ventilator'))
 	it('reads nested trees', () => {
-		expect(typology(split(sash, split(fixed, sash)))).toBe('Casement + fixed')
+		expect(typology(split(sash, split(fixed, sash), fixed))).toBe('Casement + fixed')
 	})
 })
 

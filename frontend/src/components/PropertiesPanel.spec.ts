@@ -5,15 +5,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PropertiesPanel from '@/components/PropertiesPanel.vue'
 import { useDesignerStore } from '@/stores/designer'
 
-vi.mock('frappe-ui', async (orig) => ({
-	...(await orig<object>()),
-	useList: (await import('@/test-utils')).fakeUseList({
-		'Fenestration Glass': [
-			{ name: '6CTG', glass_name: '6 mm clear toughened' },
-			{ name: '5CLR', glass_name: '5 mm clear' },
-		],
-	}),
-}))
+const glassState = vi.hoisted(() => ({ loading: false }))
+vi.mock('frappe-ui', async (orig) => {
+	const { reactive } = await import('vue')
+	return {
+		...(await orig<object>()),
+		useList: () =>
+			reactive({
+				get data() {
+					return glassState.loading
+						? undefined
+						: [
+								{ name: '6CTG', glass_name: '6 mm clear toughened' },
+								{ name: '5CLR', glass_name: '5 mm clear' },
+							]
+				},
+				reload: () => {},
+				list: { get loading() { return glassState.loading } },
+			}),
+	}
+})
 
 const tree = (leafs: object[]) => ({
 	width: 1200,
@@ -35,7 +46,10 @@ const fixed = { type: 'fixed', glass: '6CTG' }
 
 describe('PropertiesPanel', () => {
 	enableAutoUnmount(afterEach)
-	beforeEach(() => setActivePinia(createPinia()))
+	beforeEach(() => {
+		setActivePinia(createPinia())
+		glassState.loading = false
+	})
 
 	it('panel label: header uses the engine panel id', () => {
 		const w = mountPanel([sash, fixed], 'F1.0', [])
@@ -73,5 +87,14 @@ describe('PropertiesPanel', () => {
 		await w.vm.$nextTick()
 		expect(labels()).toContain('OLD1 (unknown)')
 		expect(glass().props('modelValue')).toBe('OLD1')
+	})
+
+	it('does not call a code unknown while the glass list is loading', () => {
+		glassState.loading = true
+		const w = mountPanel([sash, fixed], 'F1.0', [])
+		const glass = w.findAllComponents(Select).find((c) => c.props('label') === 'Glass')!
+		const labels = (glass.props('options') as { label: string }[]).map((o) => o.label)
+		expect(labels).toEqual(['6CTG'])
+		expect(labels.join()).not.toContain('unknown')
 	})
 })

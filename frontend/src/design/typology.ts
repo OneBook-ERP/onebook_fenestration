@@ -6,6 +6,7 @@ function leaves(node: DesignNode): LeafNode[] {
 }
 
 const KIND_LABEL: Record<LeafNode['type'], string> = { sash: 'Casement', fixed: 'fixed', louver: 'louver' }
+const KIND_ORDER: LeafNode['type'][] = ['sash', 'fixed', 'louver']
 
 /** Short human description of a design, e.g. "2-sash casement" or "Casement + fixed". */
 export function typology(root: DesignNode): string {
@@ -14,7 +15,10 @@ export function typology(root: DesignNode): string {
 	if (kinds.includes('louver')) return 'Ventilator'
 	if (kinds.length === 1 && kinds[0] === 'sash') return all.length > 1 ? `${all.length}-sash casement` : 'Casement'
 	if (kinds.length === 1) return 'Fixed'
-	return kinds.map((k) => KIND_LABEL[k]).join(' + ')
+	if (all.length === 3 && all[0].type === 'sash' && all[1].type === 'fixed' && all[2].type === 'sash') {
+		return 'Sash · fixed · sash'
+	}
+	return KIND_ORDER.filter((k) => kinds.includes(k)).map((k) => KIND_LABEL[k]).join(' + ')
 }
 
 type PathRows = Pick<ComputeResult, 'members' | 'glass'>

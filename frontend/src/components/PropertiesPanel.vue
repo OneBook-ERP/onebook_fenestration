@@ -24,7 +24,10 @@ const glassList = useList<{ name: string; glass_name: string }>({
 const glassOptions = computed(() => {
 	const opts = (glassList.data ?? []).map((g) => ({ label: `${g.glass_name || g.name} (${g.name})`, value: g.name }))
 	const cur = leaf.value?.glass
-	if (cur && !opts.some((o) => o.value === cur)) opts.push({ label: `${cur} (unknown)`, value: cur })
+	if (cur && !opts.some((o) => o.value === cur)) {
+		const loaded = glassList.data !== undefined && glassList.data !== null && !glassList.list?.loading
+		opts.push({ label: loaded ? `${cur} (unknown)` : cur, value: cur })
+	}
 	return opts
 })
 const selectedLabel = computed(() => panelLabel(store.selectedPath, store.result))
