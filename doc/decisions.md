@@ -115,7 +115,8 @@ Hilux is also a fabricator, so HQ runs the same flow as a dealer either way.
 Work Order needs a BOM, and a BOM needs an Item. An Item may have many BOMs, and Sales Order Item carries `bom_no`, which Work Order creation uses.
 
 **Decision:** keep the shared `FEN-WINDOW` Item (no Item per design).
-- On Sales Order submit, create one BOM per Window Design line from the engine BOM (profiles, hardware, gaskets, glass) and set it on that Sales Order Item's `bom_no`. The BOM is never the Item's default.
+- On Sales Order submit, create one BOM per Window Design line from the engine BOM (profiles, hardware, gaskets, glass) and set it on that Sales Order Item's `bom_no`. The BOM is never the Item's default: ERPNext makes the first active BOM of an Item its default, so a BOM hook resets `is_default` and clears `FEN-WINDOW`'s `default_bom` whenever it would point to a design BOM.
+- The Sales Order "Work Order" button reads ERPNext's `get_work_order_items`, which offers the Item's default BOM. The app overrides that whitelisted method: design lines are offered with their own `bom_no` (same pending-qty rules), every other line comes from ERPNext unchanged.
 - `FEN-WINDOW` becomes batch-tracked with batch-wise valuation. Each design line gets its own Batch, so a window keeps its own BOM cost through Work Order, stock, Delivery Note and invoice, and the batch identifies the window.
 - Production then uses standard Work Order and Job Cards.
 - The app enables Manufacturing Settings `make_serial_no_batch_from_work_order` (in setup) so Work Order submit creates the batch.

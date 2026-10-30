@@ -10,6 +10,7 @@ from frappe.utils import add_days, flt, nowdate
 
 from onebook_fenestration.engine import compute
 from onebook_fenestration.fenestration.quotation import make_quotation
+from onebook_fenestration.patches.v0_1 import clear_design_bom_defaults
 from onebook_fenestration.pricing.rates import price_design
 from onebook_fenestration.production.bom import bom_rows
 from onebook_fenestration.series_studio.importer import import_snapshot_json
@@ -21,6 +22,10 @@ from onebook_fenestration.tests.test_snapshot import load
 HELPERS = ("set_up_prices", "set_up_parties", "make_quote_project", "make_design")
 STATIC_HELPERS = ("make_customer", "make_address")
 COMPANY = test_quotation.COMPANY
+WORK_ORDER_ITEMS = "erpnext.selling.doctype.sales_order.sales_order.get_work_order_items"
+ORIGINAL_ROW_KEYS = (
+	"name", "item_code", "item_name", "description", "bom", "warehouse", "pending_qty", "required_qty", "sales_order_item"
+)
 
 
 class TestProductionBom(IntegrationTestCase):
@@ -96,6 +101,31 @@ class TestProductionBom(IntegrationTestCase):
 			)
 			self.assertEqual(bom, {"item": "FEN-WINDOW", "is_default": 0, "docstatus": 1, "fen_window_design": design.name})
 		self.assertNotEqual(order.items[0].bom_no, order.items[1].bom_no)
+		self.assertNoDesignDefault()
+
+	def assertNoDesignDefault(self):
+		default = frappe.db.get_value("Item", "FEN-WINDOW", "default_bom")
+		if default:
+			self.assertFalse(frappe.db.get_value("BOM", default, "fen_window_design"))
+		self.assertFalse(frappe.db.exists("BOM", {"item": "FEN-WINDOW", "fen_window_design": ("is", "set"), "is_default": 1}))
+
+	def test_patch_takes_default_back_from_design_bom(self):
+		order, _designs = self.draft_order()
+		order.submit()
+		bom = order.items[0].bom_no
+		frappe.db.set_value("BOM", bom, "is_default", 1)  # the state ERPNext left before the guard
+		frappe.db.set_value("Item", "FEN-WINDOW", "default_bom", bom)
+		clear_design_bom_defaults.execute()
+		self.assertNoDesignDefault()
+
+	def test_work_order_items_use_each_line_bom(self):
+		order, _designs = self.draft_order(refs=("W01", "W02"))
+		order.submit()
+		get_items = frappe.get_attr(frappe.override_whitelisted_method(WORK_ORDER_ITEMS))
+		rows = get_items(order.name)
+		self.assertEqual({r["sales_order_item"]: r["bom"] for r in rows}, {line.name: line.bom_no for line in order.items})
+		self.assertEqual([r["pending_qty"] for r in rows], [line.stock_qty for line in order.items])
+		self.assertEqual(set(rows[0]), set(ORIGINAL_ROW_KEYS))
 
 	def test_transport_line_gets_no_bom(self):
 		order, _designs = self.draft_order(transport=500)

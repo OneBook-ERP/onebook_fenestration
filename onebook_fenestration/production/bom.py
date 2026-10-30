@@ -112,6 +112,24 @@ def ensure_bom(design_name: str, design_hash: str, rows: list[dict] | None = Non
 	return bom.name
 
 
+def keep_design_boms_off_default(doc, method=None) -> None:
+	"""BOM submit/cancel/update hook. ERPNext makes the first active BOM of an Item its default; for FEN-WINDOW
+	that would be one window's BOM. Design BOMs are only reached through the order line's bom_no (D6)."""
+	if doc.item != WINDOW_ITEM:
+		return
+	clear_design_defaults()
+
+
+def clear_design_defaults() -> None:
+	for name in frappe.get_all(
+		"BOM", {"item": WINDOW_ITEM, "fen_window_design": ("is", "set"), "is_default": 1}, pluck="name"
+	):
+		frappe.db.set_value("BOM", name, "is_default", 0, update_modified=False)
+	default = frappe.db.get_value("Item", WINDOW_ITEM, "default_bom")
+	if default and frappe.db.get_value("BOM", default, "fen_window_design"):
+		frappe.db.set_value("Item", WINDOW_ITEM, "default_bom", None, update_modified=False)
+
+
 def set_order_boms(doc, method=None) -> None:
 	"""Sales Order before_submit: check each design line is current, then attach its BOM."""
 	lines = []

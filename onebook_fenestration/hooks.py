@@ -169,6 +169,10 @@ before_uninstall = "onebook_fenestration.setup.install.before_uninstall"
 
 doc_events = {
 	"Sales Order": {"before_submit": "onebook_fenestration.production.bom.set_order_boms"},
+	"BOM": {
+		event: "onebook_fenestration.production.bom.keep_design_boms_off_default"
+		for event in ("on_submit", "on_cancel", "on_update_after_submit")
+	},
 }
 # doc_events = {
 # 	"*": {
@@ -215,9 +219,11 @@ doc_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "onebook_fenestration.event.get_events"
-# }
+override_whitelisted_methods = {
+	"erpnext.selling.doctype.sales_order.sales_order.get_work_order_items": (
+		"onebook_fenestration.production.work_order.get_work_order_items"
+	),
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
