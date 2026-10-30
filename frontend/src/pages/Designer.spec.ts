@@ -110,6 +110,24 @@ describe('Designer page', () => {
 	})
 	afterEach(() => vi.useRealTimers())
 
+	it('uses a column layout on phone and side-by-side from md', async () => {
+		const { wrapper } = await setup()
+		const body = wrapper.get('nav[aria-label="Tools"]').element.parentElement!
+		expect(body.className).toContain('flex-col')
+		expect(body.className).toContain('md:flex-row')
+		const nav = wrapper.get('nav[aria-label="Tools"]').classes()
+		for (const c of ['flex-row', 'overflow-x-auto', 'md:flex-col', 'md:w-36']) expect(nav).toContain(c)
+		expect(wrapper.get('main').classes()).toContain('min-h-[50vh]')
+		expect(wrapper.get('main').classes()).toContain('md:min-h-0')
+	})
+
+	it('applies the template from the query on a new design', async () => {
+		await setup('/projects/P1/designs/new?series_version=SV1&template=ventilator')
+		const root = useDesignerStore().design.root
+		expect(root).toMatchObject({ type: 'split', dir: 'v' })
+		expect(root.type === 'split' && root.children.some((c) => c.type === 'louver')).toBe(true)
+	})
+
 	it('choosing a finish recomputes with it and recolours the frame', async () => {
 		const { wrapper } = await setup()
 		await vi.advanceTimersByTimeAsync(300)
@@ -129,7 +147,7 @@ describe('Designer page', () => {
 		const { wrapper } = await setup()
 		await vi.advanceTimersByTimeAsync(300)
 		await flushPromises()
-		expect(wrapper.text()).toContain('Unit price ₹16,380.72')
+		expect(wrapper.text()).toContain('Live price ₹16,380.72')
 		expect(wrapper.text()).toContain('₹1,363.63/sq.ft')
 		await tab(wrapper, 'Pricing').trigger('click')
 		await flushPromises()
@@ -150,6 +168,17 @@ describe('Designer page', () => {
 		expect(subtotal.text()).toContain('Material Subtotal')
 		expect(subtotal.classes()).toEqual(expect.arrayContaining(['italic', 'text-gray-500']))
 		expect(profit.classes()).not.toContain('italic')
+	})
+
+	it('tools explain their disabled state', async () => {
+		const { wrapper } = await setup()
+		const hint = 'Select a panel on the drawing to use these tools'
+		expect(wrapper.find('nav[aria-label="Tools"]').text()).not.toContain(hint)
+		expect(button(wrapper, 'Sash').attributes('disabled')).toBeUndefined()
+		useDesignerStore().select('nope')
+		await flushPromises()
+		expect(wrapper.find('nav[aria-label="Tools"]').text()).toContain(hint)
+		expect(button(wrapper, 'Sash').attributes('disabled')).toBeDefined()
 	})
 
 	it('split vertical shows M1 on canvas', async () => {
@@ -387,14 +416,29 @@ describe('Designer page', () => {
 		expect(wrapper.text()).not.toContain('Loading design...')
 	})
 
-	it('view toggle exposes its state with aria-pressed', async () => {
+	it('view toggle is a segmented control exposing its state with aria-pressed', async () => {
 		const { wrapper } = await setup()
-		const toggle = () => wrapper.findAll('button').find((b) => b.text() === 'Outside view')!
-		expect(toggle().attributes('aria-pressed')).toBe('false')
-		expect(toggle().attributes('aria-label')).toBe('Outside view')
-		await toggle().trigger('click')
-		expect(toggle().attributes('aria-pressed')).toBe('true')
+		const seg = (t: string) => wrapper.findAll('button').find((b) => b.text() === t)!
+		expect(seg('Inside').attributes('aria-pressed')).toBe('true')
+		expect(seg('Outside').attributes('aria-pressed')).toBe('false')
+		await seg('Outside').trigger('click')
+		expect(seg('Outside').attributes('aria-pressed')).toBe('true')
+		expect(seg('Inside').attributes('aria-pressed')).toBe('false')
 		expect(wrapper.find('svg').text()).toContain('View from outside')
+	})
+
+	it('breadcrumb links to the project and shows ref and typology', async () => {
+		vi.mocked(getDesign).mockResolvedValue(w01 as never)
+		const { wrapper } = await setup('/projects/P1/designs/WD-1')
+		const link = wrapper.find('header a[href$="/projects/P1"]')
+		expect(link.text()).toBe('Projects / P1')
+		expect(wrapper.find('header').text()).toContain('W01 · Fixed')
+	})
+
+	it('undo and redo are icon buttons with labels', async () => {
+		const { wrapper } = await setup()
+		expect(button(wrapper, 'Undo').text()).toBe('')
+		expect(button(wrapper, 'Redo').text()).toBe('')
 	})
 
 	it('unmount cancels pending compute', async () => {
