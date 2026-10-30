@@ -32,14 +32,16 @@
    "fieldtype": "Float",
    "label": "Cutting Kerf (mm)",
    "default": "10",
-   "description": "Saw cut width lost per piece."
+   "description": "Saw cut width lost per piece.",
+   "non_negative": 1
   },
   {
    "fieldname": "min_rest_mm",
    "fieldtype": "Float",
    "label": "Minimum Rest Length (mm)",
    "default": "500",
-   "description": "Offcuts this long or longer count as reusable Rest."
+   "description": "Offcuts this long or longer count as reusable Rest.",
+   "non_negative": 1
   }
  ],
  "permissions": [
@@ -68,7 +70,7 @@
  "creation": "2026-10-30 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
- "modified": "2026-10-31 00:00:00",
+ "modified": "2026-10-31 13:00:00",
  "modified_by": "Administrator",
  "module": "Pricing",
  "name": "Fenestration Settings",

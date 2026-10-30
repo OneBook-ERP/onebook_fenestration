@@ -239,6 +239,19 @@ class TestCuttingPlan(IntegrationTestCase):
 			build_plan(plan)
 		self.assertIn(order.name, str(ctx.exception))
 
+	def test_negative_kerf_and_rest_refused(self):
+		order, _ = self.submitted_order([("W01", "GREY", 1, 1)])
+		for fieldname in ("kerf_mm", "min_rest_mm"):
+			plan = self.new_plan([order.name])
+			plan.set(fieldname, -1)
+			with self.assertRaises(frappe.NonNegativeError):
+				plan.insert()
+		for fieldname in ("cut_kerf_mm", "min_rest_mm"):
+			settings = frappe.get_single("Fenestration Settings")
+			settings.set(fieldname, -1)
+			with self.assertRaises(frappe.NonNegativeError):
+				settings.save()  # refused before anything is written
+
 	def test_parse_bar_lengths(self):
 		self.assertEqual(parse_bar_lengths(" 4880 ,, 5800;", "P"), [4880, 5800])
 		with self.assertRaises(frappe.ValidationError) as ctx:
