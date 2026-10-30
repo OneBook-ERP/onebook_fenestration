@@ -66,3 +66,21 @@ CUSTOM_FIELDS["Sales Order Item"] = [
 		"hidden": 1,
 	},
 ]
+CUSTOM_FIELDS["BOM"] = [
+	{
+		"fieldname": "fen_window_design",
+		"label": "Window Design",
+		"fieldtype": "Link",
+		"options": "Window Design",
+		"insert_after": "item",
+		"read_only": 1,
+	},
+	{
+		"fieldname": "fen_design_hash",
+		"label": "Design Hash",
+		"fieldtype": "Data",
+		"insert_after": "fen_window_design",
+		"read_only": 1,
+		"hidden": 1,
+	},
+]

@@ -28,6 +28,7 @@ def _sync():
 	_ensure_engineer_role()
 	seed_pricing()
 	seed_quote_masters()
+	setup_production_items()
 
 
 def _ensure_engineer_role():
@@ -204,3 +205,66 @@ def _seed_terms():
 			"terms": f"<ol>{items}</ol>",
 		}
 	).insert(ignore_permissions=True)
+
+
+PRODUCTION_UOMS = ("Kg", "Meter", "Square Meter")
+
+
+def setup_production_items():
+	"""D6 item setup: FEN-WINDOW batched, and material Items stocked in the units the BOM uses. Idempotent."""
+	for uom in PRODUCTION_UOMS:
+		if not frappe.db.exists("UOM", uom):
+			frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(ignore_permissions=True)
+	_batch_window_item()
+	for item in _items_to_restock():
+		if frappe.db.exists("Item", item[0]) and _is_unused(item[0]):
+			_restock(*item)
+
+
+def _batch_window_item():
+	if not frappe.db.exists("Item", "FEN-WINDOW"):
+		return
+	if frappe.db.exists("Stock Ledger Entry", {"item_code": "FEN-WINDOW"}):
+		frappe.log_error("FEN-WINDOW has stock; left as is", "Fenestration production setup")
+		return
+	frappe.db.set_value(
+		"Item",
+		"FEN-WINDOW",
+		{"is_stock_item": 1, "has_batch_no": 1, "create_new_batch": 1, "include_item_in_manufacturing": 0},
+	)
+
+
+def _items_to_restock() -> list[tuple[str, str]]:
+	"""(item, uom) for profile, gasket and glass Items not yet stocked in the BOM unit (stock UOM and UOM row)."""
+	wanted = {"Profile": "Kg", "Gasket": "Meter"}
+	pairs = [
+		(name, wanted[kind])
+		for name, kind in frappe.get_all(
+			"Item", {"fen_item_kind": ("in", tuple(wanted))}, ["name", "fen_item_kind"], as_list=True
+		)
+	]
+	glass = frappe.get_all("Fenestration Glass", {"item": ("is", "set")}, pluck="item")
+	pairs += [(name, "Square Meter") for name in glass if frappe.db.exists("Item", name)]
+	return [(name, uom) for name, uom in pairs if not _stocked_in(name, uom)]
+
+
+def _stocked_in(item_code: str, uom: str) -> bool:
+	return frappe.db.get_value("Item", item_code, "stock_uom") == uom and bool(
+		frappe.db.exists("UOM Conversion Detail", {"parenttype": "Item", "parent": item_code, "uom": uom})
+	)
+
+
+def _is_unused(item_code: str) -> bool:
+	return not (
+		frappe.db.exists("Stock Ledger Entry", {"item_code": item_code})
+		or frappe.db.exists("BOM Item", {"item_code": item_code})
+	)
+
+
+def _restock(item_code: str, uom: str) -> None:
+	"""Change the stock UOM; the old UOM row stays so Item Prices already saved in it remain valid."""
+	item = frappe.get_doc("Item", item_code)
+	item.stock_uom = uom
+	if not any(row.uom == uom for row in item.uoms):
+		item.append("uoms", {"uom": uom, "conversion_factor": 1})
+	item.save(ignore_permissions=True)

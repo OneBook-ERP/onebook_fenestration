@@ -164,6 +164,9 @@ before_uninstall = "onebook_fenestration.setup.install.before_uninstall"
 # ---------------
 # Hook on document methods and events
 
+doc_events = {
+	"Sales Order": {"before_submit": "onebook_fenestration.production.bom.set_order_boms"},
+}
 # doc_events = {
 # 	"*": {
 # 		"on_update": "method",
