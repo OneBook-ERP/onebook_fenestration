@@ -398,14 +398,29 @@ describe('Designer page', () => {
 		expect(wrapper.text()).not.toContain('Loading design...')
 	})
 
-	it('view toggle exposes its state with aria-pressed', async () => {
+	it('view toggle is a segmented control exposing its state with aria-pressed', async () => {
 		const { wrapper } = await setup()
-		const toggle = () => wrapper.findAll('button').find((b) => b.text() === 'Outside view')!
-		expect(toggle().attributes('aria-pressed')).toBe('false')
-		expect(toggle().attributes('aria-label')).toBe('Outside view')
-		await toggle().trigger('click')
-		expect(toggle().attributes('aria-pressed')).toBe('true')
+		const seg = (t: string) => wrapper.findAll('button').find((b) => b.text() === t)!
+		expect(seg('Inside').attributes('aria-pressed')).toBe('true')
+		expect(seg('Outside').attributes('aria-pressed')).toBe('false')
+		await seg('Outside').trigger('click')
+		expect(seg('Outside').attributes('aria-pressed')).toBe('true')
+		expect(seg('Inside').attributes('aria-pressed')).toBe('false')
 		expect(wrapper.find('svg').text()).toContain('View from outside')
+	})
+
+	it('breadcrumb links to the project and shows ref and typology', async () => {
+		vi.mocked(getDesign).mockResolvedValue(w01 as never)
+		const { wrapper } = await setup('/projects/P1/designs/WD-1')
+		const link = wrapper.find('header a[href$="/projects/P1"]')
+		expect(link.text()).toBe('Projects / P1')
+		expect(wrapper.find('header').text()).toContain('W01 · Fixed')
+	})
+
+	it('undo and redo are icon buttons with labels', async () => {
+		const { wrapper } = await setup()
+		expect(button(wrapper, 'Undo').text()).toBe('')
+		expect(button(wrapper, 'Redo').text()).toBe('')
 	})
 
 	it('unmount cancels pending compute', async () => {

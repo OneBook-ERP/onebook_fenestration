@@ -6,6 +6,7 @@ import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type SavedD
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
 import WindowCanvas from '@/components/WindowCanvas.vue'
+import { typology } from '@/design/typology'
 import { getNode, moveSplit, newDesign, setLeaf, splitCell } from '@/design/tree'
 import type { LeafNode, SplitDir } from '@/design/types'
 import { useDesignerStore } from '@/stores/designer'
@@ -24,6 +25,10 @@ const savedName = computed(() => (route.params.name ? String(route.params.name) 
 
 const meta = ref<Meta>({ ref: '', qty: 1, location: '' })
 const refError = ref('')
+const VIEWS = [
+	{ label: 'Inside', value: 'inside' },
+	{ label: 'Outside', value: 'outside' },
+] as const
 const view = ref<'inside' | 'outside'>('inside')
 const saving = ref(false)
 const loadError = ref('')
@@ -38,6 +43,7 @@ const lockMessage = computed(() =>
 		: '',
 )
 const toolHint = 'Select a panel on the drawing to use these tools'
+const designType = computed(() => typology(store.design.root))
 const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
 
 const finishList = useList<FinishRow>({
@@ -190,18 +196,27 @@ async function copy() {
 <template>
 	<div class="flex h-screen flex-col bg-gray-50 text-gray-900">
 		<header class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-2">
-			<Button label="Back" aria-label="Back to project" class="min-h-9" :route="`/projects/${project}`" />
-			<span class="text-sm font-semibold">{{ meta.ref || 'New design' }}</span>
+			<nav aria-label="Breadcrumb" class="flex items-center gap-1 text-sm">
+				<RouterLink :to="`/projects/${project}`" class="min-h-9 content-center text-gray-600 hover:text-gray-900">
+					Projects / {{ project }}
+				</RouterLink>
+			</nav>
+			<span class="text-sm font-semibold">{{ meta.ref || 'New design' }} · {{ designType }}</span>
 			<Badge v-if="store.seriesVersion" :label="store.seriesVersion" />
 			<div class="ml-auto flex items-center gap-2">
-				<Button label="Undo" aria-label="Undo" class="min-h-9" :disabled="!store.past.length" @click="store.undo()" />
-				<Button label="Redo" aria-label="Redo" class="min-h-9" :disabled="!store.future.length" @click="store.redo()" />
-				<Button
-					label="Outside view"
-					:aria-pressed="view === 'outside'"
-					class="min-h-9"
-					@click="view = view === 'inside' ? 'outside' : 'inside'"
-				/>
+				<Button icon="lucide-undo-2" aria-label="Undo" class="min-h-9 min-w-9" :disabled="!store.past.length" @click="store.undo()" />
+				<Button icon="lucide-redo-2" aria-label="Redo" class="min-h-9 min-w-9" :disabled="!store.future.length" @click="store.redo()" />
+				<div class="flex rounded-md border border-gray-200 p-0.5" role="group" aria-label="View">
+					<Button
+						v-for="v in VIEWS"
+						:key="v.value"
+						:label="v.label"
+						:variant="view === v.value ? 'subtle' : 'ghost'"
+						:aria-pressed="view === v.value"
+						class="min-h-9"
+						@click="view = v.value"
+					/>
+				</div>
 				<Button label="Save" aria-label="Save" variant="solid" class="min-h-9" :disabled="blocked" @click="save" />
 			</div>
 		</header>
