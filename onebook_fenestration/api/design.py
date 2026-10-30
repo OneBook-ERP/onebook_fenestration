@@ -5,6 +5,7 @@ from frappe import _
 
 from onebook_fenestration.engine import DesignError, RuleError
 from onebook_fenestration.fenestration.doctype.window_design.window_design import (
+	locking_document,
 	pricing_to_dict,
 	result_to_dict,
 )
@@ -137,11 +138,46 @@ def get_design(name: str) -> dict:
 		"line_total",
 	)
 	out = {f: doc.get(f) for f in fields}
+	lock = locking_document(name)
+	out["locked_by"] = {"doctype": lock[0], "name": lock[1]} if lock else None
 	out["finish"], out["price_structure"] = resolve_pricing_defaults(doc.finish, doc.price_structure)
 	for field in ("design_json", "result_json", "pricing_json"):
 		value = doc.get(field)
 		out[field] = json.loads(value) if isinstance(value, str) else value
 	return out
+
+
+COPY_FIELDS = (
+	"design_json",
+	"series_version",
+	"finish",
+	"price_structure",
+	"qty",
+	"location",
+	"design_name",
+	"design_svg",
+)
+
+
+@frappe.whitelist()
+def copy_design(name: str) -> str:
+	"""Copy a design's inputs into a new, unlocked design in the same project and mark the original superseded by it;
+	returns the copy's name."""
+	frappe.has_permission("Window Design", "read", name, throw=True)
+	source = frappe.get_doc("Window Design", name)
+	frappe.has_permission("Fenestration Project", "write", source.project, throw=True)
+	frappe.has_permission("Window Design", "create", throw=True)
+	taken = set(frappe.get_all("Window Design", {"project": source.project}, pluck="design_ref"))
+	number = 1
+	while f"{source.design_ref}-R{number}" in taken:
+		number += 1
+	doc = frappe.new_doc("Window Design")
+	doc.update({f: source.get(f) for f in COPY_FIELDS})
+	doc.update({"project": source.project, "design_ref": f"{source.design_ref}-R{number}"})
+	doc.insert()
+	# Not a locked input, so allowed on a quoted design: new quotations and assembly prints use the copy instead.
+	source.db_set("superseded_by", doc.name, update_modified=False)
+	return doc.name
 
 
 @frappe.whitelist()

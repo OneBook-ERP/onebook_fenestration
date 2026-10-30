@@ -26,7 +26,7 @@ def import_snapshot_json(
 	for rule in snap.member_rules:
 		roles.setdefault(rule.profile, rule.role)
 	for profile in snap.profiles.values():
-		_ensure_item(profile.code, profile.name, "Nos", "Profile", hsn_codes)
+		_ensure_item(profile.code, profile.name, "Kg", "Profile", hsn_codes)
 		_ensure_profile(profile, series_code, roles.get(profile.code, "accessory"))
 	for rule in snap.hardware_rules:
 		_ensure_item(rule.item, rule.name, rule.uom, "Hardware", hsn_codes)

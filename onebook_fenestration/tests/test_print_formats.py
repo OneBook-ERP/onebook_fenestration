@@ -8,6 +8,7 @@ from onebook_fenestration.fenestration.quotation import make_quotation
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests import test_quotation
 from onebook_fenestration.tests.test_snapshot import load
+from onebook_fenestration.fenestration import print_context
 from onebook_fenestration.utils.jinja import fen_svg_data_uri
 
 QUOTATION_FORMAT = "Fenestration Quotation"
@@ -160,3 +161,95 @@ class TestPrintFormats(IntegrationTestCase):
 		self.addCleanup(frappe.db.set_value, "Quotation Item", line.name, "fen_window_design", line.fen_window_design)
 		html = self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)
 		self.assertIn("Grand Total", html)
+
+
+ASSEMBLY_FORMATS = ("Fenestration Assembly Summary", "Fenestration Assembly Detail")
+POSITION_ORDER = "BTLRHW"
+
+
+class TestAssemblyPrints(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
+		test_quotation.TestQuotation.set_up_prices()
+		test_quotation.TestQuotation.set_up_parties()
+		cls.project = frappe.get_doc(
+			{
+				"doctype": "Fenestration Project",
+				"project_title": "Assembly Test",
+				"customer": test_quotation.IN_STATE_CUSTOMER,
+				"company": test_quotation.COMPANY,
+			}
+		).insert()
+		cls.make_design("W01", 1200, 930, 2, "<b>x</b>")
+		cls.make_design("W02", 1200, 930, 3)
+		cls.make_design("W03", 600, 600, 1)
+
+	@classmethod
+	def make_design(cls, ref, width, height, qty, name=""):
+		spec = {**load("w01.json"), "width": width, "height": height}
+		design = frappe.get_doc(
+			{
+				"doctype": "Window Design",
+				"project": cls.project.name,
+				"design_ref": ref,
+				"design_name": name,
+				"qty": qty,
+				"series_version": cls.version,
+				"design_json": json.dumps(spec),
+			}
+		).insert()
+		design.db_set("pricing_warning_count", 0)
+
+	@classmethod
+	def tearDownClass(cls):
+		frappe.cache.hdel("fen_snapshot", cls.version)
+		super().tearDownClass()
+
+	def test_assembly_summary_groups_same_size(self):
+		groups = print_context.assembly_summary(self.project)
+		self.assertEqual(len(groups), 2)
+		first, second = groups
+		self.assertEqual((first["width"], first["height"]), (1200, 930))
+		self.assertEqual(first["refs"], "W01, W02")
+		self.assertEqual(first["qty"], 5)
+		rows = {r["ref"]: r for r in print_context.design_rows(self.project)}
+		self.assertAlmostEqual(first["area_sqft"], rows["W01"]["area_sqft"] * 2 + rows["W02"]["area_sqft"] * 3, 2)
+		self.assertEqual((second["width"], second["height"], second["refs"]), (600, 600, "W03"))
+		self.assertTrue(first["typology"])
+
+	def test_assembly_detail_positions_and_panels(self):
+		blocks = print_context.assembly_detail(self.project)
+		block = next(b for b in blocks if b["ref"] == "W01")
+		self.assertEqual((block["qty"], block["width"], block["height"]), (2, 1200, 930))
+		pieces = block["pieces"]
+		self.assertTrue(pieces[0]["panel"].startswith("F1"))
+		self.assertLessEqual({p["position"] for p in pieces}, set(POSITION_ORDER))
+		frame = [p["position"] for p in pieces if p["panel"] == "F1"]
+		self.assertLess(frame.index("B"), frame.index("T"))
+		keys = [(p["panel"], POSITION_ORDER.index(p["position"])) for p in pieces]
+		self.assertEqual(keys, sorted(keys))
+		self.assertTrue(all("/" in p["angles"] and p["profile_name"] and p["qty_per_window"] >= 1 for p in pieces))
+
+	def test_assembly_prints_skip_superseded(self):
+		w02 = frappe.db.get_value("Window Design", {"project": self.project.name, "design_ref": "W02"})
+		w03 = frappe.db.get_value("Window Design", {"project": self.project.name, "design_ref": "W03"})
+		frappe.db.savepoint("fen_superseded")
+		self.addCleanup(frappe.db.rollback, save_point="fen_superseded")
+		frappe.db.set_value("Window Design", w02, "superseded_by", w03)
+		groups = print_context.assembly_summary(self.project)
+		self.assertEqual(groups[0]["refs"], "W01")
+		self.assertEqual(groups[0]["qty"], 2)
+		self.assertEqual([b["ref"] for b in print_context.assembly_detail(self.project)], ["W01", "W03"])
+
+	def test_assembly_prints_render(self):
+		for print_format in ASSEMBLY_FORMATS:
+			html = frappe.get_print("Fenestration Project", self.project.name, print_format=print_format)
+			self.assertIn("W01", html)
+			self.assertNotIn("<b>x</b>", html)
+			self.assertIn(test_quotation.COMPANY, html)
+			if print_format.endswith("Detail"):
+				self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
+			self.assertTrue(get_pdf(html).startswith(b"%PDF"))
+

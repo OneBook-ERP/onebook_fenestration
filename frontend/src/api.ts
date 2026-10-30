@@ -107,6 +107,7 @@ export interface SavedDesign {
 	design_svg: string
 	finish?: string | null
 	price_structure?: string | null
+	locked_by?: { doctype: string; name: string } | null
 }
 
 export function computeDesign(
@@ -138,6 +139,10 @@ export function saveDesign(args: SaveArgs): Promise<SaveResponse> {
 
 export function getDesign(name: string): Promise<SavedDesign> {
 	return call(`${API}.get_design`, { name })
+}
+
+export function copyDesign(name: string): Promise<string> {
+	return call(`${API}.copy_design`, { name })
 }
 
 export interface Session {

@@ -32,8 +32,29 @@ def result_to_dict(result: EngineResult) -> dict:
 	return json.loads(json.dumps(dataclasses.asdict(result)))
 
 
+LOCKED_FIELDS = ("design_json", "series_version", "finish", "price_structure", "qty", "design_svg")
+
+
+def locking_document(design_name: str) -> tuple[str, str] | None:
+	"""The submitted Sales Order, or submitted non-Lost Quotation, that references the design."""
+	for doctype, extra in (("Sales Order", {}), ("Quotation", {"status": ("!=", "Lost")})):
+		parents = frappe.get_all(
+			f"{doctype} Item",
+			{"fen_window_design": design_name, "parenttype": doctype},
+			pluck="parent",
+		)
+		if parents:
+			found = frappe.get_all(
+				doctype, {"name": ("in", parents), "docstatus": 1, **extra}, pluck="name", limit=1
+			)
+			if found:
+				return doctype, found[0]
+	return None
+
+
 class WindowDesign(Document):
 	def validate(self):
+		self.check_not_locked()
 		if cint(self.qty) < 1:
 			frappe.throw(_("Qty must be at least 1"))
 		if not self.is_new() and (self.has_value_changed("project") or self.has_value_changed("design_ref")):
@@ -45,6 +66,17 @@ class WindowDesign(Document):
 			self.line_total = round(flt(self.unit_price) * cint(self.qty), 2)
 		if self.design_svg and (self.is_new() or self.has_value_changed("design_svg")):
 			self.design_svg = sanitize_svg(self.design_svg)
+
+	def check_not_locked(self):
+		if self.is_new():
+			return
+		if not (self.flags.force_reprice or any(self.has_value_changed(f) for f in LOCKED_FIELDS)):
+			return
+		lock = locking_document(self.name)
+		if lock:
+			frappe.throw(
+				_("{0} is on {1} {2}. Copy the design to change it.").format(self.design_ref, *lock)
+			)
 
 	def on_trash(self):
 		# A draft quotation line must not block deleting its design; the next make_quotation drops the line.

@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "creation": "2026-10-30 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "modified": "2026-10-31 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "owner": "Administrator",
+ "name": "Cutting Plan Summary",
+ "istable": 1,
+ "fields": [
+  {
+   "fieldname": "profile",
+   "fieldtype": "Link",
+   "label": "Profile",
+   "options": "Fenestration Profile",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "finish",
+   "fieldtype": "Link",
+   "label": "Finish",
+   "options": "Profile Finish",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "bars",
+   "fieldtype": "Data",
+   "label": "Bars",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "bar_count",
+   "fieldtype": "Int",
+   "label": "Bar Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pieces",
+   "fieldtype": "Int",
+   "label": "Pieces",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cut_mm",
+   "fieldtype": "Float",
+   "label": "Cut (mm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rest_mm",
+   "fieldtype": "Float",
+   "label": "Rest (mm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "waste_mm",
+   "fieldtype": "Float",
+   "label": "Waste (mm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "kg_bars",
+   "fieldtype": "Float",
+   "label": "Bars (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "kg_used",
+   "fieldtype": "Float",
+   "label": "Used (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "waste_pct_incl_rest",
+   "fieldtype": "Float",
+   "label": "Waste % incl. Rest",
+   "read_only": 1
+  },
+  {
+   "fieldname": "waste_pct_excl_rest",
+   "fieldtype": "Float",
+   "label": "Waste % excl. Rest",
+   "read_only": 1
+  },
+  {
+   "fieldname": "kg_per_m",
+   "fieldtype": "Float",
+   "label": "kg/m",
+   "read_only": 1
+  }
+ ],
+ "field_order": [
+  "profile",
+  "finish",
+  "bars",
+  "bar_count",
+  "pieces",
+  "cut_mm",
+  "rest_mm",
+  "waste_mm",
+  "kg_bars",
+  "kg_used",
+  "waste_pct_incl_rest",
+  "waste_pct_excl_rest",
+  "kg_per_m"
+ ],
+ "permissions": []
+}

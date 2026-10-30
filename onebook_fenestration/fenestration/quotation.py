@@ -85,7 +85,7 @@ def make_quotation(project: str) -> str:
 		frappe.has_permission("Quotation", "create", throw=True)
 	else:
 		frappe.has_permission("Quotation", "write", doc=quotation, throw=True)
-	designs = frappe.get_all("Window Design", {"project": project}, DESIGN_FIELDS, order_by="design_ref")
+	designs = current_designs(project, DESIGN_FIELDS)
 	check_quotable(project_doc, designs)
 
 	frappe.db.savepoint("fen_make_quotation")
@@ -96,6 +96,16 @@ def make_quotation(project: str) -> str:
 		frappe.db.rollback(save_point="fen_make_quotation")
 		raise
 	return quotation.name
+
+
+def current_designs(project: str, fields) -> list:
+	"""The project's designs that a copy has not superseded, by design ref."""
+	return frappe.get_all(
+		"Window Design",
+		{"project": project, "superseded_by": ("is", "not set")},
+		fields,
+		order_by="design_ref",
+	)
 
 
 def quote_status(project: str) -> dict:
@@ -135,10 +145,11 @@ def _staleness(project: str, quotation: str) -> dict:
 		["item_code", "item_name", "amount", "fen_window_design", "fen_design_hash"],
 		order_by="idx",
 	)
-	designs = frappe.get_all("Window Design", {"project": project}, DESIGN_FIELDS, order_by="design_ref")
+	designs = current_designs(project, DESIGN_FIELDS)
 	by_name = {design.name: design for design in designs}
 	quoted = {line.fen_window_design for line in lines if line.fen_window_design}
-	# Deleting a design on a draft clears the line's link, so an unlinked window line also means "removed".
+	# Deleting a design on a draft clears the line's link, so an unlinked window line also means "removed";
+	# so does a line whose design a copy has superseded.
 	removed = [
 		line.item_name
 		for line in lines

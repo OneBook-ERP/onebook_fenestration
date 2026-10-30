@@ -110,12 +110,21 @@ Action: verify the v16 PDF engine renders inline SVG correctly early on.
 
 Hilux is also a fabricator, so HQ runs the same flow as a dealer either way.
 
-## D6. Window as Item / BOM strategy (OPEN)
+## D6. Window as Item / BOM strategy (DECIDED 2026-10-30)
 
-Work Order needs a BOM, and a BOM needs an Item.
+Work Order needs a BOM, and a BOM needs an Item. An Item may have many BOMs, and Sales Order Item carries `bom_no`, which Work Order creation uses.
 
-- **A:** auto-create an Item + BOM per design when the Sales Order is submitted (more items, but native manufacturing).
-- **B:** a generic window Item plus a custom Job Card flow, skipping Work Order.
+**Decision:** keep the shared `FEN-WINDOW` Item (no Item per design).
+- On Sales Order submit, create one BOM per Window Design line from the engine BOM (profiles, hardware, gaskets, glass) and set it on that Sales Order Item's `bom_no`. The BOM is never the Item's default: ERPNext makes the first active BOM of an Item its default, so a BOM hook resets `is_default` and clears `FEN-WINDOW`'s `default_bom` whenever it would point to a design BOM.
+- The Sales Order "Work Order" button reads ERPNext's `get_work_order_items`, which offers the Item's default BOM. The app overrides that whitelisted method: design lines are offered with their own `bom_no` (same pending-qty rules), every other line comes from ERPNext unchanged.
+- `FEN-WINDOW` becomes batch-tracked with batch-wise valuation. Each design line gets its own Batch, so a window keeps its own BOM cost through Work Order, stock, Delivery Note and invoice, and the batch identifies the window.
+- Production then uses standard Work Order and Job Cards.
+- The app enables Manufacturing Settings `make_serial_no_batch_from_work_order` so Work Order submit creates the batch. This production setup (that flag, the `FEN-WINDOW` stock and batch flags, moving material Items to Kg/Meter/Square Meter) runs once, at install or through the `production_item_setup` patch; migrate only creates missing records, so an admin's later changes stay.
+
+Rejected:
+- an Item per design (item explosion);
+- a custom job flow without Work Order (stock and costing rebuilt by hand);
+- BOM without Batch (finished-goods cost averaged across windows).
 
 ## D7. Pricing basis (OPEN)
 

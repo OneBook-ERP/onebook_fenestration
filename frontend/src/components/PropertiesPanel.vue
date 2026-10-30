@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { FormControl, Select } from 'frappe-ui'
+import { FormControl, Select, useList } from 'frappe-ui'
 import { computed } from 'vue'
 import { getNode, moveSplit, setLeaf, setSize } from '@/design/tree'
+import { panelLabel } from '@/design/typology'
 import type { DesignNode, LeafNode, SplitNode } from '@/design/types'
 import { useDesignerStore } from '@/stores/designer'
 
@@ -13,6 +14,30 @@ export interface Meta {
 const meta = defineModel<Meta>('meta', { required: true })
 defineProps<{ refError?: string; refReadonly?: boolean; finishes?: { name: string; finish_name: string }[] }>()
 const store = useDesignerStore()
+
+const glassList = useList<{ name: string; glass_name: string }>({
+	doctype: 'Fenestration Glass',
+	fields: ['name', 'glass_name'],
+	orderBy: 'name asc',
+	limit: 100,
+})
+const glassOptions = computed(() => {
+	const opts = (glassList.data ?? []).map((g) => ({ label: `${g.glass_name || g.name} (${g.name})`, value: g.name }))
+	const cur = leaf.value?.glass
+	if (cur && !opts.some((o) => o.value === cur)) {
+		const loaded = glassList.data !== undefined && glassList.data !== null && !glassList.list?.loading
+		opts.push({ label: loaded ? `${cur} (unknown)` : cur, value: cur })
+	}
+	return opts
+})
+const selectedLabel = computed(() => panelLabel(store.selectedPath, store.result))
+const glassCut = computed(() => {
+	const row = store.result?.glass.find((g) => g.path === store.selectedPath)
+	const mm = (v: number | undefined) => (typeof v === 'number' ? v.toFixed(1) : null)
+	const w = mm(row?.width)
+	const h = mm(row?.height)
+	return w && h ? `${w} × ${h} mm` : '—'
+})
 
 const NONE = 'none'
 const finishOptions = (list: { name: string; finish_name: string }[] = []) =>
@@ -69,7 +94,7 @@ function optNum(e: Event): number | undefined {
 </script>
 
 <template>
-	<aside class="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-l border-gray-200 bg-white p-4">
+	<aside class="flex w-full shrink-0 flex-col gap-4 border-t border-gray-200 md:w-72 md:overflow-y-auto md:border-l md:border-t-0 bg-white p-4">
 		<details open>
 			<summary class="cursor-pointer text-sm font-semibold">Basic info</summary>
 			<div class="mt-3 flex flex-col gap-3">
@@ -88,8 +113,9 @@ function optNum(e: Event): number | undefined {
 		</details>
 
 		<details v-if="leaf" open>
-			<summary class="cursor-pointer text-sm font-semibold">Selected panel ({{ store.selectedPath }})</summary>
+			<summary class="cursor-pointer text-sm font-semibold">Selected panel {{ selectedLabel }}</summary>
 			<div class="mt-3 flex flex-col gap-3">
+				<p class="text-sm text-gray-700">Glass cut {{ glassCut }}</p>
 				<template v-if="leaf.type === 'sash'">
 					<Select label="Opening" :options="OPENINGS" :model-value="leaf.opening ?? NONE"
 						@update:model-value="patchLeaf({ opening: optStr($event) })" />
@@ -100,8 +126,8 @@ function optNum(e: Event): number | undefined {
 				</template>
 				<FormControl v-if="leaf.type === 'louver'" type="number" label="Blades" min="1"
 					:model-value="leaf.blades" @change="patchLeaf({ blades: num($event) })" />
-				<FormControl label="Glass code" :model-value="leaf.glass"
-					@change="patchLeaf({ glass: ($event.target as HTMLInputElement).value })" />
+				<Select label="Glass" :options="glassOptions" :model-value="leaf.glass"
+					@update:model-value="patchLeaf({ glass: String($event ?? '') })" />
 			</div>
 		</details>
 

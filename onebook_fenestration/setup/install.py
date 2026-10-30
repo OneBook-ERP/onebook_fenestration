@@ -1,5 +1,6 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.utils import flt
 
 from onebook_fenestration.setup.custom_fields import CUSTOM_FIELDS
 
@@ -8,9 +9,11 @@ ENGINEER_ROLE = "Fenestration Engineer"
 
 def after_install():
 	_sync()
+	setup_production_items()
 
 
 def after_migrate():
+	"""Only creates what is missing; settings and Item flags an admin may have changed are left alone."""
 	_sync()
 
 
@@ -28,6 +31,7 @@ def _sync():
 	_ensure_engineer_role()
 	seed_pricing()
 	seed_quote_masters()
+	ensure_production_uoms()
 
 
 def _ensure_engineer_role():
@@ -117,6 +121,14 @@ def _seed_settings():
 			changed = True
 	if changed:
 		settings.save(ignore_permissions=True)
+	for fieldname in ("cut_kerf_mm", "min_rest_mm"):
+		from onebook_fenestration.production.cutting_plan import stored_value
+
+		stored = stored_value(fieldname)
+		if stored in (None, ""):
+			frappe.db.set_single_value(
+				"Fenestration Settings", fieldname, frappe.get_meta("Fenestration Settings").get_field(fieldname).default
+			)
 
 
 QUOTE_ITEMS = (
@@ -204,3 +216,117 @@ def _seed_terms():
 			"terms": f"<ol>{items}</ol>",
 		}
 	).insert(ignore_permissions=True)
+
+
+PRODUCTION_UOMS = ("Kg", "Meter", "Square Meter")
+
+
+def ensure_production_uoms():
+	for uom in PRODUCTION_UOMS:
+		if not frappe.db.exists("UOM", uom):
+			frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(ignore_permissions=True)
+
+
+def setup_production_items():
+	"""D6 item setup: FEN-WINDOW batched, Work Orders make batches, and material Items stocked in the units the BOM
+	uses. Runs once, from after_install and the production_item_setup patch, so later admin changes survive migrate."""
+	ensure_production_uoms()
+	_batch_window_item()
+	frappe.db.set_single_value("Manufacturing Settings", "make_serial_no_batch_from_work_order", 1)
+	for item in _items_to_restock():
+		if frappe.db.exists("Item", item[0]) and _is_unused(item[0]):
+			_restock(*item)
+
+
+def _batch_window_item():
+	if not frappe.db.exists("Item", "FEN-WINDOW"):
+		return
+	reason = _window_item_in_use()
+	if reason:
+		frappe.log_error(title="Fenestration production setup", message=f"FEN-WINDOW {reason}; left as is")
+		return
+	frappe.db.set_value(
+		"Item",
+		"FEN-WINDOW",
+		{"is_stock_item": 1, "has_batch_no": 1, "create_new_batch": 1, "include_item_in_manufacturing": 0},
+	)
+
+
+def _window_item_in_use() -> str | None:
+	"""Why FEN-WINDOW must not become a batched stock item now: stock has moved, or open orders or delivery notes
+	would switch to stock and batch handling half-way."""
+	if frappe.db.exists("Stock Ledger Entry", {"item_code": "FEN-WINDOW"}):
+		return "has stock"
+	if open_window_orders(limit=1):
+		return "is on open Sales Orders"
+	if open_window_deliveries(limit=1):
+		return "is on draft or submitted Delivery Notes"
+	return None
+
+
+def open_window_orders(limit=None) -> list[str]:
+	"""Submitted Sales Orders, not closed or completed, with a FEN-WINDOW line."""
+	filters = [
+		["Sales Order", "docstatus", "=", 1],
+		["Sales Order", "status", "not in", ("Closed", "Completed")],
+		["Sales Order Item", "item_code", "=", "FEN-WINDOW"],
+	]
+	return frappe.get_all("Sales Order", filters=filters, limit=limit, pluck="name", distinct=True)
+
+
+def open_window_deliveries(limit=None) -> list[str]:
+	"""Draft or submitted Delivery Notes with a FEN-WINDOW line."""
+	filters = [
+		["Delivery Note", "docstatus", "in", (0, 1)],
+		["Delivery Note Item", "item_code", "=", "FEN-WINDOW"],
+	]
+	return frappe.get_all("Delivery Note", filters=filters, limit=limit, pluck="name", distinct=True)
+
+
+def _items_to_restock() -> list[tuple[str, str]]:
+	"""(item, uom) for profile, gasket and glass Items not yet stocked in the BOM unit (stock UOM and UOM row)."""
+	wanted = {"Profile": "Kg", "Gasket": "Meter"}
+	pairs = [
+		(name, wanted[kind])
+		for name, kind in frappe.get_all(
+			"Item", {"fen_item_kind": ("in", tuple(wanted))}, ["name", "fen_item_kind"], as_list=True
+		)
+	]
+	glass = frappe.get_all("Fenestration Glass", {"item": ("is", "set")}, pluck="item")
+	pairs += [(name, "Square Meter") for name in glass if frappe.db.exists("Item", name)]
+	return [(name, uom) for name, uom in pairs if not _stocked_in(name, uom)]
+
+
+def _stocked_in(item_code: str, uom: str) -> bool:
+	"""Stock UOM is `uom`, no stale 1:1 Nos row is left and every Item Price is in that unit."""
+	return (
+		frappe.db.get_value("Item", item_code, "stock_uom") == uom
+		and not frappe.db.exists(
+			"UOM Conversion Detail",
+			{"parenttype": "Item", "parent": item_code, "uom": "Nos", "conversion_factor": 1},
+		)
+		and not frappe.db.exists("Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))})
+	)
+
+
+def _is_unused(item_code: str) -> bool:
+	return not (
+		frappe.db.exists("Stock Ledger Entry", {"item_code": item_code})
+		or frappe.db.exists("BOM Item", {"item_code": item_code})
+	)
+
+
+def _restock(item_code: str, uom: str) -> None:
+	"""Change the stock UOM, drop the stale Nos conversion row and move Item Prices to the new unit."""
+	item = frappe.get_doc("Item", item_code)
+	item.stock_uom = uom
+	item.uoms = [row for row in item.uoms if not _is_stale_nos(row)]
+	if not any(row.uom == uom for row in item.uoms):
+		item.append("uoms", {"uom": uom, "conversion_factor": 1})
+	item.save(ignore_permissions=True)
+	for price in frappe.get_all("Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"):
+		frappe.db.set_value("Item Price", price, "uom", uom)
+
+
+def _is_stale_nos(row) -> bool:
+	return row.uom == "Nos" and flt(row.conversion_factor) == 1
