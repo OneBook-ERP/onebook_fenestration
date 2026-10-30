@@ -119,6 +119,14 @@ def _seed_settings():
 			changed = True
 	if changed:
 		settings.save(ignore_permissions=True)
+	for fieldname in ("cut_kerf_mm", "min_rest_mm"):
+		from onebook_fenestration.production.cutting_plan import stored_value
+
+		stored = stored_value(fieldname)
+		if stored in (None, ""):
+			frappe.db.set_single_value(
+				"Fenestration Settings", fieldname, frappe.get_meta("Fenestration Settings").get_field(fieldname).default
+			)
 
 
 QUOTE_ITEMS = (

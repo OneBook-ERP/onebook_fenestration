@@ -27,16 +27,26 @@ SUMMARY_FIELDS = (
 
 def set_defaults(doc) -> None:
 	"""Fill kerf and minimum rest from Fenestration Settings when the plan leaves them empty."""
-	if not doc.kerf_mm:
+	if not doc.is_new():
+		return
+	if doc.kerf_mm is None:
 		doc.kerf_mm = _setting("cut_kerf_mm")
-	if not doc.min_rest_mm:
+	if doc.min_rest_mm is None:
 		doc.min_rest_mm = _setting("min_rest_mm")
 
 
+def stored_value(fieldname: str) -> str | None:
+	"""The raw saved Fenestration Settings value, None when never saved (a saved 0 stays "0")."""
+	rows = frappe.db.sql(
+		"select value from tabSingles where doctype = 'Fenestration Settings' and field = %s", fieldname
+	)
+	return rows[0][0] if rows else None
+
+
 def _setting(fieldname: str) -> float:
-	"""A Fenestration Settings number; the field's own default until Settings has been saved."""
-	value = frappe.db.get_single_value("Fenestration Settings", fieldname)
-	if not value:
+	"""A Fenestration Settings number; the field's own default only when Settings never stored one."""
+	value = stored_value(fieldname)
+	if value in (None, ""):
 		value = frappe.get_meta("Fenestration Settings").get_field(fieldname).default
 	return flt(value)
 
@@ -60,6 +70,8 @@ def collect_pieces(order_names: list[str]) -> dict[tuple[str, str], list[Piece]]
 		if design_name not in cut_lists:
 			cut_lists[design_name] = _design_members(design_name, default_finish)
 		ref, finish, members = cut_lists[design_name]
+		if flt(line.qty) != int(flt(line.qty)):
+			frappe.throw(_("Qty must be whole for cutting (Sales Order line for {0}).").format(ref))
 		for copy in range(1, int(line.qty) + 1):
 			suffix = f" #{copy}" if copy > 1 else ""
 			for member in members:
@@ -72,12 +84,14 @@ def collect_pieces(order_names: list[str]) -> dict[tuple[str, str], list[Piece]]
 def build_plan(doc) -> None:
 	"""Validate the orders, run the optimizer per (profile, finish) and store plan_json and the summary rows."""
 	order_names = [row.sales_order for row in doc.orders]
-	_check_orders(order_names)
+	_check_orders(order_names, doc.company)
 	groups = []
 	doc.set("summary", [])
 	for (profile, finish), pieces in sorted(collect_pieces(order_names).items()):
-		info = frappe.db.get_value("Fenestration Profile", profile, ("bar_lengths", "kg_per_m"), as_dict=True)
-		result = optimize(pieces, parse_bar_lengths(info.bar_lengths), doc.kerf_mm, doc.min_rest_mm)
+		info = profile_info(profile)
+		if not info:
+			frappe.throw(_("Fenestration Profile {0} no longer exists.").format(profile))
+		result = optimize(pieces, parse_bar_lengths(info.bar_lengths, profile), doc.kerf_mm, doc.min_rest_mm)
 		stats = wastage(result, flt(info.kg_per_m))
 		groups.append(
 			{
@@ -100,8 +114,20 @@ def build_plan(doc) -> None:
 	doc.unplaced_count = sum(len(group["unplaced"]) for group in groups)
 
 
-def parse_bar_lengths(text: str | None) -> list[float]:
-	return [float(part) for part in (text or "").replace(";", ",").split(",") if part.strip()]
+def profile_info(profile: str):
+	return frappe.db.get_value("Fenestration Profile", profile, ("bar_lengths", "kg_per_m"), as_dict=True)
+
+
+def parse_bar_lengths(text: str | None, profile: str = "") -> list[float]:
+	lengths = []
+	for part in (text or "").replace(";", ",").split(","):
+		if not part.strip():
+			continue
+		try:
+			lengths.append(float(part))
+		except ValueError:
+			frappe.throw(_("Fenestration Profile {0} has an invalid bar length: {1}").format(profile, part.strip()))
+	return lengths
 
 
 def _design_members(design_name: str, default_finish: str | None) -> tuple:
@@ -113,10 +139,17 @@ def _design_members(design_name: str, default_finish: str | None) -> tuple:
 	return design.design_ref, design.finish or default_finish or "", result.members
 
 
-def _check_orders(order_names: list[str]) -> None:
+def _check_orders(order_names: list[str], company: str) -> None:
+	seen = set()
 	for name in order_names:
-		if frappe.db.get_value("Sales Order", name, "docstatus") != 1:
+		if name in seen:
+			frappe.throw(_("Sales Order {0} is listed twice.").format(name))
+		seen.add(name)
+		docstatus, order_company = frappe.db.get_value("Sales Order", name, ("docstatus", "company"))
+		if docstatus != 1:
 			frappe.throw(_("Sales Order {0} is not submitted.").format(name))
+		if order_company != company:
+			frappe.throw(_("Sales Order {0} belongs to {1}, not {2}.").format(name, order_company, company))
 
 
 def _piece_dict(piece: Piece) -> dict:

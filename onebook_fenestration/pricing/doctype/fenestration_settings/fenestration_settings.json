@@ -6,7 +6,7 @@
    "fieldtype": "Link",
    "label": "Cost Price List",
    "options": "Price List",
-   "description": "Use a cost/buying price list \u2014 profile rate per kg, glass per m\u00b2, gaskets per m, hardware per unit."
+   "description": "Use a cost/buying price list — profile rate per kg, glass per m², gaskets per m, hardware per unit."
   },
   {
    "fieldname": "default_price_structure",
