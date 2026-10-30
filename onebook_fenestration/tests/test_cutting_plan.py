@@ -10,7 +10,7 @@ from frappe.utils import add_days, nowdate
 from onebook_fenestration.engine import compute
 from onebook_fenestration.engine.cutting import Piece, optimize, wastage
 from onebook_fenestration.fenestration.quotation import make_quotation
-from onebook_fenestration.production.cutting_plan import collect_pieces, parse_bar_lengths, stored_value
+from onebook_fenestration.production.cutting_plan import build_plan, collect_pieces, parse_bar_lengths, stored_value
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.setup.install import setup_production_items
@@ -231,12 +231,12 @@ class TestCuttingPlan(IntegrationTestCase):
 		self.assertIn(f"Sales Order {order.name} is listed twice", str(ctx.exception))
 
 	def test_other_company_order_refused(self):
-		other = "Some Other Company"  # the company check runs in validate, before link validation
+		other = "Some Other Company"  # called on build_plan directly: Link validation would reject the name first
 		order, _ = self.submitted_order([("W01", "GREY", 1, 1)])
 		plan = self.new_plan([order.name])
-		plan.company = other
+		plan.company, plan.kerf_mm, plan.min_rest_mm = other, 10, 500
 		with self.assertRaises(frappe.ValidationError) as ctx:
-			plan.insert()
+			build_plan(plan)
 		self.assertIn(order.name, str(ctx.exception))
 
 	def test_parse_bar_lengths(self):
