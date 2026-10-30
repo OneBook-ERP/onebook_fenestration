@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 from collections import defaultdict
 
 import frappe
@@ -9,6 +10,7 @@ from frappe.utils import add_days, flt, nowdate
 
 from onebook_fenestration.engine import compute
 from onebook_fenestration.fenestration.quotation import make_quotation
+from onebook_fenestration.pricing.rates import price_design
 from onebook_fenestration.production.bom import bom_rows
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.series_studio.snapshot import get_snapshot
@@ -41,6 +43,12 @@ class TestProductionBom(IntegrationTestCase):
 	def tearDownClass(cls):
 		frappe.cache.hdel("fen_snapshot", cls.version)
 		super().tearDownClass()
+
+	def isolate(self):
+		"""Undo this test's record edits so later tests see the fixtures untouched."""
+		point = f"fen_{self._testMethodName}"[:60]
+		frappe.db.savepoint(point)
+		self.addCleanup(frappe.db.rollback, save_point=point)
 
 	def draft_order(self, refs=("W01",), transport=0):
 		project, designs = self.make_quote_project(refs=refs, transport=transport)
@@ -121,22 +129,35 @@ class TestProductionBom(IntegrationTestCase):
 	def test_missing_glass_item_refuses_submit(self):
 		order, designs = self.draft_order(refs=("W01", "W02"))
 		glass = compute(load("w01.json"), get_snapshot(self.version)).glass[0].glass
-		point = "fen_missing_glass"
-		frappe.db.savepoint(point)
-		try:
-			frappe.db.set_value("Fenestration Glass", glass, "item", None)
+		self.isolate()
+		frappe.db.set_value("Fenestration Glass", glass, "item", None)
+		with patch("onebook_fenestration.production.bom.ensure_bom") as ensure:
 			with self.assertRaises(frappe.ValidationError) as ctx:
 				order.submit()
-			self.assertIn(glass, str(ctx.exception))
-		finally:
-			frappe.db.rollback(save_point=point)
+		ensure.assert_not_called()
+		message = str(ctx.exception)
+		self.assertIn(glass, message)
+		self.assertEqual(message.count(f"glass {glass}"), 2)  # one combined message, one entry per design
 		for design in designs:
 			self.assertEqual(frappe.db.count("BOM", {"fen_window_design": design.name}), 0)
+
+	def test_glass_item_in_wrong_unit_refuses_submit(self):
+		order, designs = self.draft_order()
+		glass = compute(load("w01.json"), get_snapshot(self.version)).glass[0].glass
+		item = frappe.db.get_value("Fenestration Glass", glass, "item")
+		self.isolate()
+		frappe.db.set_value("Item", item, "stock_uom", "Nos")
+		frappe.db.delete("UOM Conversion Detail", {"parent": item, "uom": "Square Meter"})
+		with self.assertRaises(frappe.ValidationError) as ctx:
+			order.submit()
+		self.assertIn(f"Item {item} is stocked in Nos; BOM needs Square Meter", str(ctx.exception))
+		self.assertEqual(frappe.db.count("BOM", {"fen_window_design": designs[0].name}), 0)
 
 	def test_work_order_from_order_uses_design_bom_and_batch(self):
 		wip = self.warehouse("Fen Test WIP")
 		fg = self.warehouse("Fen Test FG")
-		frappe.db.set_single_value("Manufacturing Settings", "make_serial_no_batch_from_work_order", 1)
+		frappe.db.set_single_value("Manufacturing Settings", "make_serial_no_batch_from_work_order", 0)
+		setup_production_items()
 		order, _designs = self.draft_order()
 		order.submit()
 		line = order.items[0]
@@ -208,3 +229,28 @@ class TestProductionBom(IntegrationTestCase):
 		setup_production_items()
 		self.assertEqual(frappe.db.get_value("Item", "FEN-T-FRESH", "stock_uom"), "Kg")
 		self.assertEqual(frappe.db.get_value("Item", "FEN-T-USED", "stock_uom"), "Nos")
+
+	def test_restock_drops_nos_row_and_moves_item_price(self):
+		design = self.make_design("W09")
+		before = design.unit_price
+		self.isolate()
+		glass = frappe.db.get_value("Fenestration Glass", "6CTG", "item")
+		items = ("E104156", "G23", glass)
+		frappe.db.delete("BOM Item", {"item_code": ("in", items)})  # BOMs from earlier tests would make them "used"
+		for code in items:  # put them back in the legacy state: Nos stock unit, Nos row, Nos prices
+			frappe.db.set_value("Item", code, "stock_uom", "Nos")
+			frappe.db.sql("delete from `tabUOM Conversion Detail` where parent=%s", code)
+			frappe.get_doc(
+				{"doctype": "UOM Conversion Detail", "parent": code, "parenttype": "Item", "parentfield": "uoms",
+				 "uom": "Nos", "conversion_factor": 1}
+			).insert(ignore_permissions=True)
+			frappe.db.set_value("Item Price", {"item_code": code}, "uom", "Nos")
+		setup_production_items()
+		for code, uom in zip(items, ("Kg", "Meter", "Square Meter"), strict=True):
+			self.assertEqual(frappe.db.get_value("Item", code, "stock_uom"), uom)
+			self.assertEqual(
+				frappe.db.get_all("UOM Conversion Detail", {"parent": code, "uom": "Nos"}), []
+			)
+			for price_uom in frappe.get_all("Item Price", {"item_code": code}, pluck="uom"):
+				self.assertEqual(price_uom, uom)
+		self.assertEqual(price_design(load("w01.json"), self.version, design.finish, design.price_structure)[1].unit_price, before)

@@ -17,6 +17,14 @@ GASKET_GROUP = "Gasket"
 
 def bom_rows(design) -> list[dict]:
 	"""BOM item rows for one window (quantity 1), aggregated by item and sorted by item code."""
+	rows, problems = collect_rows(design)
+	if problems:
+		frappe.throw("<br>".join(problems))
+	return rows
+
+
+def collect_rows(design) -> tuple[list[dict], list[str]]:
+	"""(rows, problems): the BOM rows for one window and every Item that is missing or stocked in the wrong unit."""
 	snapshot = get_snapshot(design.series_version)
 	spec = design.design_json
 	result = compute(json.loads(spec) if isinstance(spec, str) else spec, snapshot)
@@ -49,18 +57,30 @@ def bom_rows(design) -> list[dict]:
 	for code, area in pane_m2.items():
 		add(frappe.db.get_value("Fenestration Glass", code, "item"), "Square Meter", area, f"glass {code}")
 
-	missing += [
-		f"item {item}" for item, _uom in totals if not frappe.db.exists("Item", item)
-	]
+	problems = []
 	if missing:
-		frappe.throw(
+		problems.append(
 			_("{0} has no Item for: {1}. Create the Items before ordering.").format(
 				design.name, ", ".join(sorted(set(missing)))
 			)
 		)
-	return [
-		{"item_code": item, "qty": round(qty, 3), "uom": uom} for (item, uom), qty in sorted(totals.items())
-	]
+	for item, uom in totals:
+		problem = _unit_problem(item, uom)
+		if problem:
+			problems.append(problem)
+	rows = [{"item_code": item, "qty": round(qty, 3), "uom": uom} for (item, uom), qty in sorted(totals.items())]
+	return rows, problems
+
+
+def _unit_problem(item: str, uom: str) -> str | None:
+	stock_uom = frappe.db.get_value("Item", item, "stock_uom")
+	if stock_uom is None:
+		return _("Item {0} does not exist.").format(item)
+	if stock_uom != uom and not frappe.db.exists(
+		"UOM Conversion Detail", {"parenttype": "Item", "parent": item, "uom": uom}
+	):
+		return _("Item {0} is stocked in {1}; BOM needs {2}").format(item, stock_uom, uom)
+	return None
 
 
 def ensure_bom(design_name: str, design_hash: str, rows: list[dict] | None = None) -> str:
@@ -103,14 +123,13 @@ def set_order_boms(doc, method=None) -> None:
 			frappe.throw(_("{0} changed since the quotation. Requote before ordering.").format(design.design_ref or design.name))
 		lines.append((item, design))
 
-	# Resolve every design's rows first so one missing Item refuses the submit before any BOM exists.
+	# Resolve every design's rows first so any problem refuses the submit before a BOM exists.
 	prepared = []
 	problems = []
 	for item, design in lines:
-		try:
-			prepared.append((item, design, bom_rows(design)))
-		except frappe.ValidationError as exc:
-			problems.append(str(exc))
+		rows, design_problems = collect_rows(design)
+		prepared.append((item, design, rows))
+		problems += design_problems
 	if problems:
 		frappe.throw("<br>".join(dict.fromkeys(problems)))
 	for item, design, rows in prepared:

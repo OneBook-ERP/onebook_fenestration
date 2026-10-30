@@ -118,6 +118,7 @@ Work Order needs a BOM, and a BOM needs an Item. An Item may have many BOMs, and
 - On Sales Order submit, create one BOM per Window Design line from the engine BOM (profiles, hardware, gaskets, glass) and set it on that Sales Order Item's `bom_no`. The BOM is never the Item's default.
 - `FEN-WINDOW` becomes batch-tracked with batch-wise valuation. Each design line gets its own Batch, so a window keeps its own BOM cost through Work Order, stock, Delivery Note and invoice, and the batch identifies the window.
 - Production then uses standard Work Order and Job Cards.
+- The app enables Manufacturing Settings `make_serial_no_batch_from_work_order` (in setup) so Work Order submit creates the batch.
 
 Rejected:
 - an Item per design (item explosion);

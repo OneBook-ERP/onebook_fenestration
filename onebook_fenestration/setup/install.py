@@ -1,5 +1,6 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.utils import flt
 
 from onebook_fenestration.setup.custom_fields import CUSTOM_FIELDS
 
@@ -216,6 +217,7 @@ def setup_production_items():
 		if not frappe.db.exists("UOM", uom):
 			frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(ignore_permissions=True)
 	_batch_window_item()
+	frappe.db.set_single_value("Manufacturing Settings", "make_serial_no_batch_from_work_order", 1)
 	for item in _items_to_restock():
 		if frappe.db.exists("Item", item[0]) and _is_unused(item[0]):
 			_restock(*item)
@@ -249,8 +251,14 @@ def _items_to_restock() -> list[tuple[str, str]]:
 
 
 def _stocked_in(item_code: str, uom: str) -> bool:
-	return frappe.db.get_value("Item", item_code, "stock_uom") == uom and bool(
-		frappe.db.exists("UOM Conversion Detail", {"parenttype": "Item", "parent": item_code, "uom": uom})
+	"""Stock UOM is `uom`, no stale 1:1 Nos row is left and every Item Price is in that unit."""
+	return (
+		frappe.db.get_value("Item", item_code, "stock_uom") == uom
+		and not frappe.db.exists(
+			"UOM Conversion Detail",
+			{"parenttype": "Item", "parent": item_code, "uom": "Nos", "conversion_factor": 1},
+		)
+		and not frappe.db.exists("Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))})
 	)
 
 
@@ -262,9 +270,16 @@ def _is_unused(item_code: str) -> bool:
 
 
 def _restock(item_code: str, uom: str) -> None:
-	"""Change the stock UOM; the old UOM row stays so Item Prices already saved in it remain valid."""
+	"""Change the stock UOM, drop the stale Nos conversion row and move Item Prices to the new unit."""
 	item = frappe.get_doc("Item", item_code)
 	item.stock_uom = uom
+	item.uoms = [row for row in item.uoms if not _is_stale_nos(row)]
 	if not any(row.uom == uom for row in item.uoms):
 		item.append("uoms", {"uom": uom, "conversion_factor": 1})
 	item.save(ignore_permissions=True)
+	for price in frappe.get_all("Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"):
+		frappe.db.set_value("Item Price", price, "uom", uom)
+
+
+def _is_stale_nos(row) -> bool:
+	return row.uom == "Nos" and flt(row.conversion_factor) == 1
