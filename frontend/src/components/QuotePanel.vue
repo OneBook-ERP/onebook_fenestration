@@ -34,6 +34,8 @@
 			<Button label="Quotation" :href="quotationUrl" :disabled="!quotationUrl" />
 			<Button label="Elevation Report" :href="elevationUrl" />
 			<Button label="Estimate Confirmation" :href="estimateUrl" />
+			<Button label="Assembly Summary" :href="assemblySummaryUrl" />
+			<Button label="Assembly Detail" :href="assemblyDetailUrl" />
 		</div>
 	</section>
 </template>
@@ -92,6 +94,8 @@ const quotationUrl = computed(() =>
 )
 const elevationUrl = computed(() => printPdfUrl('Fenestration Project', props.project, 'Fenestration Elevation'))
 const estimateUrl = computed(() => printPdfUrl('Fenestration Project', props.project, 'Fenestration Estimate Confirmation'))
+const assemblySummaryUrl = computed(() => printPdfUrl('Fenestration Project', props.project, 'Fenestration Assembly Summary'))
+const assemblyDetailUrl = computed(() => printPdfUrl('Fenestration Project', props.project, 'Fenestration Assembly Detail'))
 
 async function refreshStatus() {
 	try {

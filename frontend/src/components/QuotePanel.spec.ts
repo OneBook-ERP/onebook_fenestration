@@ -101,6 +101,12 @@ describe('QuotePanel', () => {
 		)
 		expect(btn(w, 'Elevation Report').attributes('href')).toContain('doctype=Fenestration+Project&name=FP-1&format=Fenestration+Elevation')
 		expect(btn(w, 'Estimate Confirmation').attributes('href')).toContain('format=Fenestration+Estimate+Confirmation')
+		expect(btn(w, 'Assembly Summary').attributes('href')).toContain(
+			'download_pdf?doctype=Fenestration+Project&name=FP-1&format=Fenestration+Assembly+Summary',
+		)
+		expect(btn(w, 'Assembly Detail').attributes('href')).toContain(
+			'doctype=Fenestration+Project&name=FP-1&format=Fenestration+Assembly+Detail',
+		)
 		vi.mocked(quoteStatus).mockResolvedValue({ quotation: null })
 		const none = await setup()
 		expect(btn(none, 'Quotation').attributes('href')).toBeUndefined()

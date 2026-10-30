@@ -3,6 +3,7 @@ import json
 import frappe
 from frappe.utils import escape_html, flt
 
+from onebook_fenestration.engine import compute
 from onebook_fenestration.engine.layout import layout
 from onebook_fenestration.fenestration.quotation import TRANSPORT_ITEM, _typology
 from onebook_fenestration.fenestration.quote_party import company_address
@@ -32,8 +33,73 @@ def design_rows(doc) -> list[dict]:
 	if doc.doctype == "Quotation":
 		rows = (_quoted_row(item) for item in doc.items if item.fen_window_design)
 		return [row for row in rows if row]
-	designs = frappe.get_all("Window Design", {"project": doc.name}, DESIGN_FIELDS, order_by="design_ref")
-	return [_row(design) for design in designs]
+	return [_row(design) for design in _project_designs(doc)]
+
+
+def _project_designs(doc) -> list:
+	return frappe.get_all("Window Design", {"project": doc.name}, DESIGN_FIELDS, order_by="design_ref")
+
+
+POSITION_ORDER = "BTLRHW"
+
+
+def assembly_summary(doc) -> list[dict]:
+	"""Designs of a project grouped by width x height, largest first, for the Assembly Summary format."""
+	groups: dict[tuple, dict] = {}
+	for row in design_rows(doc):
+		group = groups.setdefault(
+			(row["width"], row["height"]),
+			{
+				"width": row["width"],
+				"height": row["height"],
+				"refs": [],
+				"qty": 0,
+				"area_sqft": 0,
+				"series": row["series"],
+				"typology": row["typology"],
+			},
+		)
+		group["refs"].append(row["ref"])
+		group["qty"] += row["qty"]
+		group["area_sqft"] += row["area_sqft"] * row["qty"]
+	result = sorted(groups.values(), key=lambda g: (g["width"] or 0, g["height"] or 0), reverse=True)
+	for group in result:
+		group["refs"] = ", ".join(group["refs"])
+		group["area_sqft"] = round(group["area_sqft"], 3)
+	return result
+
+
+def assembly_detail(doc) -> list[dict]:
+	"""One block per design with its cut pieces (panel, position, profile, length, angles) for the Assembly Detail format."""
+	return [_detail_block(design) for design in _project_designs(doc)]
+
+
+def _detail_block(design) -> dict:
+	row = _row(design)
+	snapshot = get_snapshot(design.series_version)
+	members = compute(json.loads(design.design_json or "{}"), snapshot).members
+	counts: dict[tuple, int] = {}
+	for m in members:
+		key = (m.panel, m.position, m.profile, m.length, f"{m.angles[0]}/{m.angles[1]}")
+		counts[key] = counts.get(key, 0) + 1
+	pieces = [
+		{
+			"panel": escape_html(panel),
+			"position": position,
+			"profile": escape_html(profile),
+			"profile_name": _profile_names(snapshot, [profile]),
+			"length": length,
+			"angles": angles,
+			"qty_per_window": count,
+		}
+		for (panel, position, profile, length, angles), count in counts.items()
+	]
+	pieces.sort(key=lambda p: (p["panel"], _position_rank(p["position"])))
+	return {key: row[key] for key in ("ref", "name", "qty", "width", "height", "svg")} | {"pieces": pieces}
+
+
+def _position_rank(position: str) -> int:
+	return POSITION_ORDER.index(position) if position in POSITION_ORDER else len(POSITION_ORDER)
 
 
 def company_header(company: str | None) -> dict:
@@ -116,6 +182,7 @@ def _row(design) -> dict:
 		"handle": _first_matching(bom_names, "HANDLE"),
 		"friction_stay": _first_matching(bom_names, "FRICTION"),
 		"svg": design.design_svg or "",
+		"typology": _typology(cells),
 	}
 
 

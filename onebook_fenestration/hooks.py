@@ -94,6 +94,8 @@ jinja = {
 		"onebook_fenestration.utils.jinja.fen_quote_totals",
 		"onebook_fenestration.utils.jinja.fen_company_header",
 		"onebook_fenestration.utils.jinja.fen_cutting_schedule",
+		"onebook_fenestration.utils.jinja.fen_assembly_summary",
+		"onebook_fenestration.utils.jinja.fen_assembly_detail",
 	]
 }
 
