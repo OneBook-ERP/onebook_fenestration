@@ -1,9 +1,11 @@
 import json
+from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from onebook_fenestration.patches.v0_1 import price_existing_window_designs
+from onebook_fenestration.engine.glazing import GASKETS
+from onebook_fenestration.patches.v0_1 import create_gasket_items, price_existing_window_designs
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import import_cs400, load
 
@@ -65,3 +67,39 @@ class TestPriceExistingWindowDesigns(IntegrationTestCase):
 		self.assertFalse(frappe.db.get_value("Window Design", bad, "price_structure"))
 		self.assertTrue(frappe.db.exists("Error Log", {"reference_doctype": "Window Design", "reference_name": bad}))
 		self.assertGreater(frappe.db.get_value("Window Design", good, "unit_price"), 0)
+
+
+class TestCreateGasketItems(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
+
+	@classmethod
+	def tearDownClass(cls):
+		frappe.cache.hdel("fen_snapshot", cls.version)
+		super().tearDownClass()
+
+	def test_importer_creates_gasket_items(self):
+		for code in GASKETS:
+			frappe.delete_doc("Item", code, force=True)
+		import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
+		for code, name in GASKETS.items():
+			item = frappe.db.get_value("Item", code, ("item_name", "fen_item_kind", "stock_uom"), as_dict=True)
+			self.assertEqual(item, {"item_name": name, "fen_item_kind": "Gasket", "stock_uom": "Meter"})
+		if frappe.get_meta("Item").has_field("gst_hsn_code"):
+			self.assertEqual(frappe.db.get_value("Item", "G21", "gst_hsn_code"), "400829")
+
+	def test_patch_creates_missing_and_is_idempotent(self):
+		frappe.delete_doc("Item", "G23", force=True)
+		frappe.db.set_value("Item", "G21", "item_name", "CUSTOM NAME")
+		create_gasket_items.execute()
+		create_gasket_items.execute()
+		self.assertEqual(frappe.db.get_value("Item", "G23", "fen_item_kind"), "Gasket")
+		self.assertEqual(frappe.db.get_value("Item", "G21", "item_name"), "CUSTOM NAME")
+
+	def test_patch_skips_without_item_group(self):
+		frappe.delete_doc("Item", "G23", force=True)
+		with patch.object(create_gasket_items.frappe.db, "exists", return_value=False):
+			create_gasket_items.execute()
+		self.assertFalse(frappe.db.exists("Item", "G23"))

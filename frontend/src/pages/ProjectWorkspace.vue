@@ -12,6 +12,8 @@
 			</Button>
 		</div>
 
+		<QuotePanel :project="project" :info="info" @changed="projectList.reload()" @repriced="designList.reload()" />
+
 		<p v-if="!designs.length" class="text-sm text-ink-gray-5">No designs yet.</p>
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			<article v-for="d in designs" :key="d.name" data-testid="design-card" class="rounded border p-3">
@@ -25,6 +27,7 @@
 					<Badge v-else-if="d.warning_count" theme="orange" :label="`${d.warning_count} warnings`" />
 				</div>
 				<p class="text-sm font-medium">{{ formatMoney(d.line_total) }} <span class="font-normal text-ink-gray-5">for {{ d.qty }}</span></p>
+				<p v-if="pricedOn(d)" class="text-sm text-ink-gray-5">Priced {{ pricedOn(d) }}</p>
 				<p class="text-sm text-ink-gray-5">{{ d.series_version }} · {{ d.area_sqft }} sq.ft<template v-if="d.location"> · {{ d.location }}</template></p>
 				<Button
 					class="mt-2 min-h-9"
@@ -42,6 +45,7 @@
 import { Badge, Button, useList } from 'frappe-ui'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import QuotePanel from '@/components/QuotePanel.vue'
 import { formatMoney } from '@/money'
 
 interface DesignRow {
@@ -56,11 +60,15 @@ interface DesignRow {
 	design_svg: string
 	location: string
 	line_total: number
+	pricing_json?: string | { priced_on?: string } | null
 }
 interface ProjectInfo {
 	name: string
 	project_title: string
 	default_series_version: string
+	customer?: string | null
+	transport_charges?: number | null
+	quotation?: string | null
 }
 
 const props = defineProps<{ project: string }>()
@@ -68,7 +76,7 @@ const router = useRouter()
 
 const projectList = useList<ProjectInfo>({
 	doctype: 'Fenestration Project',
-	fields: ['name', 'project_title', 'default_series_version'],
+	fields: ['name', 'project_title', 'default_series_version', 'customer', 'transport_charges', 'quotation'],
 	filters: { name: props.project },
 	limit: 1,
 })
@@ -76,7 +84,7 @@ const designList = useList<DesignRow>({
 	doctype: 'Window Design',
 	fields: [
 		'name', 'design_ref', 'qty', 'series_version', 'area_sqft', 'window_kg',
-		'error_count', 'warning_count', 'design_svg', 'location', 'line_total',
+		'error_count', 'warning_count', 'design_svg', 'location', 'line_total', 'pricing_json',
 	],
 	filters: { project: props.project },
 	orderBy: 'design_ref asc',
@@ -95,6 +103,17 @@ const totals = computed(() => {
 	}
 	return { windows, area, weight, value }
 })
+
+const dateFormat = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+
+function pricedOn(d: DesignRow): string {
+	try {
+		const pricing = typeof d.pricing_json === 'string' ? JSON.parse(d.pricing_json || '{}') : d.pricing_json
+		return pricing?.priced_on ? dateFormat.format(new Date(pricing.priced_on)) : ''
+	} catch {
+		return ''
+	}
+}
 
 function thumb(svg: string) {
 	return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)

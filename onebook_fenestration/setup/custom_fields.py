@@ -10,3 +10,31 @@ CUSTOM_FIELDS = {
 		},
 	],
 }
+CUSTOM_FIELDS["Quotation"] = [
+	{
+		"fieldname": "fen_project",
+		"label": "Fenestration Project",
+		"fieldtype": "Link",
+		"options": "Fenestration Project",
+		"insert_after": "customer_name",
+		"read_only": 1,
+	},
+]
+CUSTOM_FIELDS["Quotation Item"] = [
+	{
+		"fieldname": "fen_window_design",
+		"label": "Window Design",
+		"fieldtype": "Link",
+		"options": "Window Design",
+		"insert_after": "item_code",
+		"read_only": 1,
+	},
+	{
+		"fieldname": "fen_design_hash",
+		"label": "Design Hash",
+		"fieldtype": "Data",
+		"insert_after": "fen_window_design",
+		"read_only": 1,
+		"hidden": 1,
+	},
+]

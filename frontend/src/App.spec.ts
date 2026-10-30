@@ -6,7 +6,7 @@ import App from './App.vue'
 import { routes } from './router'
 
 const calls = vi.hoisted(() => [] as { doctype: string; filters?: Record<string, unknown> }[])
-vi.mock('@/api', () => ({ getSession: vi.fn(), logout: vi.fn(), createProject: vi.fn() }))
+vi.mock('@/api', () => ({ getSession: vi.fn(), logout: vi.fn(), createProject: vi.fn(), quoteStatus: vi.fn().mockResolvedValue({ quotation: null }) }))
 vi.mock('frappe-ui', async (orig) => ({
   ...(await orig<object>()),
   useList: (o: { doctype: string; filters?: Record<string, unknown> }) => {

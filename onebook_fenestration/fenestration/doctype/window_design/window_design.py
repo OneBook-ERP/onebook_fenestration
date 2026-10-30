@@ -4,7 +4,7 @@ import json
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, flt
+from frappe.utils import cint, flt, now_datetime
 
 from onebook_fenestration.engine import DesignError, EngineResult, PriceBreakdown, RuleError
 from onebook_fenestration.fenestration.svg import sanitize_svg
@@ -22,6 +22,8 @@ def pricing_to_dict(breakdown: PriceBreakdown) -> dict:
 		"unit_price": breakdown.unit_price,
 		"rate_per_sqft": breakdown.rate_per_sqft,
 		"issues": [dataclasses.asdict(issue) for issue in breakdown.issues],
+		"price_list": frappe.get_cached_doc("Fenestration Settings").cost_price_list,
+		"priced_on": now_datetime().isoformat(),
 	}
 
 
@@ -44,6 +46,17 @@ class WindowDesign(Document):
 		if self.design_svg and (self.is_new() or self.has_value_changed("design_svg")):
 			self.design_svg = sanitize_svg(self.design_svg)
 
+	def on_trash(self):
+		# A draft quotation line must not block deleting its design; the next make_quotation drops the line.
+		drafts = frappe.get_all("Quotation", {"fen_project": self.project, "docstatus": 0}, pluck="name")
+		if drafts:
+			frappe.db.set_value(
+				"Quotation Item",
+				{"parent": ("in", drafts), "fen_window_design": self.name},
+				"fen_window_design",
+				None,
+			)
+
 	def set_pricing_defaults(self):
 		self.finish, self.price_structure = resolve_pricing_defaults(self.finish, self.price_structure)
 		if not (self.finish and self.price_structure):
@@ -52,7 +65,12 @@ class WindowDesign(Document):
 	def needs_pricing(self) -> bool:
 		"""Price changes (Item Prices) never re-price a saved design; only its own inputs do."""
 		fields = ("design_json", "series_version", "finish", "price_structure")
-		return self.is_new() or any(self.has_value_changed(f) for f in fields)
+		return self.is_new() or self.flags.force_reprice or any(self.has_value_changed(f) for f in fields)
+
+	def reprice(self):
+		"""Recompute and re-price from current Item Prices, bypassing the input-change gate."""
+		self.flags.force_reprice = True
+		self.save()
 
 	def compute_results(self):
 		"""Run the engine and pricing on the design; only called when its inputs change, so stored results stay frozen."""

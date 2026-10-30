@@ -4,16 +4,21 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '@/router'
 import ProjectWorkspace from './ProjectWorkspace.vue'
 
+vi.mock('@/api', async (orig) => ({
+	...(await orig<object>()),
+	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
+}))
 const svg = vi.hoisted(() => '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>')
 vi.mock('frappe-ui', async (orig) => ({
 	...(await orig<object>()),
 	useList: (await import('@/test-utils')).fakeUseList({
 		'Fenestration Project': [
-			{ name: 'FP-2026-00001', project_title: 'Villa Rose', default_series_version: 'CS400-V01' },
+			{ name: 'FP-2026-00001', project_title: 'Villa Rose', default_series_version: 'CS400-V01', customer: 'CUST-1', transport_charges: 0, quotation: null },
 		],
+		Customer: [{ name: 'CUST-1', customer_name: 'Acme Corp' }],
 		'Window Design': [
-			{ name: 'WD-1', design_ref: 'W01', qty: 260, series_version: 'CS400-V01', area_sqft: 12.013, window_kg: 10.5, error_count: 1, warning_count: 0, design_svg: svg, location: 'Hall', line_total: 4258987.2 },
-			{ name: 'WD-2', design_ref: 'W02', qty: 60, series_version: 'CS400-V01', area_sqft: 8, window_kg: 5, error_count: 0, warning_count: 0, design_svg: '', location: '', line_total: 90000 },
+			{ name: 'WD-1', design_ref: 'W01', qty: 260, series_version: 'CS400-V01', area_sqft: 12.013, window_kg: 10.5, error_count: 1, warning_count: 0, design_svg: svg, location: 'Hall', line_total: 4258987.2, pricing_json: JSON.stringify({ priced_on: '2026-10-30T10:15:00' }) },
+			{ name: 'WD-2', design_ref: 'W02', qty: 60, series_version: 'CS400-V01', area_sqft: 8, window_kg: 5, error_count: 0, warning_count: 0, design_svg: '', location: '', line_total: 90000, pricing_json: '' },
 		],
 	}),
 }))
@@ -67,5 +72,12 @@ describe('ProjectWorkspace', () => {
 		expect(edit.attributes('href')).toBe('/fenestration/projects/FP-2026-00001/designs/WD-1')
 		expect(edit.classes().join(' ')).not.toContain('text-ink-blue-3')
 		expect(edit.classes().join(' ')).toMatch(/bg-surface|border/)
+	})
+	it('shows the quote panel and the price stamp on stamped cards only', async () => {
+		const { w } = await setup()
+		expect(w.text()).toContain('Create quotation')
+		const cards = w.findAll('[data-testid="design-card"]')
+		expect(cards[0].text()).toContain('Priced 30 Oct 2026')
+		expect(cards[1].text()).not.toContain('Priced')
 	})
 })

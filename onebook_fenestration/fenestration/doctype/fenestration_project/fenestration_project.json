@@ -9,7 +9,13 @@
   "customer",
   "opportunity",
   "site_address",
-  "default_series_version"
+  "default_series_version",
+  "quote_section",
+  "company",
+  "transport_charges",
+  "column_break_quote",
+  "terms",
+  "quotation"
  ],
  "fields": [
   {
@@ -49,9 +55,45 @@
    "fieldtype": "Link",
    "label": "Default Series Version",
    "options": "Series Version"
+  },
+  {
+   "fieldname": "quote_section",
+   "fieldtype": "Section Break",
+   "label": "Quotation"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "transport_charges",
+   "fieldtype": "Currency",
+   "label": "Transport Charges",
+   "default": "0",
+   "options": "Company:company:default_currency"
+  },
+  {
+   "fieldname": "column_break_quote",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "terms",
+   "fieldtype": "Link",
+   "label": "Terms",
+   "options": "Terms and Conditions"
+  },
+  {
+   "fieldname": "quotation",
+   "fieldtype": "Link",
+   "label": "Quotation",
+   "options": "Quotation",
+   "read_only": 1,
+   "no_copy": 1
   }
  ],
- "modified": "2026-10-29 00:00:00",
+ "modified": "2026-10-30 00:00:00",
  "modified_by": "Administrator",
  "module": "Fenestration",
  "name": "Fenestration Project",
