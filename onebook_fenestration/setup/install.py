@@ -241,14 +241,46 @@ def setup_production_items():
 def _batch_window_item():
 	if not frappe.db.exists("Item", "FEN-WINDOW"):
 		return
-	if frappe.db.exists("Stock Ledger Entry", {"item_code": "FEN-WINDOW"}):
-		frappe.log_error("FEN-WINDOW has stock; left as is", "Fenestration production setup")
+	reason = _window_item_in_use()
+	if reason:
+		frappe.log_error(title="Fenestration production setup", message=f"FEN-WINDOW {reason}; left as is")
 		return
 	frappe.db.set_value(
 		"Item",
 		"FEN-WINDOW",
 		{"is_stock_item": 1, "has_batch_no": 1, "create_new_batch": 1, "include_item_in_manufacturing": 0},
 	)
+
+
+def _window_item_in_use() -> str | None:
+	"""Why FEN-WINDOW must not become a batched stock item now: stock has moved, or open orders or delivery notes
+	would switch to stock and batch handling half-way."""
+	if frappe.db.exists("Stock Ledger Entry", {"item_code": "FEN-WINDOW"}):
+		return "has stock"
+	if open_window_orders(limit=1):
+		return "is on open Sales Orders"
+	if open_window_deliveries(limit=1):
+		return "is on draft or submitted Delivery Notes"
+	return None
+
+
+def open_window_orders(limit=None) -> list[str]:
+	"""Submitted Sales Orders, not closed or completed, with a FEN-WINDOW line."""
+	filters = [
+		["Sales Order", "docstatus", "=", 1],
+		["Sales Order", "status", "not in", ("Closed", "Completed")],
+		["Sales Order Item", "item_code", "=", "FEN-WINDOW"],
+	]
+	return frappe.get_all("Sales Order", filters=filters, limit=limit, pluck="name", distinct=True)
+
+
+def open_window_deliveries(limit=None) -> list[str]:
+	"""Draft or submitted Delivery Notes with a FEN-WINDOW line."""
+	filters = [
+		["Delivery Note", "docstatus", "in", (0, 1)],
+		["Delivery Note Item", "item_code", "=", "FEN-WINDOW"],
+	]
+	return frappe.get_all("Delivery Note", filters=filters, limit=limit, pluck="name", distinct=True)
 
 
 def _items_to_restock() -> list[tuple[str, str]]:

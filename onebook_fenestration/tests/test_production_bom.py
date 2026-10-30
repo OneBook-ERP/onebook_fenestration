@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import frappe
 from erpnext.selling.doctype.quotation.quotation import make_sales_order
-from erpnext.selling.doctype.sales_order.sales_order import make_work_orders
+from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note, make_work_orders
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, flt, nowdate
 
@@ -15,7 +15,7 @@ from onebook_fenestration.pricing.rates import price_design
 from onebook_fenestration.production.bom import bom_rows
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.series_studio.snapshot import get_snapshot
-from onebook_fenestration.setup.install import setup_production_items
+from onebook_fenestration.setup.install import open_window_deliveries, open_window_orders, setup_production_items
 from onebook_fenestration.tests import test_quotation
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -259,6 +259,45 @@ class TestProductionBom(IntegrationTestCase):
 		setup_production_items()
 		self.assertEqual(frappe.db.get_value("Item", "FEN-T-FRESH", "stock_uom"), "Kg")
 		self.assertEqual(frappe.db.get_value("Item", "FEN-T-USED", "stock_uom"), "Nos")
+
+	def unbatch_window_item(self):
+		frappe.db.set_value(
+			"Item", "FEN-WINDOW", {"is_stock_item": 0, "has_batch_no": 0, "create_new_batch": 0}
+		)
+
+	def window_item_batched(self) -> bool:
+		return frappe.db.get_value("Item", "FEN-WINDOW", "has_batch_no") == 1
+
+	def test_window_item_conversion_skips_open_orders_and_delivery_notes(self):
+		order, _designs = self.draft_order()
+		order.submit()
+		self.isolate()
+		self.unbatch_window_item()
+		logs = frappe.db.count("Error Log", {"method": "Fenestration production setup"})
+		setup_production_items()
+		self.assertFalse(self.window_item_batched())
+		self.assertEqual(frappe.db.count("Error Log", {"method": "Fenestration production setup"}), logs + 1)
+		self.assertIn(order.name, open_window_orders())
+
+		note = make_delivery_note(order.name)
+		note.insert()
+		self.assertIn(note.name, open_window_deliveries())
+		for status in ("Completed", "Closed"):
+			frappe.db.set_value("Sales Order", order.name, "status", status)
+			self.assertNotIn(order.name, open_window_orders())
+		frappe.db.set_value("Delivery Note", note.name, "docstatus", 2)
+		self.assertNotIn(note.name, open_window_deliveries())
+
+	def test_window_item_conversion_runs_when_nothing_is_open(self):
+		self.isolate()
+		self.unbatch_window_item()
+		# Orders submitted by earlier tests in this class stay open; this test is about the guard letting go.
+		with (
+			patch("onebook_fenestration.setup.install.open_window_orders", return_value=[]),
+			patch("onebook_fenestration.setup.install.open_window_deliveries", return_value=[]),
+		):
+			setup_production_items()
+		self.assertTrue(self.window_item_batched())
 
 	def test_restock_drops_nos_row_and_moves_item_price(self):
 		design = self.make_design("W09")
