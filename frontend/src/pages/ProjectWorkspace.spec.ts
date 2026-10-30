@@ -1,16 +1,20 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { toast } from 'frappe-ui'
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '@/router'
+import { copyDesign } from '@/api'
 import ProjectWorkspace from './ProjectWorkspace.vue'
 
 vi.mock('@/api', async (orig) => ({
 	...(await orig<object>()),
 	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
+	copyDesign: vi.fn(),
 }))
 const svg = vi.hoisted(() => '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>')
 vi.mock('frappe-ui', async (orig) => ({
 	...(await orig<object>()),
+	toast: { success: vi.fn(), error: vi.fn() },
 	useList: (await import('@/test-utils')).fakeUseList({
 		'Fenestration Project': [
 			{ name: 'FP-2026-00001', project_title: 'Villa Rose', default_series_version: 'CS400-V01', customer: 'CUST-1', transport_charges: 0, quotation: null },
@@ -58,12 +62,42 @@ describe('ProjectWorkspace', () => {
 		expect(img.attributes('alt')).toBe('Elevation of W01')
 	})
 
-	it('New design routes to the designer with the default series version', async () => {
+	it('New design lists the templates and routes with the chosen one', async () => {
 		const { w, router } = await setup()
 		await w.get('[data-testid="new-design"]').trigger('click')
+		await flushPromises()
+		const items = Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((e) => e.textContent?.trim())
+		expect(items).toEqual(['2-sash casement', 'Ventilator', 'Sash · fixed · sash', 'Top light', 'Blank'])
+		;(Array.from(document.body.querySelectorAll('[role="menuitem"]'))[0] as HTMLElement).click()
 		await vi.waitFor(() =>
-			expect(router.currentRoute.value.fullPath).toBe('/projects/FP-2026-00001/designs/new?series_version=CS400-V01'),
+			expect(router.currentRoute.value.fullPath).toBe(
+				'/projects/FP-2026-00001/designs/new?series_version=CS400-V01&template=casement-2',
+			),
 		)
+	})
+	it('Duplicate copies the design and routes to the copy', async () => {
+		vi.mocked(copyDesign).mockResolvedValue('WD-9')
+		const { w, router } = await setup()
+		await w.get('[data-testid="duplicate-design"]').trigger('click')
+		expect(copyDesign).toHaveBeenCalledWith('WD-1')
+		await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/projects/FP-2026-00001/designs/WD-9'))
+	})
+	it('Duplicate shows a toast on error and re-enables', async () => {
+		vi.mocked(copyDesign).mockRejectedValue(new Error('boom'))
+		const { w } = await setup()
+		const btn = w.get('[data-testid="duplicate-design"]')
+		await btn.trigger('click')
+		await flushPromises()
+		expect(toast.error).toHaveBeenCalledWith('boom')
+		expect(btn.attributes('disabled')).toBeUndefined()
+	})
+	it('search filters cards case-insensitively', async () => {
+		const { w } = await setup()
+		await w.get('input[aria-label="Search designs"]').setValue('w02')
+		expect(w.findAll('[data-testid="design-card"]')).toHaveLength(1)
+		await w.get('input[aria-label="Search designs"]').setValue('hall')
+		expect(w.findAll('[data-testid="design-card"]')).toHaveLength(1)
+		expect(w.text()).toContain('W01 × 260')
 	})
 	it('Edit design is a frappe-ui button link to the designer', async () => {
 		const { w } = await setup()

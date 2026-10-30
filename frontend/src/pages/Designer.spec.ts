@@ -110,6 +110,13 @@ describe('Designer page', () => {
 	})
 	afterEach(() => vi.useRealTimers())
 
+	it('applies the template from the query on a new design', async () => {
+		await setup('/projects/P1/designs/new?series_version=SV1&template=ventilator')
+		const root = useDesignerStore().design.root
+		expect(root).toMatchObject({ type: 'split', dir: 'v' })
+		expect(root.type === 'split' && root.children.some((c) => c.type === 'louver')).toBe(true)
+	})
+
 	it('choosing a finish recomputes with it and recolours the frame', async () => {
 		const { wrapper } = await setup()
 		await vi.advanceTimersByTimeAsync(300)

@@ -7,16 +7,18 @@
 					{{ totals.windows }} windows · {{ totals.area.toFixed(3) }} sq.ft · {{ totals.weight.toFixed(3) }} kg · Value {{ formatMoney(totals.value) }}
 				</p>
 			</div>
-			<Button class="ml-auto" variant="solid" data-testid="new-design" :disabled="!info?.default_series_version" @click="newDesign">
-				New design
-			</Button>
+			<FormControl v-model="search" class="ml-auto w-56" type="text" placeholder="Search designs" aria-label="Search designs" />
+			<Dropdown :options="templateOptions">
+				<Button variant="solid" data-testid="new-design" :disabled="!info?.default_series_version">New design</Button>
+			</Dropdown>
 		</div>
 
 		<QuotePanel :project="project" :info="info" @changed="projectList.reload()" @repriced="designList.reload()" />
 
 		<p v-if="!designs.length" class="text-sm text-ink-gray-5">No designs yet.</p>
+		<p v-else-if="!shown.length" class="text-sm text-ink-gray-5">No designs match.</p>
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-			<article v-for="d in designs" :key="d.name" data-testid="design-card" class="rounded border p-3">
+			<article v-for="d in shown" :key="d.name" data-testid="design-card" class="rounded border p-3">
 				<div class="mb-2 flex h-40 items-center justify-center rounded bg-surface-gray-1">
 					<img v-if="d.design_svg" :src="thumb(d.design_svg)" :alt="`Elevation of ${d.design_ref}`" class="max-h-full max-w-full" />
 					<span v-else class="text-xs text-ink-gray-5">No preview</span>
@@ -36,16 +38,26 @@
 					data-testid="edit-design"
 					:route="`/projects/${project}/designs/${d.name}`"
 				/>
+				<Button
+					class="ml-2 mt-2 min-h-9"
+					variant="subtle"
+					label="Duplicate"
+					data-testid="duplicate-design"
+					:disabled="duplicating"
+					@click="duplicate(d.name)"
+				/>
 			</article>
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { Badge, Button, useList } from 'frappe-ui'
-import { computed } from 'vue'
+import { Badge, Button, Dropdown, FormControl, toast, useList } from 'frappe-ui'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { copyDesign } from '@/api'
 import QuotePanel from '@/components/QuotePanel.vue'
+import { TEMPLATES } from '@/design/templates'
 import { formatMoney } from '@/money'
 
 interface DesignRow {
@@ -58,6 +70,7 @@ interface DesignRow {
 	error_count: number
 	warning_count: number
 	design_svg: string
+	design_name?: string
 	location: string
 	line_total: number
 	pricing_json?: string | { priced_on?: string } | null
@@ -84,7 +97,7 @@ const designList = useList<DesignRow>({
 	doctype: 'Window Design',
 	fields: [
 		'name', 'design_ref', 'qty', 'series_version', 'area_sqft', 'window_kg',
-		'error_count', 'warning_count', 'design_svg', 'location', 'line_total', 'pricing_json',
+		'error_count', 'warning_count', 'design_svg', 'design_name', 'location', 'line_total', 'pricing_json',
 	],
 	filters: { project: props.project },
 	orderBy: 'design_ref asc',
@@ -93,6 +106,14 @@ const designList = useList<DesignRow>({
 
 const info = computed(() => projectList.data?.[0])
 const designs = computed(() => designList.data ?? [])
+const search = ref('')
+const shown = computed(() => {
+	const q = search.value.trim().toLowerCase()
+	if (!q) return designs.value
+	return designs.value.filter((d) =>
+		[d.design_ref, d.design_name, d.location].some((v) => (v ?? '').toLowerCase().includes(q)),
+	)
+})
 const totals = computed(() => {
 	let windows = 0, area = 0, weight = 0, value = 0
 	for (const d of designs.value) {
@@ -119,7 +140,26 @@ function thumb(svg: string) {
 	return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
 }
 
-function newDesign() {
-	router.push({ path: `/projects/${props.project}/designs/new`, query: { series_version: info.value?.default_series_version } })
+const templateOptions = TEMPLATES.map((t) => ({ label: t.label, onClick: () => newDesign(t.id) }))
+
+function newDesign(template: string) {
+	router.push({
+		path: `/projects/${props.project}/designs/new`,
+		query: { series_version: info.value?.default_series_version, template },
+	})
+}
+
+const duplicating = ref(false)
+async function duplicate(name: string) {
+	if (duplicating.value) return
+	duplicating.value = true
+	try {
+		const copy = await copyDesign(name)
+		await router.push(`/projects/${props.project}/designs/${copy}`)
+	} catch (e) {
+		toast.error(e instanceof Error ? e.message : 'Copy failed')
+	} finally {
+		duplicating.value = false
+	}
 }
 </script>

@@ -6,6 +6,7 @@ import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type SavedD
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
 import WindowCanvas from '@/components/WindowCanvas.vue'
+import { TEMPLATES } from '@/design/templates'
 import { typology } from '@/design/typology'
 import { getNode, moveSplit, newDesign, setLeaf, splitCell } from '@/design/tree'
 import type { LeafNode, SplitDir } from '@/design/types'
@@ -83,7 +84,7 @@ async function load(name: string | null) {
 		}
 		if (savedName.value) return
 		store.reset(
-			newDesign(1200, 1200),
+			(TEMPLATES.find((t) => t.id === route.query.template) ?? TEMPLATES[TEMPLATES.length - 1]).build(1200, 1200),
 			String(route.query.series_version ?? ''),
 			defaults.default_finish ?? '',
 			defaults.default_price_structure ?? '',
