@@ -121,6 +121,19 @@ describe('PropertiesPanel', () => {
 		expect((useDesignerStore().design.root as never as { children: { mesh?: boolean }[] }).children[0].mesh).toBe(true)
 	})
 
+	it('unset option shows "Series default" and clearing writes no keys', async () => {
+		const w = mountPanel([{ ...sash, handle: 'single', mesh: true }, fixed], 'F1.0', [])
+		const handle = w.findAllComponents(Select).find((c) => c.props('label') === 'Handle')!
+		expect((handle.props('options') as { label: string }[])[0].label).toBe('Series default')
+		handle.vm.$emit('update:modelValue', 'none')
+		w.findAllComponents(Checkbox).find((c) => c.props('label') === 'Fly mesh')!.vm.$emit('update:modelValue', false)
+		await w.vm.$nextTick()
+		const node = (useDesignerStore().design.root as never as { children: object[] }).children[0]
+		expect(JSON.parse(JSON.stringify(node))).toEqual(sash)
+		expect(Object.keys(node)).not.toEqual(expect.arrayContaining(['handle']))
+		expect(Object.keys(node)).not.toEqual(expect.arrayContaining(['mesh']))
+	})
+
 	it('fixed panels have no hardware option controls', () => {
 		const w = mountPanel([sash, fixed], 'F1.1', [])
 		expect(w.text()).not.toContain('Handle')

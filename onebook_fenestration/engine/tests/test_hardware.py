@@ -84,9 +84,31 @@ class TestSashOptions(unittest.TestCase):
 
 	def test_series_constants_set_defaults(self):
 		plain = {"type": "sash", "glass": "6CTG"}
-		butt = {"type": "sash", "glass": "6CTG", "hinge_type": "friction", "mesh": False}
 
 		def consts(d):
-			d["constants"].update({"default_hinge_type": "butt", "default_mesh": 1})
+			d["constants"].update({"default_butt_hinge": 1, "default_single_point_handle": 1, "default_mesh": 1})
 
-		self.assertEqual(self._panels("hinge_type == 'butt' and mesh", _opt_design(plain, butt), consts), ["F1-S1"])
+		when = "hinge_type == 'butt' and handle == 'single' and mesh and not limiter"
+		self.assertEqual(self._panels(when, _opt_design(plain), consts), ["F1-S1"])
+
+	def test_design_value_overrides_opposite_series_default(self):
+		node = {"type": "sash", "glass": "6CTG", "hinge_type": "friction", "handle": "multipoint", "limiter": False, "mesh": False}
+
+		def consts(d):
+			d["constants"].update(
+				{"default_butt_hinge": 1, "default_single_point_handle": 1, "default_limiter": 1, "default_mesh": 1}
+			)
+
+		when = "hinge_type == 'friction' and handle == 'multipoint' and not limiter and not mesh"
+		self.assertEqual(self._panels(when, _opt_design(node), consts), ["F1-S1"])
+		opposite = {"type": "sash", "glass": "6CTG", "hinge_type": "butt", "handle": "single", "limiter": True, "mesh": True}
+		self.assertEqual(self._panels("hinge_type == 'butt' and handle == 'single' and limiter and mesh", _opt_design(opposite)), ["F1-S1"])
+
+	def test_invalid_default_constant_is_an_error_issue(self):
+		from onebook_fenestration.engine.tests.helpers import snapshot_with
+
+		snap = snapshot_with(lambda d: d["constants"].update({"default_butt_hinge": 0.5, "default_mesh": -1}))
+		issues = [i for i in compute(_opt_design({"type": "sash", "glass": "6CTG"}), snap).issues if i.code == "invalid_series_constant"]
+		self.assertEqual([i.severity for i in issues], ["error", "error"])
+		self.assertIn("default_butt_hinge", issues[0].message)
+		self.assertIn("default_mesh", issues[1].message)

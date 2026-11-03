@@ -51,12 +51,12 @@ const HINGES = [
 ]
 
 const HINGE_TYPES = [
-	{ label: 'Default (friction)', value: NONE },
+	{ label: 'Series default', value: NONE },
 	{ label: 'Friction', value: 'friction' },
 	{ label: 'Butt', value: 'butt' },
 ]
 const HANDLES = [
-	{ label: 'Default (multipoint)', value: NONE },
+	{ label: 'Series default', value: NONE },
 	{ label: 'Multipoint', value: 'multipoint' },
 	{ label: 'Single point', value: 'single' },
 ]
@@ -90,14 +90,14 @@ function resize(w: number, h: number) {
 }
 function patchLeaf(patch: Partial<LeafNode>) {
 	if (!leaf.value) return
-	const next = { ...leaf.value, ...patch } as LeafNode
+	const next = Object.fromEntries(Object.entries({ ...leaf.value, ...patch }).filter(([, v]) => v !== undefined)) as unknown as LeafNode
 	store.apply((d) => setLeaf(d, store.selectedPath, next))
 }
 function moveBar(i: number, e: Event) {
 	const pos = num(e)
 	store.apply((d) => moveSplit(d, splitPath.value, i, pos))
 }
-const optStr = (v: string | number | null) => (v && v !== NONE ? String(v) : undefined)
+const optStr = <T extends string = string>(v: string | number | null) => (v && v !== NONE ? (String(v) as T) : undefined)
 function optNum(e: Event): number | undefined {
 	const v = (e.target as HTMLInputElement).value
 	return v === '' ? undefined : Number(v)
@@ -133,9 +133,9 @@ function optNum(e: Event): number | undefined {
 					<Select label="Hinge" :options="HINGES" :model-value="leaf.hinge ?? NONE"
 						@update:model-value="patchLeaf({ hinge: optStr($event) })" />
 					<Select label="Hinge type" :options="HINGE_TYPES" :model-value="leaf.hinge_type ?? NONE"
-						@update:model-value="patchLeaf({ hinge_type: optStr($event) as never })" />
+						@update:model-value="patchLeaf({ hinge_type: optStr<'friction' | 'butt'>($event) })" />
 					<Select label="Handle" :options="HANDLES" :model-value="leaf.handle ?? NONE"
-						@update:model-value="patchLeaf({ handle: optStr($event) as never })" />
+						@update:model-value="patchLeaf({ handle: optStr<'multipoint' | 'single'>($event) })" />
 					<Checkbox label="Opening limiter" :model-value="!!leaf.limiter"
 						@update:model-value="patchLeaf({ limiter: $event || undefined })" />
 					<Checkbox label="Fly mesh" :model-value="!!leaf.mesh"
