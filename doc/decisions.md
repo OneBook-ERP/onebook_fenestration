@@ -144,3 +144,12 @@ The survey must handle offline sites, a BLE laser meter, photos and checklists, 
 Decide after asking Hilux two questions: are surveyors' phones Android or iPhone, and how often are sites without network?
 
 Update from the recording audio (low confidence): Hilux does not use EvA survey. Measurement is confirmed on a signed Estimate Confirmation Report. The first need is therefore digital confirmation and customer sign-off inside the Vue SPA. The BLE/offline survey app is deferred.
+
+## D10. Hilux sheet vs EvA as the source of hardware quantities (OPEN, 2026-11-03)
+
+The CS400 v2 and CS4800 v1 series data (`series_studio/data/`) follow the Hilux hardware sheets: per-typology counts first, prose rule otherwise. On W01 the sheet disagrees with the EvA golden on five items (H412 8 vs 4, H913 3 vs 2, H425 4 vs 2, H429 24 vs 12, H914 1 vs 1.423). The v1 fixture and its golden tests stay on EvA; `test_series_data` records both values. Hilux decides per item (`doc/hilux-questions.md` section 1).
+
+Related choices made while translating the sheets (each is a rule note and a question in `doc/hilux-questions.md`):
+- Typology counts are reproduced from contexts, not a typology variable. Where open windows get more than the per-mullion prose (H412, H410, H913), the extra is a `sash` rule that fires once, on the first sash (`panel == 'F1-S1'`).
+- CS4800 profiles, member rules and deductions are placeholders copied from CS400 until the DXFs arrive. Profiles belong to one series, so the placeholders use their own codes `CS4800-PH-*`.
+- A new glass imported from a series snapshot gets its own Item `FEN-GLASS-<code>` (Square Meter, kind Glass). Existing glasses and Items are never edited.
