@@ -7,6 +7,7 @@ import frappe
 from frappe.model.document import Document
 
 from onebook_fenestration.engine import SeriesSnapshot
+from onebook_fenestration.series_studio.legacy_gaskets import with_legacy_gaskets
 
 CACHE_KEY = "fen_snapshot"
 
@@ -19,7 +20,7 @@ def get_snapshot(series_version: str) -> SeriesSnapshot:
 	if data is None:
 		data = frappe.parse_json(frappe.db.get_value("Series Version", series_version, "snapshot_json"))
 		frappe.cache.hset(CACHE_KEY, series_version, data)
-	return SeriesSnapshot.from_dict(data)
+	return SeriesSnapshot.from_dict(with_legacy_gaskets(data))
 
 
 def clear_snapshot(series_version: str) -> None:
@@ -90,6 +91,8 @@ def _hardware_rule(row) -> dict:
 		rule["uom"] = row.uom
 	if row.bom_group:
 		rule["group"] = row.bom_group
+	if row.note:
+		rule["note"] = row.note
 	return rule
 
 

@@ -95,3 +95,20 @@ class TestSnapshot(IntegrationTestCase):
 		self.assertEqual(frappe.db.get_value("Profile Series", "CS400", "published_version"), newer)
 		for name in (original, amended.name, older, newer):
 			frappe.cache.hdel("fen_snapshot", name)
+
+
+class TestLegacyGaskets(IntegrationTestCase):
+	"""A version published without Gasket rules (frozen before gaskets were rules) still gets its gaskets."""
+
+	def test_version_without_gasket_rules_keeps_gaskets(self):
+		data = load("cs400_snapshot.json")
+		data["hardware_rules"] = [r for r in data["hardware_rules"] if r.get("group") != "Gasket"]
+		version = import_snapshot_json("CS400", data, "CS400 Economical Casement")
+		self.addCleanup(frappe.cache.hdel, "fen_snapshot", version)
+		legacy = [(b.item, b.panel, b.position, b.length) for b in compute(load("w01.json"), get_snapshot(version)).bom if b.group == "Gasket"]
+		current = [(b.item, b.panel, b.position, b.length) for b in compute(load("w01.json"), SeriesSnapshot.from_dict(self.fixture())).bom if b.group == "Gasket"]
+		self.assertEqual(legacy, current)
+		self.assertEqual(len(legacy), 20)
+
+	def fixture(self):
+		return load("cs400_snapshot.json")

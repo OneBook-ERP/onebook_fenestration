@@ -4,9 +4,9 @@ from unittest.mock import patch
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from onebook_fenestration.engine.glazing import GASKETS
 from onebook_fenestration.patches.v0_1 import create_gasket_items, price_existing_window_designs
 from onebook_fenestration.series_studio.importer import import_snapshot_json
+from onebook_fenestration.series_studio.legacy_gaskets import GASKETS
 from onebook_fenestration.tests.test_snapshot import import_cs400, load
 
 UNPRICED = {"finish": None, "price_structure": None, "unit_price": 0, "line_total": 0, "pricing_json": None}
