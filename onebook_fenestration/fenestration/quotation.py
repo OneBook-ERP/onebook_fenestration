@@ -54,6 +54,7 @@ DESIGN_FIELDS = (
 	"pricing_json",
 	"error_count",
 	"pricing_warning_count",
+	"result_json",
 )
 
 
@@ -186,10 +187,23 @@ def check_quotable(project, designs: list[dict]) -> None:
 		reasons = [_("errors")] if cint(design.error_count) else []
 		if cint(design.pricing_warning_count):
 			reasons.append(_("missing prices") + _missing_items_suffix(design))
+		if glasses := _ungasketed_glasses(design):
+			reasons.append(_("missing glazing gasket for glass {0}").format(", ".join(glasses)))
 		if reasons:
 			problems.append(f"{design.design_ref} ({', '.join(reasons)})")
 	if problems:
 		raise QuoteNotReady(_("Fix these designs before quoting: {0}").format(", ".join(problems)))
+
+
+def _ungasketed_glasses(design) -> list[str]:
+	"""Glass codes of the design's stored no_glazing_gasket issues, in first-seen order."""
+	result = json.loads(design.result_json or "{}")
+	codes = [
+		issue["message"].rsplit(" for glass ", 1)[-1]  # "F1-S1: no glazing gasket rule for glass 8LAM"
+		for issue in result.get("issues", [])
+		if issue.get("code") == "no_glazing_gasket"
+	]
+	return list(dict.fromkeys(codes))
 
 
 def _missing_items_suffix(design) -> str:

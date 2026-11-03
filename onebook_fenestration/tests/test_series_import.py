@@ -146,3 +146,27 @@ class TestHiluxSeriesImport(IntegrationTestCase):
 		self.assertIn("PLACEHOLDER until DXF", frappe.db.get_value("Series Version", version, "version_note"))
 		door = frappe.get_all("Series Hardware Rule", {"parent": version, "item": "H418"}, ["when_expr", "note"])
 		self.assertEqual([(d.when_expr, d.note) for d in door], [("False", "door — no door typology yet")])
+
+
+class TestImportHiluxSeries(IntegrationTestCase):
+	def test_second_call_creates_no_versions(self):
+		from onebook_fenestration.series_studio.data import import_hilux_series
+
+		first = import_hilux_series()
+		self.addCleanup(lambda: [frappe.cache.hdel("fen_snapshot", v) for v in first.values()])
+		self.assertEqual(set(first), {"CS400", "CS4800"})
+		count = lambda: frappe.db.count("Series Version", {"series": ("in", ("CS400", "CS4800")), "docstatus": 1})
+		before = count()
+		self.assertEqual(import_hilux_series(), {})
+		self.assertEqual(count(), before)
+		hashes = frappe.get_all("Series Version", {"name": ("in", list(first.values()))}, pluck="source_hash")
+		self.assertTrue(all(len(h) == 64 for h in hashes))
+
+	def test_changed_data_imports_again(self):
+		from onebook_fenestration.series_studio import data as hilux
+
+		hilux.import_hilux_series()
+		original = hilux.load_series_data
+		self.addCleanup(setattr, hilux, "load_series_data", original)
+		hilux.load_series_data = lambda f: {**original(f), "version_note": "changed"}
+		self.assertEqual(set(hilux.import_hilux_series()), {"CS400", "CS4800"})

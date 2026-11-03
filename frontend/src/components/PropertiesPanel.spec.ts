@@ -1,6 +1,6 @@
 import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { Checkbox, Select } from 'frappe-ui'
+import { Select } from 'frappe-ui'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PropertiesPanel from '@/components/PropertiesPanel.vue'
 import { useDesignerStore } from '@/stores/designer'
@@ -108,17 +108,43 @@ describe('PropertiesPanel', () => {
 		const selects = () => w.findAllComponents(Select)
 		const labels = selects().map((c) => c.props('label'))
 		expect(labels).toEqual(expect.arrayContaining(['Hinge', 'Hinge type', 'Handle']))
-		const checks = w.findAllComponents(Checkbox).map((c) => c.props('label'))
-		expect(checks).toEqual(['Opening limiter', 'Fly mesh'])
+		expect(labels).toEqual(expect.arrayContaining(['Opening limiter', 'Fly mesh']))
 		const handle = selects().find((c) => c.props('label') === 'Handle')!
 		expect(handle.props('modelValue')).toBe('none')
 		handle.vm.$emit('update:modelValue', 'single')
 		await w.vm.$nextTick()
 		expect((useDesignerStore().design.root as never as { children: { handle?: string }[] }).children[0].handle).toBe('single')
-		const mesh = w.findAllComponents(Checkbox).find((c) => c.props('label') === 'Fly mesh')!
-		mesh.vm.$emit('update:modelValue', true)
+		const mesh = selects().find((c) => c.props('label') === 'Fly mesh')!
+		mesh.vm.$emit('update:modelValue', 'yes')
 		await w.vm.$nextTick()
-		expect((useDesignerStore().design.root as never as { children: { mesh?: boolean }[] }).children[0].mesh).toBe(true)
+		const child = () => (useDesignerStore().design.root as never as { children: { mesh?: boolean }[] }).children[0]
+		expect(child().mesh).toBe(true)
+		mesh.vm.$emit('update:modelValue', 'no')
+		await w.vm.$nextTick()
+		expect(child().mesh).toBe(false)
+	})
+
+	it('limiter and mesh show the effective series default in the Series default label', async () => {
+		const w = mountPanel([sash, fixed], 'F1.0', [])
+		const first = (label: string) =>
+			(w.findAllComponents(Select).find((c) => c.props('label') === label)!.props('options') as { label: string }[])[0].label
+		expect(first('Fly mesh')).toBe('Series default')
+		useDesignerStore().seriesInfo = { glasses: ['6CTG'], defaults: { limiter: false, mesh: true } }
+		await w.vm.$nextTick()
+		expect(first('Fly mesh')).toBe('Series default (Yes)')
+		expect(first('Opening limiter')).toBe('Series default (No)')
+	})
+
+	it('glass options are limited to the series version and keep an unknown current value', async () => {
+		const w = mountPanel([sash, { type: 'fixed', glass: 'OLD1' }], 'F1.0', [])
+		useDesignerStore().seriesInfo = { glasses: ['5CLR'], defaults: { limiter: false, mesh: false } }
+		await w.vm.$nextTick()
+		const glass = () => w.findAllComponents(Select).find((c) => c.props('label') === 'Glass')!
+		const labels = () => (glass().props('options') as { label: string }[]).map((o) => o.label)
+		expect(labels()).toEqual(['5 mm clear (5CLR)', '6CTG (not in this series version)'])
+		useDesignerStore().select('F1.1')
+		await w.vm.$nextTick()
+		expect(labels()).toContain('OLD1 (not in this series version)')
 	})
 
 	it('unset option shows "Series default" and clearing writes no keys', async () => {
@@ -126,7 +152,7 @@ describe('PropertiesPanel', () => {
 		const handle = w.findAllComponents(Select).find((c) => c.props('label') === 'Handle')!
 		expect((handle.props('options') as { label: string }[])[0].label).toBe('Series default')
 		handle.vm.$emit('update:modelValue', 'none')
-		w.findAllComponents(Checkbox).find((c) => c.props('label') === 'Fly mesh')!.vm.$emit('update:modelValue', false)
+		w.findAllComponents(Select).find((c) => c.props('label') === 'Fly mesh')!.vm.$emit('update:modelValue', 'none')
 		await w.vm.$nextTick()
 		const node = (useDesignerStore().design.root as never as { children: object[] }).children[0]
 		expect(JSON.parse(JSON.stringify(node))).toEqual(sash)
@@ -137,6 +163,6 @@ describe('PropertiesPanel', () => {
 	it('fixed panels have no hardware option controls', () => {
 		const w = mountPanel([sash, fixed], 'F1.1', [])
 		expect(w.text()).not.toContain('Handle')
-		expect(w.findAllComponents(Checkbox)).toHaveLength(0)
+		expect(w.text()).not.toContain('Fly mesh')
 	})
 })

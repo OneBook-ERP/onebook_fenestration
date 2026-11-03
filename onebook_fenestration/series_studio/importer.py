@@ -11,7 +11,12 @@ GLASS_ITEM_PREFIX = "FEN-GLASS-"
 
 
 def import_snapshot_json(
-	series_code: str, data: dict, title: str, system_type: str = "Casement", hsn_codes: dict | None = None
+	series_code: str,
+	data: dict,
+	title: str,
+	system_type: str = "Casement",
+	hsn_codes: dict | None = None,
+	source_hash: str | None = None,
 ) -> str:
 	"""Create any missing masters for `data`, then create and submit a Series Version. Returns its name.
 
@@ -39,6 +44,7 @@ def import_snapshot_json(
 			"doctype": "Series Version",
 			"series": series_code,
 			"version_note": data.get("version_note"),
+			"source_hash": source_hash,
 			"deductions": [{"deduction_key": k, "value": v} for k, v in snap.deductions.items()],
 			"constants": [{"constant_key": k, "value": v} for k, v in snap.constants.items()],
 			"member_rules": [_member_row(rule) for rule in snap.member_rules],

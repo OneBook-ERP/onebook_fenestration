@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Checkbox, FormControl, Select, useList } from 'frappe-ui'
+import { FormControl, Select, useList } from 'frappe-ui'
 import { computed } from 'vue'
 import { getNode, moveSplit, setLeaf, setSize } from '@/design/tree'
 import { panelLabel } from '@/design/typology'
@@ -22,11 +22,14 @@ const glassList = useList<{ name: string; glass_name: string }>({
 	limit: 100,
 })
 const glassOptions = computed(() => {
-	const opts = (glassList.data ?? []).map((g) => ({ label: `${g.glass_name || g.name} (${g.name})`, value: g.name }))
+	const codes = store.seriesInfo?.glasses
+	const rows = (glassList.data ?? []).filter((g) => !codes || codes.includes(g.name))
+	const opts = rows.map((g) => ({ label: `${g.glass_name || g.name} (${g.name})`, value: g.name }))
 	const cur = leaf.value?.glass
 	if (cur && !opts.some((o) => o.value === cur)) {
 		const loaded = glassList.data !== undefined && glassList.data !== null && !glassList.list?.loading
-		opts.push({ label: loaded ? `${cur} (unknown)` : cur, value: cur })
+		const note = codes && !codes.includes(cur) ? 'not in this series version' : 'unknown'
+		opts.push({ label: loaded ? `${cur} (${note})` : cur, value: cur })
 	}
 	return opts
 })
@@ -55,6 +58,17 @@ const HINGE_TYPES = [
 	{ label: 'Friction', value: 'friction' },
 	{ label: 'Butt', value: 'butt' },
 ]
+const YES = 'yes'
+const NO = 'no'
+function flagOptions(key: 'limiter' | 'mesh') {
+	const def = store.seriesInfo?.defaults[key]
+	const label = def === undefined ? 'Series default' : `Series default (${def ? 'Yes' : 'No'})`
+	return [{ label, value: NONE }, { label: 'Yes', value: YES }, { label: 'No', value: NO }]
+}
+const limiterOptions = computed(() => flagOptions('limiter'))
+const meshOptions = computed(() => flagOptions('mesh'))
+const flagValue = (v: boolean | undefined) => (v === undefined ? NONE : v ? YES : NO)
+const flagPatch = (v: string | number | null) => (v === YES ? true : v === NO ? false : undefined)
 const HANDLES = [
 	{ label: 'Series default', value: NONE },
 	{ label: 'Multipoint', value: 'multipoint' },
@@ -136,10 +150,10 @@ function optNum(e: Event): number | undefined {
 						@update:model-value="patchLeaf({ hinge_type: optStr<'friction' | 'butt'>($event) })" />
 					<Select label="Handle" :options="HANDLES" :model-value="leaf.handle ?? NONE"
 						@update:model-value="patchLeaf({ handle: optStr<'multipoint' | 'single'>($event) })" />
-					<Checkbox label="Opening limiter" :model-value="!!leaf.limiter"
-						@update:model-value="patchLeaf({ limiter: $event || undefined })" />
-					<Checkbox label="Fly mesh" :model-value="!!leaf.mesh"
-						@update:model-value="patchLeaf({ mesh: $event || undefined })" />
+					<Select label="Opening limiter" :options="limiterOptions" :model-value="flagValue(leaf.limiter)"
+						@update:model-value="patchLeaf({ limiter: flagPatch($event) })" />
+					<Select label="Fly mesh" :options="meshOptions" :model-value="flagValue(leaf.mesh)"
+						@update:model-value="patchLeaf({ mesh: flagPatch($event) })" />
 					<FormControl type="number" label="GHH (mm)" :model-value="leaf.ghh ?? ''"
 						@change="patchLeaf({ ghh: optNum($event) })" />
 				</template>

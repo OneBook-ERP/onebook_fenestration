@@ -14,7 +14,11 @@ vi.mock('frappe-ui', async (orig) => ({
 			{ name: 'FP-1', project_title: 'Villa Rose', customer: 'Acme', modified: '2026-01-01' },
 			{ name: 'FP-2', project_title: 'Tower Block', customer: 'Beta', modified: '2026-01-02' },
 		],
-		'Series Version': [{ name: 'CS400-V01' }],
+		'Series Version': [
+			{ name: 'CS400-V01', series: 'CS400', creation: '2026-01-01 10:00:00' },
+			{ name: 'CS400-V05', series: 'CS400', creation: '2026-03-01 10:00:00' },
+			{ name: 'CS4800-V06', series: 'CS4800', creation: '2026-02-01 10:00:00' },
+		],
 		Customer: [{ name: 'Acme Corp' }, { name: 'Beta Ltd' }],
 	}),
 }))
@@ -31,6 +35,21 @@ describe('Projects', () => {
 		await flushPromises()
 		expect(w.text()).not.toContain('Villa Rose')
 		expect(w.text()).toContain('Tower Block')
+	})
+	it('orders versions newest first and labels the latest of each series', async () => {
+		const router = createRouter({ history: createMemoryHistory('/fenestration'), routes })
+		router.push('/projects')
+		await router.isReady()
+		const w = mount(Projects, { global: { plugins: [router] }, attachTo: document.body })
+		await w.findAll('button').find((b) => b.text() === 'New project')!.trigger('click')
+		await flushPromises()
+		const select = w.findAllComponents({ name: 'FormControl' }).find((c) => c.props('label') === 'Default series version')!
+		expect(select.vm.$attrs.options).toEqual([
+			{ label: 'CS400-V05 (latest)', value: 'CS400-V05' },
+			{ label: 'CS4800-V06 (latest)', value: 'CS4800-V06' },
+			{ label: 'CS400-V01', value: 'CS400-V01' },
+		])
+		w.unmount()
 	})
 	it('picks the customer from the Customer list', async () => {
 		vi.mocked(createProject).mockResolvedValue('FP-3')
