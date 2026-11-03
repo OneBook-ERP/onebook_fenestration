@@ -58,16 +58,19 @@ SHEET_COUNTS = {
 		"H914": (1, 1, 1, 1, 1),
 	},
 }
-# Cells where no consistent rule reproduces the sheet: (series, item, typology) -> what the rule gives. See rule notes.
-SHEET_DEVIATIONS = {("CS4800", "H410", "triple"): 6}
+# Expected deviations from the sheet: (series, item, typology) -> (what the rule gives, question in doc/hilux-questions.md).
+# CS400 keeps EvA where the two disagree (CLAUDE.md golden rule); CS4800 follows the sheet unless no plain rule fits.
+SHEET_DEVIATIONS = {
+	("CS4800", "H410", "triple"): (6, "Q2.4"),
+	**{(series, "H913", t): (3, "Q7.3") for series in ("CS400", "CS4800") for t in ("single", "double", "triple")},
+	**{("CS400", "H914", t): (1.6, "Q7.4") for t in TYPOLOGIES},
+}
 
-# EvA W01 golden totals (test_hardware.test_w01_hardware_totals / test_w01_consumables on the v1 fixture).
+# EvA W01 golden totals (test_hardware.test_w01_hardware_totals / test_w01_consumables on the v1 fixture); CS400 v2 must match all.
 EVA_W01 = {
 	"H401": 12, "H266": 12, "H912": 10, "H913": 2, "H904": 10, "H903": 10, "H902": 6, "H901": 6, "H911": 10, "H412": 4,
 	"H411": 2, "H416": 2, "H429": 12, "H425": 2, "H422C": 2, "H423": 4, "H905": 16, "H914": 1.423,
 }
-# Where the Hilux sheet changes an EvA golden quantity: item -> CS400 v2 total. Reported, not resolved here.
-EVA_CONFLICTS = {"H412": 8, "H913": 3, "H425": 4, "H429": 24, "H914": 1}
 
 
 def series_data(series: str) -> dict:
@@ -79,14 +82,15 @@ def series_snapshot(series: str) -> SeriesSnapshot:
 
 
 def reference_design(typology: str, size: float = 1200, **sash_options) -> dict:
+	"""The sheet's window types: every open type has one fixed pane, so mullions = sashes."""
 	sash = {"type": "sash", "opening": "out", "hinge": "left", "glass": "6CTG", **sash_options}
 	fixed = {"type": "fixed", "glass": "6CTG"}
 	leaves = {
 		"fixed": [fixed],
 		"fixed_mullion": [fixed, fixed],
-		"single": [sash],
-		"double": [sash, sash],
-		"triple": [sash, sash, sash],
+		"single": [sash, fixed],
+		"double": [sash, fixed, sash],
+		"triple": [sash, sash, fixed, sash],
 	}[typology]
 	if len(leaves) == 1:
 		root = leaves[0]
@@ -139,7 +143,7 @@ class TestSeriesData(unittest.TestCase):
 				self.assertEqual([x for x in result.issues if x.severity == "error"], [], (series, typology))
 				got = totals(result.bom)
 				for item, counts in rows.items():
-					expected = SHEET_DEVIATIONS.get((series, item, typology), counts[i])
+					expected = SHEET_DEVIATIONS.get((series, item, typology), (counts[i],))[0]
 					with self.subTest(series=series, item=item, typology=typology):
 						self.assertEqual(got.get(item, 0), expected)
 
@@ -170,9 +174,13 @@ class TestSeriesData(unittest.TestCase):
 		questions = QUESTIONS.read_text()
 		for series in FILES:
 			for rule in series_snapshot(series).hardware_rules:
-				if re.search(r"ASSUMPTION|CONFLICT|CHECK", rule.note):
+				if re.search(r"ASSUMPTION|SHEET SAYS|CHECK", rule.note):
 					with self.subTest(series=series, rule=rule.id):
 						self.assertIn(f"`{rule.id}`", questions)
+				for qid in re.findall(r"question Q(\d+\.\d+)", rule.note):
+					self.assertRegex(questions, rf"(?m)^{re.escape(qid)} ", (rule.id, qid))
+		for (series, item, typology), (_, qid) in SHEET_DEVIATIONS.items():
+			self.assertRegex(questions, rf"(?m)^{re.escape(qid[1:])} ", (series, item, typology))
 
 
 class TestSashOptionSwaps(unittest.TestCase):
@@ -184,8 +192,11 @@ class TestSashOptionSwaps(unittest.TestCase):
 		self.assertEqual((t.get("H413"), t.get("H416"), t.get("H417"), t.get("H429")), (2, None, None, None))
 
 	def test_friction_hinge_size_by_sash_width(self):
-		self.assertEqual(self.items("CS400").get("H417"), 1)
-		self.assertEqual(totals(compute(reference_design("double"), series_snapshot("CS400")).bom).get("H416"), 2)
+		snap = series_snapshot("CS400")
+		for width, hinge in ((1200, "H417"), (600, "H416")):
+			design = {"width": width, "height": 1200, "root": {"type": "sash", "glass": "6CTG"}}
+			hinges = {k: v for k, v in totals(compute(design, snap).bom).items() if k in ("H416", "H417")}
+			self.assertEqual(hinges, {hinge: 1}, width)
 
 	def test_single_point_handle_replaces_multipoint_set(self):
 		t = self.items("CS400", handle="single")
@@ -213,8 +224,7 @@ class TestW01OnCs400V2(unittest.TestCase):
 		self.totals = totals(self.result.bom)
 
 	def test_w01_golden_on_cs400_v2(self):
-		agreed = {k: v for k, v in EVA_W01.items() if k not in EVA_CONFLICTS}
-		self.assertEqual({k: self.totals.get(k) for k in agreed}, agreed)
+		self.assertEqual({k: self.totals.get(k) for k in EVA_W01}, EVA_W01)
 		self.assertEqual(next(b.length for b in self.result.bom if b.item == "H915"), 8.54)
 		self.assertEqual(self.result.issues, [])
 
@@ -222,10 +232,3 @@ class TestW01OnCs400V2(unittest.TestCase):
 		fixture = SeriesSnapshot.from_dict(load("cs400_snapshot.json"))
 		lines = lambda r: [(b.item, b.panel, b.position, b.length) for b in r.bom if b.group == "Gasket"]
 		self.assertEqual(lines(self.result), lines(compute(load("w01.json"), fixture)))
-
-	def test_eva_conflicts_are_the_hilux_values(self):
-		"""Documents each Hilux-vs-EvA difference on W01 until Hilux answers (doc/hilux-questions.md)."""
-		self.assertEqual({k: self.totals.get(k) for k in EVA_CONFLICTS}, EVA_CONFLICTS)
-		for item in EVA_CONFLICTS:
-			notes = " ".join(r.note for r in series_snapshot("CS400").hardware_rules if r.item == item)
-			self.assertIn("CONFLICT", notes, item)

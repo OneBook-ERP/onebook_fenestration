@@ -1,7 +1,7 @@
 {
 	"code": "CS4800",
 	"version": "hilux-v1",
-	"version_note": "Hilux CS4800 hardware list (rules + per-typology counts). Profiles, member rules and deductions are PLACEHOLDER until DXF: copied from CS400 (profile codes CS4800-PH-*). Door rows never fire (no door typology yet). Notes with ASSUMPTION/CONFLICT/CHECK are open in doc/hilux-questions.md.",
+	"version_note": "Hilux CS4800 hardware list (rules + per-typology counts). Profiles, member rules and deductions are PLACEHOLDER until DXF: copied from CS400 (profile codes CS4800-PH-*). Door rows never fire (no door typology yet). Notes with ASSUMPTION/CHECK are open in doc/hilux-questions.md.",
 	"placeholders": {
 		"deductions": "PLACEHOLDER until DXF (copied from CS400)",
 		"profiles": "PLACEHOLDER until DXF (copied from CS400)",
@@ -223,18 +223,7 @@
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "2 per mullion (Hilux prose)"
-		},
-		{
-			"id": "hl_h410_open",
-			"item": "H410",
-			"name": "Mullion conector",
-			"per": "sash",
-			"qty": "2",
-			"when": "panel == 'F1-S1'",
-			"uom": "Nos",
-			"group": "Fabrication Hardware",
-			"note": "Sheet counts -/2/2/4/8: 2 more for open windows, as H412. Triple open gives 6, not the sheet's 8 (no per-mullion/per-shutter pattern gives 8). CHECK"
+			"note": "2 per mullion (Hilux prose; fits sheet counts 2/2/4 for 1/1/2 mullions). CHECK: sheet says 8 for Triple open (3 mullions), the rule gives 6 (question Q2.4)"
 		},
 		{
 			"id": "hl_h412_mullion",
@@ -245,18 +234,7 @@
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "4 per mullion (Hilux prose)"
-		},
-		{
-			"id": "hl_h412_open",
-			"item": "H412",
-			"name": "ss screw 8 x 50 for Mullion fixing",
-			"per": "sash",
-			"qty": "4",
-			"when": "panel == 'F1-S1'",
-			"uom": "Nos",
-			"group": "Fabrication Hardware",
-			"note": "Sheet counts -/4/4/8/12 give 4 more for open windows than the prose's 4 per mullion (added once, on the first sash). CONFLICT: EvA W01 has 4"
+			"note": "4 per mullion (Hilux prose, sheet counts and EvA W01 agree)"
 		},
 		{
 			"id": "hl_h411_wedge",
@@ -431,7 +409,7 @@
 			"when": "handle == 'multipoint'",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "Hilux: 2 nos per shutter. CONFLICT: EvA W01 has 1 per shutter"
+			"note": "2 per shutter (Hilux sheet). EvA (CS400 W01) has 1 per shutter (question Q4.1)"
 		},
 		{
 			"id": "hl_h426_limiter",
@@ -475,7 +453,7 @@
 			"when": "hinge_type == 'friction'",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "Hilux: 6 per friction hinge, 2 hinges per shutter. CONFLICT: EvA W01 has 6 per shutter"
+			"note": "6 per friction hinge, 2 hinges per shutter (Hilux sheet). EvA (CS400 W01) has 6 per shutter (question Q3.5)"
 		},
 		{
 			"id": "hl_g21_frame",
@@ -669,18 +647,7 @@
 			"when": "position == 'B'",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "Sheet counts 3 fixed / 4 open at 1200 wide: 1 per 600 mm of frame bottom + 1, max 6. CONFLICT: EvA W01 (915 wide, open) has 2"
-		},
-		{
-			"id": "hl_h913_drain_open",
-			"item": "H913",
-			"name": "WATER DRAINAGE CAP",
-			"per": "sash",
-			"qty": "1",
-			"when": "panel == 'F1-S1'",
-			"uom": "Nos",
-			"group": "Fabrication Hardware",
-			"note": "Sheet counts: open windows get 1 more drain cap than fixed (added once, on the first sash)"
+			"note": "1 per 600 mm of frame bottom + 1, max 6 (gives EvA W01 2 at 915 wide, sheet 3 for fixed at 1200). SHEET SAYS: 4 for open windows 1200 wide; no plain per-window rule tells open from fixed (question Q7.3)"
 		},
 		{
 			"id": "hl_h914_sealant",
@@ -691,7 +658,7 @@
 			"when": "True",
 			"uom": "CAN",
 			"group": "Fabrication Hardware",
-			"note": "1 bottle per window up to 6 m frame length (sheet counts 1 at 1200x1200). Unit CAN = existing Item H914. CONFLICT: EvA W01 has 1.423 (2 x perimeter / 6)"
+			"note": "1 bottle per window up to 6 m frame length (Hilux sheet). Unit CAN = existing Item H914. EvA (CS400 W01) uses 2 x perimeter / 6 (question Q7.4)"
 		},
 		{
 			"id": "hl_h915_masking",

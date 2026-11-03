@@ -147,9 +147,11 @@ Update from the recording audio (low confidence): Hilux does not use EvA survey.
 
 ## D10. Hilux sheet vs EvA as the source of hardware quantities (OPEN, 2026-11-03)
 
-The CS400 v2 and CS4800 v1 series data (`series_studio/data/`) follow the Hilux hardware sheets: per-typology counts first, prose rule otherwise. On W01 the sheet disagrees with the EvA golden on five items (H412 8 vs 4, H913 3 vs 2, H425 4 vs 2, H429 24 vs 12, H914 1 vs 1.423). The v1 fixture and its golden tests stay on EvA; `test_series_data` records both values. Hilux decides per item (`doc/hilux-questions.md` section 1).
+The CS400 v2 and CS4800 v1 series data (`series_studio/data/`) translate the Hilux hardware sheets. The sheet's open window types are read as 1/2/3 shutters plus one fixed pane (mullions = shutters), which makes the sheet's per-mullion prose and its counts agree.
+
+Current behaviour: the CLAUDE.md golden rule wins. Where the sheet and the EvA golden disagree (H425 handles, H429 hinge screws, H913 drain caps on open windows, H914 sealant), CS400 v2 reproduces EvA and the rule note says `SHEET SAYS: … (question Qx)`. CS4800 has no EvA golden for these items, so it follows the sheet. Hilux decides per item (`doc/hilux-questions.md` section 1); this stays OPEN until then.
 
 Related choices made while translating the sheets (each is a rule note and a question in `doc/hilux-questions.md`):
-- Typology counts are reproduced from contexts, not a typology variable. Where open windows get more than the per-mullion prose (H412, H410, H913), the extra is a `sash` rule that fires once, on the first sash (`panel == 'F1-S1'`).
+- Typology counts come from plain per-frame, per-mullion, per-sash and per-window rules. Counts that no plain rule reproduces are expected deviations in `test_series_data`, each with its question id.
 - CS4800 profiles, member rules and deductions are placeholders copied from CS400 until the DXFs arrive. Profiles belong to one series, so the placeholders use their own codes `CS4800-PH-*`.
-- A new glass imported from a series snapshot gets its own Item `FEN-GLASS-<code>` (Square Meter, kind Glass). Existing glasses and Items are never edited.
+- A new glass imported from a series snapshot gets its own Item `FEN-GLASS-<code>` (Square Meter, kind Glass, HSN 70071900). Existing glasses and Items are never edited.

@@ -1,7 +1,7 @@
 {
 	"code": "CS400",
 	"version": "hilux-v2",
-	"version_note": "Hilux CS400 hardware list (rules + per-typology counts). Profiles, member rules and deductions are the CS400 v1 values reverse-engineered from EvA. Notes with ASSUMPTION/CONFLICT/CHECK are open in doc/hilux-questions.md.",
+	"version_note": "Hilux CS400 hardware list (rules + per-typology counts). Where the sheet and the EvA golden disagree, the rules reproduce EvA and the note says SHEET SAYS. Profiles, member rules and deductions are the CS400 v1 values reverse-engineered from EvA. Notes with ASSUMPTION/SHEET SAYS/CHECK are open in doc/hilux-questions.md.",
 	"deductions": {
 		"bar_end_frame": 24,
 		"bar_end_mullion": 24,
@@ -166,18 +166,7 @@
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "4 per mullion (Hilux prose)"
-		},
-		{
-			"id": "hl_h412_open",
-			"item": "H412",
-			"name": "ss screw 8 x 50 for Mullion fixing",
-			"per": "sash",
-			"qty": "4",
-			"when": "panel == 'F1-S1'",
-			"uom": "Nos",
-			"group": "Fabrication Hardware",
-			"note": "Sheet counts -/4/4/8/12 give 4 more for open windows than the prose's 4 per mullion (added once, on the first sash). CONFLICT: EvA W01 has 4"
+			"note": "4 per mullion (Hilux prose, sheet counts and EvA W01 agree)"
 		},
 		{
 			"id": "hl_h411_wedge",
@@ -271,11 +260,11 @@
 			"item": "H425",
 			"name": "window handle multipoint",
 			"per": "sash",
-			"qty": "2",
+			"qty": "1",
 			"when": "handle == 'multipoint'",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "Hilux: 2 nos per shutter. CONFLICT: EvA W01 has 1 per shutter"
+			"note": "1 per shutter, as EvA W01. SHEET SAYS: 2 nos per shutter (question Q4.1)"
 		},
 		{
 			"id": "hl_h426_limiter",
@@ -304,11 +293,11 @@
 			"item": "H429",
 			"name": "8 x13 SS screw for Friction hinge fixing",
 			"per": "sash",
-			"qty": "12",
+			"qty": "6",
 			"when": "hinge_type == 'friction'",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "Hilux: 6 per friction hinge, 2 hinges per shutter. CONFLICT: EvA W01 has 6 per shutter"
+			"note": "6 per shutter = 6 per friction-hinge pair (H416/H417 are stocked in Pairs), as EvA W01. SHEET SAYS: 6 per friction hinge, 2 hinges per shutter = 12 (question Q3.5)"
 		},
 		{
 			"id": "hl_g21_frame",
@@ -502,29 +491,18 @@
 			"when": "position == 'B'",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "Sheet counts 3 fixed / 4 open at 1200 wide: 1 per 600 mm of frame bottom + 1, max 6. CONFLICT: EvA W01 (915 wide, open) has 2"
-		},
-		{
-			"id": "hl_h913_drain_open",
-			"item": "H913",
-			"name": "WATER DRAINAGE CAP",
-			"per": "sash",
-			"qty": "1",
-			"when": "panel == 'F1-S1'",
-			"uom": "Nos",
-			"group": "Fabrication Hardware",
-			"note": "Sheet counts: open windows get 1 more drain cap than fixed (added once, on the first sash)"
+			"note": "1 per 600 mm of frame bottom + 1, max 6 (gives EvA W01 2 at 915 wide, sheet 3 for fixed at 1200). SHEET SAYS: 4 for open windows 1200 wide; no plain per-window rule tells open from fixed (question Q7.3)"
 		},
 		{
 			"id": "hl_h914_sealant",
 			"item": "H914",
 			"name": "Sealant",
 			"per": "window",
-			"qty": "ceil(perimeter_m/6)",
+			"qty": "round(2*perimeter_m/6, 3)",
 			"when": "True",
 			"uom": "CAN",
 			"group": "Fabrication Hardware",
-			"note": "1 bottle per window up to 6 m frame length (sheet counts 1 at 1200x1200). Unit CAN = existing Item H914. CONFLICT: EvA W01 has 1.423 (2 x perimeter / 6)"
+			"note": "2 x frame perimeter / 6 cans, as EvA W01 (1.423). Unit CAN = existing Item H914. SHEET SAYS: 1 bottle per window / 6 m frame length, 1 at 1200x1200 (question Q7.4)"
 		},
 		{
 			"id": "hl_h915_masking",
