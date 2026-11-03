@@ -100,7 +100,12 @@ class TestImportMasters(IntegrationTestCase):
 	def test_reimport_creates_new_version(self):
 		data = load_fixture("cs400_snapshot.json")
 		first = import_test_series(data)
-		second = import_test_series(data)
+		rows = lambda name: [r.as_dict(no_default_fields=True) for r in frappe.get_doc("Series Version", name).hardware_rules]
+		before = rows(first)
+		changed = {**data, "hardware_rules": [{**r, "qty": "99"} for r in data["hardware_rules"]]}
+		second = import_test_series(changed)
+		self.assertEqual(rows(first), before)
+		self.assertEqual({r["qty_expr"] for r in rows(second)}, {"99"})
 		self.assertNotEqual(first, second)
 		self.assertEqual(frappe.db.get_value("Series Version", first, "docstatus"), 1)
 		self.assertEqual(frappe.db.get_value("Series Version", second, "docstatus"), 1)
@@ -126,13 +131,18 @@ class TestHiluxSeriesImport(IntegrationTestCase):
 			self.assertTrue(frappe.db.exists("Item", code), code)
 
 	def test_cs4800_v1_imports_with_placeholder_profiles(self):
+		from onebook_fenestration.series_studio.snapshot import get_snapshot
+
+		data = json.loads((DATA / "cs4800_v1.json").read_text())
 		version = self.import_series("CS4800", "cs4800_v1.json", "CS4800 Premium Casement")
 		self.assertEqual(frappe.db.get_value("Series Version", version, "docstatus"), 1)
-		profiles = frappe.get_all("Fenestration Profile", {"series": "CS4800"}, ["profile_name", "item"])
-		self.assertEqual(len(profiles), 4)
-		for p in profiles:
-			self.assertIn("PLACEHOLDER until DXF", p.profile_name)
-			self.assertEqual(frappe.db.get_value("Item", p.item, "fen_item_kind"), "Profile")
+		snap = get_snapshot(version)
+		self.assertEqual(set(snap.profiles), set(data["profiles"]))
+		self.assertLessEqual({r.profile for r in snap.member_rules}, set(data["profiles"]))
+		for code in data["profiles"]:
+			self.assertIn("PLACEHOLDER until DXF", snap.profiles[code].name, code)
+			item = frappe.db.get_value("Fenestration Profile", code, "item")
+			self.assertEqual(frappe.db.get_value("Item", item, "fen_item_kind"), "Profile")
 		self.assertIn("PLACEHOLDER until DXF", frappe.db.get_value("Series Version", version, "version_note"))
 		door = frappe.get_all("Series Hardware Rule", {"parent": version, "item": "H418"}, ["when_expr", "note"])
 		self.assertEqual([(d.when_expr, d.note) for d in door], [("False", "door — no door typology yet")])

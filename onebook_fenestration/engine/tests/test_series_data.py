@@ -64,7 +64,13 @@ SHEET_DEVIATIONS = {
 	("CS4800", "H410", "triple"): (6, "Q2.4"),
 	**{(series, "H913", t): (3, "Q7.3") for series in ("CS400", "CS4800") for t in ("single", "double", "triple")},
 	**{("CS400", "H914", t): (1.6, "Q7.4") for t in TYPOLOGIES},
+	**{("CS400", "H407", t): (0, "Q2.5") for t in TYPOLOGIES},
+	**{("CS400", "H408", t): (0, "Q2.6") for t in ("single", "double", "triple")},
 }
+# Items whose W01/W02 presence on CS400 v2 may differ from the v1 fixture (EvA). None today: v2 adds and drops nothing.
+EVA_ITEM_SET_DIFFERENCES: set[str] = set()
+# Rules that use the fastener spacing constant instead of a literal.
+FASTENER_ITEMS = {"H901", "H902", "H903", "H904", "H911", "H912"}
 
 # EvA W01 golden totals (test_hardware.test_w01_hardware_totals / test_w01_consumables on the v1 fixture); CS400 v2 must match all.
 EVA_W01 = {
@@ -165,6 +171,20 @@ class TestSeriesData(unittest.TestCase):
 		self.assertEqual(set(data["placeholders"]), {"deductions", "profiles", "member_rules"})
 		self.assertIn("PLACEHOLDER until DXF", data["version_note"])
 
+	def test_no_rule_matches_panel_names(self):
+		for series in FILES:
+			for rule in series_snapshot(series).hardware_rules:
+				self.assertNotIn("panel", f"{rule.when} {rule.qty} {rule.length}", (series, rule.id))
+
+	def test_fastener_spacing_is_series_data(self):
+		for series in FILES:
+			snap = series_snapshot(series)
+			self.assertEqual(snap.constants["fastener_spacing"], 500, series)
+			for rule in snap.hardware_rules:
+				if rule.item in FASTENER_ITEMS:
+					self.assertIn("fastener_spacing", rule.qty, (series, rule.id))
+					self.assertNotIn("500", rule.qty, (series, rule.id))
+
 	def test_cs400_structure_is_the_v1_fixture(self):
 		data, fixture = series_data("CS400"), load("cs400_snapshot.json")
 		for section in ("deductions", "profiles", "member_rules", "validation_rules"):
@@ -218,17 +238,33 @@ class TestSashOptionSwaps(unittest.TestCase):
 		self.assertFalse({"H427", "H404", "G27"} & self.items("CS4800", mesh=False).keys())
 
 
-class TestW01OnCs400V2(unittest.TestCase):
-	def setUp(self):
-		self.result = compute(load("w01.json"), series_snapshot("CS400"))
-		self.totals = totals(self.result.bom)
+def gasket_lines(result) -> list[tuple]:
+	return [(b.item, b.panel, b.position, b.length) for b in result.bom if b.group == "Gasket"]
+
+
+class TestEvaGoldenOnCs400V2(unittest.TestCase):
+	"""CS400 v2 must reproduce EvA (CLAUDE.md): same items as the v1 fixture on W01 and W02, same golden quantities."""
+
+	def compute_both(self, design: str):
+		v1 = compute(load(design), SeriesSnapshot.from_dict(load("cs400_snapshot.json")))
+		return v1, compute(load(design), series_snapshot("CS400"))
+
+	def assertSameItemSet(self, design: str):
+		v1, v2 = self.compute_both(design)
+		self.assertEqual({b.item for b in v2.bom} ^ {b.item for b in v1.bom}, EVA_ITEM_SET_DIFFERENCES, design)
+		return v1, v2
 
 	def test_w01_golden_on_cs400_v2(self):
-		self.assertEqual({k: self.totals.get(k) for k in EVA_W01}, EVA_W01)
-		self.assertEqual(next(b.length for b in self.result.bom if b.item == "H915"), 8.54)
-		self.assertEqual(self.result.issues, [])
+		v1, v2 = self.assertSameItemSet("w01.json")
+		t = totals(v2.bom)
+		self.assertEqual({k: t.get(k) for k in EVA_W01}, EVA_W01)
+		self.assertEqual(next(b.length for b in v2.bom if b.item == "H915"), 8.54)
+		self.assertEqual(v2.issues, [])
+		self.assertEqual(gasket_lines(v2), gasket_lines(v1))
 
-	def test_w01_gaskets_unchanged(self):
-		fixture = SeriesSnapshot.from_dict(load("cs400_snapshot.json"))
-		lines = lambda r: [(b.item, b.panel, b.position, b.length) for b in r.bom if b.group == "Gasket"]
-		self.assertEqual(lines(self.result), lines(compute(load("w01.json"), fixture)))
+	def test_w02_golden_on_cs400_v2(self):
+		v1, v2 = self.assertSameItemSet("w02.json")
+		self.assertEqual(totals(v2.bom), totals(v1.bom))
+		self.assertEqual({line[0] for line in gasket_lines(v2)}, {"G21", "G23"})
+		self.assertEqual(gasket_lines(v2), gasket_lines(v1))
+		self.assertEqual([i.code for i in v2.issues], [i.code for i in v1.issues])

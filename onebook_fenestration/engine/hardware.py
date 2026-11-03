@@ -68,7 +68,7 @@ def _contexts(per, members, panes, sash_sizes, shutter_kg, window_vars, snapshot
 		for p in panes:
 			thickness = snapshot.glasses[p.glass].thickness_mm
 			for position, side_len in (("W", p.width), ("W", p.width), ("H", p.height), ("H", p.height)):
-				variables = {"side_len": side_len, "position": position, "panel": p.panel, "glass": p.glass}
+				variables = {"side_len": side_len, "position": position, "panel": p.panel, "glass": p.glass, "in_sash": _in_sash(p)}
 				yield p.panel, position, {**variables, "glass_t": thickness, "pane_no": p.number}
 	elif per == "sash":
 		for panel, (sash_w, sash_h) in sash_sizes.items():
@@ -77,9 +77,14 @@ def _contexts(per, members, panes, sash_sizes, shutter_kg, window_vars, snapshot
 	elif per == "glass":
 		for p in panes:
 			thickness = snapshot.glasses[p.glass].thickness_mm
-			yield p.panel, "", {"glass_w": p.width, "glass_h": p.height, "glass_t": thickness}
+			yield p.panel, "", {"glass_w": p.width, "glass_h": p.height, "glass_t": thickness, "in_sash": _in_sash(p)}
 	elif per == "window":
 		yield FRAME_PANEL, "", dict(window_vars)
+
+
+def _in_sash(pane: GlassPane) -> bool:
+	"""True for a pane glazed in a sash, False for a pane glazed straight into the frame (fixed glass)."""
+	return pane.panel != FRAME_PANEL
 
 
 def _sash_defaults(snapshot: SeriesSnapshot) -> tuple[dict[str, bool], list[Issue]]:

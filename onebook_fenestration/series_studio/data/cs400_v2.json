@@ -141,10 +141,10 @@
 			"name": "SS CHEVERON 35X14 X1.2MM",
 			"per": "frame_member",
 			"qty": "2",
-			"when": "position in ('B','T')",
+			"when": "False",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "1 per frame corner"
+			"note": "Not used: EvA W01/W02 have no H407. SHEET SAYS: 1 per frame corner, 4 on every window type (question Q2.5)"
 		},
 		{
 			"id": "hl_h408_sash",
@@ -152,10 +152,10 @@
 			"name": "MS CHEVERON 40X20.6 X 3MM",
 			"per": "sash_member",
 			"qty": "2",
-			"when": "position in ('B','T')",
+			"when": "False",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "1 per shutter corner"
+			"note": "Not used: EvA W01 has no H408. SHEET SAYS: 1 per shutter corner, 4/8/12 for single/double/triple open (question Q2.6)"
 		},
 		{
 			"id": "hl_h412_mullion",
@@ -195,7 +195,7 @@
 			"name": "Friction hinge 12 inch",
 			"per": "sash",
 			"qty": "1",
-			"when": "hinge_type == 'friction' and sash_w <= 600",
+			"when": "hinge_type == 'friction' and sash_w <= friction_hinge_12_max_w",
 			"uom": "Pairs",
 			"group": "Fabrication Hardware",
 			"note": "ASSUMPTION: 12 inch up to 600 mm sash width, 14 inch above. Hilux '2 nos per shutter' = 1 pair (Item H416 is stocked in Pairs)"
@@ -206,7 +206,7 @@
 			"name": "Friction hinge 14 inch",
 			"per": "sash",
 			"qty": "1",
-			"when": "hinge_type == 'friction' and sash_w > 600",
+			"when": "hinge_type == 'friction' and sash_w > friction_hinge_12_max_w",
 			"uom": "Pairs",
 			"group": "Fabrication Hardware",
 			"note": "ASSUMPTION: 14 inch above 600 mm sash width. Hilux '2 nos per shutter' = 1 pair, same unit as H416"
@@ -217,7 +217,7 @@
 			"name": "600mm Transmission Rod for window shutter",
 			"per": "sash",
 			"qty": "1",
-			"when": "handle == 'multipoint' and sash_h < 700",
+			"when": "handle == 'multipoint' and sash_h < rod_800_min_h",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
 			"note": "ASSUMPTION: rod by sash height (sash height under 700 mm), only with the multipoint handle; Hilux: 'calculated based on shutter height'"
@@ -228,7 +228,7 @@
 			"name": "800mm Transmission Rod for window shutter",
 			"per": "sash",
 			"qty": "1",
-			"when": "handle == 'multipoint' and sash_h >= 700 and sash_h < 1000",
+			"when": "handle == 'multipoint' and sash_h >= rod_800_min_h and sash_h < rod_1200_min_h",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
 			"note": "ASSUMPTION: rod by sash height (700 to under 1000 mm), only with the multipoint handle; Hilux: 'calculated based on shutter height'"
@@ -239,7 +239,7 @@
 			"name": "1200mm Transmission Rod for window shutter",
 			"per": "sash",
 			"qty": "1",
-			"when": "handle == 'multipoint' and sash_h >= 1000",
+			"when": "handle == 'multipoint' and sash_h >= rod_1200_min_h",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
 			"note": "ASSUMPTION: rod by sash height (1000 mm and over), only with the multipoint handle; Hilux: 'calculated based on shutter height'"
@@ -309,7 +309,7 @@
 			"uom": "Meter",
 			"length": "side_len",
 			"group": "Gasket",
-			"note": "Frame and every sash outer sides. ASSUMPTION: the sheet's 'and fixed glass' is the G29 frame glass gasket, not more G21"
+			"note": "Frame and every sash outer sides, as EvA. ASSUMPTION: the sheet's 'and fixed glass' means the fixed-glass G29/G23 lines, not more G21 (question Q5.1)"
 		},
 		{
 			"id": "hl_g22_glazing",
@@ -377,18 +377,18 @@
 			"name": "frame Glass Gasket for casement",
 			"per": "pane_side",
 			"qty": "1",
-			"when": "panel == 'F1'",
+			"when": "False",
 			"uom": "Meter",
 			"length": "side_len - 2*glazing_gasket",
 			"group": "Gasket",
-			"note": "ASSUMPTION: every side of every fixed (frame-glazed) pane, same length as the glazing gasket"
+			"note": "Not used: EvA W02 glazes fixed panes with G21 + G23 only. SHEET SAYS: G29 on frames around fixed glass sides (question Q5.2)"
 		},
 		{
 			"id": "hl_h901_packer5",
 			"item": "H901",
 			"name": "Frame Packer 5 mm",
 			"per": "frame_member",
-			"qty": "ceil(0.5*ceil(len/500))",
+			"qty": "ceil(0.5*ceil(len/fastener_spacing))",
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
@@ -399,7 +399,7 @@
 			"item": "H902",
 			"name": "Frame Packer 3 mm",
 			"per": "frame_member",
-			"qty": "ceil(0.5*ceil(len/500))",
+			"qty": "ceil(0.5*ceil(len/fastener_spacing))",
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
@@ -410,7 +410,7 @@
 			"item": "H903",
 			"name": "Frame Packer 2 mm",
 			"per": "frame_member",
-			"qty": "ceil(len/500)",
+			"qty": "ceil(len/fastener_spacing)",
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
@@ -421,7 +421,7 @@
 			"item": "H904",
 			"name": "Frame Packer 1 mm",
 			"per": "frame_member",
-			"qty": "ceil(len/500)",
+			"qty": "ceil(len/fastener_spacing)",
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
@@ -465,18 +465,18 @@
 			"item": "H911",
 			"name": "8x80 wall fixing fastener screw",
 			"per": "frame_member",
-			"qty": "ceil(len/500)",
+			"qty": "ceil(len/fastener_spacing)",
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
-			"note": "ASSUMPTION: EvA formula ceil(len/500) per frame side kept (reproduces EvA W01 2/3/2/3); Hilux: every 600 to 800 mm"
+			"note": "ASSUMPTION: EvA formula ceil(len/fastener_spacing) per frame side kept, fastener_spacing = 500 (reproduces EvA W01 2/3/2/3); Hilux: every 600 to 800 mm"
 		},
 		{
 			"id": "hl_h912_hole_cap",
 			"item": "H912",
 			"name": "Hole cape",
 			"per": "frame_member",
-			"qty": "ceil(len/500)",
+			"qty": "ceil(len/fastener_spacing)",
 			"when": "True",
 			"uom": "Nos",
 			"group": "Fabrication Hardware",
@@ -651,6 +651,10 @@
 		"default_butt_hinge": 0,
 		"default_single_point_handle": 0,
 		"default_limiter": 0,
+		"fastener_spacing": 500,
+		"friction_hinge_12_max_w": 600,
+		"rod_800_min_h": 700,
+		"rod_1200_min_h": 1000,
 		"default_mesh": 0
 	}
 }

@@ -112,3 +112,17 @@ class TestSashOptions(unittest.TestCase):
 		self.assertEqual([i.severity for i in issues], ["error", "error"])
 		self.assertIn("default_butt_hinge", issues[0].message)
 		self.assertIn("default_mesh", issues[1].message)
+
+
+class TestInSash(unittest.TestCase):
+	def test_in_sash_tells_sash_panes_from_frame_glazed_panes(self):
+		from onebook_fenestration.engine.tests.helpers import snapshot_with
+
+		rules = [
+			{"id": "t_pane", "item": "TPANE", "name": "T", "per": "pane_side", "qty": "1", "when": "in_sash", "length": "side_len"},
+			{"id": "t_fixed", "item": "TFIX", "name": "T", "per": "glass", "qty": "1", "when": "not in_sash"},
+		]
+		snap = snapshot_with(lambda d: d["hardware_rules"].extend(rules))
+		bom = compute(_opt_design({"type": "sash", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"}), snap).bom
+		self.assertEqual({(b.item, b.panel) for b in bom if b.item in ("TPANE", "TFIX")}, {("TPANE", "F1-S1"), ("TFIX", "F1")})
+		self.assertEqual(sum(1 for b in bom if b.item == "TPANE"), 4)

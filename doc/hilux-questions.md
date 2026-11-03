@@ -18,6 +18,9 @@ The EvA sample W01 is CS400, 915 × 1220, 2 shutters with a T mullion. For each 
 | `hl_h429_hinge_screw` | H429 friction hinge screw 8×13 | 6 per shutter = per friction-hinge pair (W01: 12) | 6 per hinge, 12 per shutter (W01: 24) | 3.5 |
 | `hl_h913_drain_frame` | H913 drainage cap | 1 per 600 mm of frame bottom + 1 (W01: 2; 1200 wide: 3) | 3 fixed / 4 open at 1200 wide | 7.3 |
 | `hl_h914_sealant` | H914 sealant | 2 × perimeter / 6 cans (W01: 1.423; 1200 × 1200: 1.6) | 1 bottle per window up to 6 m frame (1) | 7.4 |
+| `hl_h407_frame` | H407 SS chevron 35×14 | none | 1 per frame corner (4 on every window) | 2.5 |
+| `hl_h408_sash` | H408 MS chevron 40×20.6 | none | 1 per shutter corner (W01: 8) | 2.6 |
+| `hl_g29_fixed` | G29 frame glass gasket | none; fixed glass gets G23 glazing gasket only (W02) | around every fixed pane | 5.2 |
 
 ## 2. Corner joints and chevrons
 
@@ -25,6 +28,8 @@ The EvA sample W01 is CS400, 915 × 1220, 2 shutters with a T mullion. For each 
 2.2 `hl_h427_mesh_hinge`, `hl_g27_mesh`: fly mesh hinges (2 per mesh shutter) and mesh gasket are added only to shutters with the fly mesh option. Is that right? (yes/no)
 2.3 `hl_h405_mesh_frame`: the sheet counts 4 H405 mesh frame corner joints even for Fixed windows. Is a mesh frame fitted on fixed windows too? (yes/no)
 2.4 `hl_h410_mullion`: CS4800 H410 mullion connector is "2 per mullion" and the counts are 2/2/4/8. The Triple open window has 3 mullions, so the rule gives 6. Should Triple open be (a) 6 or (b) 8? If (b), what is the rule?
+2.5 `hl_h407_frame`: H407 SS chevron 35×14 "1 per corner for 40 mm casement frame". EvA's W01 and W02 have none. Is it (a) not used (EvA, CS400 today) or (b) 1 per frame corner on every window (your sheet, CS4800 today)? (see section 1)
+2.6 `hl_h408_sash`: H408 MS chevron 40×20.6 "1 per corner for 40 mm casement shutter". EvA's W01 has none. Is it (a) not used (EvA, CS400 today) or (b) 1 per shutter corner (your sheet)? Note: CS4800's sheet has no H408 row. (see section 1)
 
 ## 3. Hinges
 
@@ -44,8 +49,8 @@ The EvA sample W01 is CS400, 915 × 1220, 2 shutters with a T mullion. For each 
 
 ## 5. Gaskets
 
-5.1 `hl_g21_frame`: the CS400 sheet says G21 goes on "frames around and shutter outer sides and fixed glass". Around fixed glass, do you use (a) G29 frame glass gasket or (b) G21 as well?
-5.2 `hl_g29_fixed`: is G29 fitted on (a) every side of every fixed pane, at the same length as the glazing gasket, or (b) only the frame sides of fixed panes?
+5.1 `hl_g21_frame`: the CS400 sheet says G21 goes on "frames around and shutter outer sides and fixed glass". EvA's W02 (fixed glass + louvers) has G21 only on the frame sides. Is that right (yes = G21 on frame and shutter sides only), or does fixed glass get G21 too?
+5.2 `hl_g29_fixed`: EvA's W02 glazes the fixed pane with G23 only, no G29. Is G29 (a) not used (EvA, CS400 today), (b) fitted on every side of every fixed pane, at the glazing gasket length (CS4800 today), or (c) only on the frame sides of fixed panes? (see section 1)
 5.3 `hl_g23_glazing`: we fit G23 (3 mm gasket) on 5 mm and 6 mm glass. Is that right for 5 mm glass, or does 5 mm glass take (a) G23 3 mm, (b) G24 4 mm?
 5.4 `hl_g22_glazing`, `hl_g24_glazing`, `hl_g25_glazing`: please give the glazing gasket for each glass thickness, per series. Our guess is 1 mm thinner gasket per 1 mm thicker glass: G25 for 3–4 mm, G24 for 4–5 mm, G23 for 5–6 mm, G22 for over 6 up to 8 mm glass.
 5.5 Glass above 8 mm (10 and 12 mm toughened, 24 mm DGU, laminates from 11.52 mm): which gasket do CS400 and CS4800 use? Today the rules add no gasket and the designer shows a "no glazing gasket" warning. Can CS400 take these glasses at all? (yes/no per glass)

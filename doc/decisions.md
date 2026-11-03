@@ -149,9 +149,10 @@ Update from the recording audio (low confidence): Hilux does not use EvA survey.
 
 The CS400 v2 and CS4800 v1 series data (`series_studio/data/`) translate the Hilux hardware sheets. The sheet's open window types are read as 1/2/3 shutters plus one fixed pane (mullions = shutters), which makes the sheet's per-mullion prose and its counts agree.
 
-Current behaviour: the CLAUDE.md golden rule wins. Where the sheet and the EvA golden disagree (H425 handles, H429 hinge screws, H913 drain caps on open windows, H914 sealant), CS400 v2 reproduces EvA and the rule note says `SHEET SAYS: … (question Qx)`. CS4800 has no EvA golden for these items, so it follows the sheet. Hilux decides per item (`doc/hilux-questions.md` section 1); this stays OPEN until then.
+Current behaviour: the CLAUDE.md golden rule wins. Where the sheet and the EvA golden disagree (H425 handles, H429 hinge screws, H913 drain caps on open windows, H914 sealant, and the items EvA never produces: H407 and H408 chevrons and the G29 fixed-glass gasket), CS400 v2 reproduces EvA and the rule note says `SHEET SAYS: … (question Qx)`. CS4800 has no EvA golden for these items, so it follows the sheet. Hilux decides per item (`doc/hilux-questions.md` section 1); this stays OPEN until then.
 
 Related choices made while translating the sheets (each is a rule note and a question in `doc/hilux-questions.md`):
+- Rules tell sash glass from frame-glazed (fixed) glass by the engine variable `in_sash`, never by panel names. Thresholds used by several rules are series constants: `fastener_spacing` (500), `friction_hinge_12_max_w` (600), `rod_800_min_h` (700), `rod_1200_min_h` (1000).
 - Typology counts come from plain per-frame, per-mullion, per-sash and per-window rules. Counts that no plain rule reproduces are expected deviations in `test_series_data`, each with its question id.
 - CS4800 profiles, member rules and deductions are placeholders copied from CS400 until the DXFs arrive. Profiles belong to one series, so the placeholders use their own codes `CS4800-PH-*`.
 - A new glass imported from a series snapshot gets its own Item `FEN-GLASS-<code>` (Square Meter, kind Glass, HSN 70071900). Existing glasses and Items are never edited.
