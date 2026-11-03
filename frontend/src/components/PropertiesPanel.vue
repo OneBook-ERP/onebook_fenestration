@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FormControl, Select, useList } from 'frappe-ui'
+import { Checkbox, FormControl, Select, useList } from 'frappe-ui'
 import { computed } from 'vue'
 import { getNode, moveSplit, setLeaf, setSize } from '@/design/tree'
 import { panelLabel } from '@/design/typology'
@@ -48,6 +48,17 @@ const HINGES = [
 	{ label: 'Left', value: 'left' },
 	{ label: 'Right', value: 'right' },
 	{ label: 'Top', value: 'top' },
+]
+
+const HINGE_TYPES = [
+	{ label: 'Default (friction)', value: NONE },
+	{ label: 'Friction', value: 'friction' },
+	{ label: 'Butt', value: 'butt' },
+]
+const HANDLES = [
+	{ label: 'Default (multipoint)', value: NONE },
+	{ label: 'Multipoint', value: 'multipoint' },
+	{ label: 'Single point', value: 'single' },
 ]
 
 function nodeAt(path: string): DesignNode | null {
@@ -121,6 +132,14 @@ function optNum(e: Event): number | undefined {
 						@update:model-value="patchLeaf({ opening: optStr($event) })" />
 					<Select label="Hinge" :options="HINGES" :model-value="leaf.hinge ?? NONE"
 						@update:model-value="patchLeaf({ hinge: optStr($event) })" />
+					<Select label="Hinge type" :options="HINGE_TYPES" :model-value="leaf.hinge_type ?? NONE"
+						@update:model-value="patchLeaf({ hinge_type: optStr($event) as never })" />
+					<Select label="Handle" :options="HANDLES" :model-value="leaf.handle ?? NONE"
+						@update:model-value="patchLeaf({ handle: optStr($event) as never })" />
+					<Checkbox label="Opening limiter" :model-value="!!leaf.limiter"
+						@update:model-value="patchLeaf({ limiter: $event || undefined })" />
+					<Checkbox label="Fly mesh" :model-value="!!leaf.mesh"
+						@update:model-value="patchLeaf({ mesh: $event || undefined })" />
 					<FormControl type="number" label="GHH (mm)" :model-value="leaf.ghh ?? ''"
 						@change="patchLeaf({ ghh: optNum($event) })" />
 				</template>

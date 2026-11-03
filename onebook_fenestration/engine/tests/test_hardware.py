@@ -43,3 +43,50 @@ class TestHardware(unittest.TestCase):
 		}
 		lines = [b for b in compute(design, snap).bom if b.item == "H412T"]
 		self.assertEqual([(b.qty, b.panel, b.position) for b in lines], [(4, "F1", "W")])
+
+
+def _opt_design(*leaves):
+	if len(leaves) == 1:
+		return {"width": 600, "height": 1200, "root": leaves[0]}
+	at = [600 * (i + 1) for i in range(len(leaves) - 1)]
+	return {"width": 600 * len(leaves), "height": 1200, "root": {"type": "split", "dir": "v", "at": at, "children": list(leaves)}}
+
+
+def _opt_rule(when):
+	return {"id": "hw_opt", "item": "HOPT", "name": "OPT", "per": "sash", "qty": "1", "when": when}
+
+
+class TestSashOptions(unittest.TestCase):
+	def _panels(self, when, design, mutate=None):
+		from onebook_fenestration.engine.tests.helpers import snapshot_with
+
+		def edit(d):
+			d["hardware_rules"].append(_opt_rule(when))
+			if mutate:
+				mutate(d)
+
+		bom = compute(design, snapshot_with(edit)).bom
+		return [b.panel for b in bom if b.item == "HOPT"]
+
+	def test_sash_options_reach_rules(self):
+		plain = {"type": "sash", "glass": "6CTG"}
+		single = {"type": "sash", "glass": "6CTG", "handle": "single"}
+		fixed = {"type": "fixed", "glass": "6CTG"}
+		self.assertEqual(self._panels("handle == 'single'", _opt_design(plain, fixed, single)), ["F1-S2"])
+		butt = {"type": "sash", "glass": "6CTG", "hinge_type": "butt", "limiter": True, "mesh": True}
+		self.assertEqual(self._panels("hinge_type == 'butt'", _opt_design(plain, butt)), ["F1-S2"])
+		self.assertEqual(self._panels("limiter and mesh", _opt_design(butt, plain)), ["F1-S1"])
+
+	def test_missing_sash_options_use_defaults(self):
+		plain = {"type": "sash", "glass": "6CTG"}
+		everything = "hinge_type == 'friction' and handle == 'multipoint' and limiter == False and mesh == False"
+		self.assertEqual(self._panels(everything, _opt_design(plain)), ["F1-S1"])
+
+	def test_series_constants_set_defaults(self):
+		plain = {"type": "sash", "glass": "6CTG"}
+		butt = {"type": "sash", "glass": "6CTG", "hinge_type": "friction", "mesh": False}
+
+		def consts(d):
+			d["constants"].update({"default_hinge_type": "butt", "default_mesh": 1})
+
+		self.assertEqual(self._panels("hinge_type == 'butt' and mesh", _opt_design(plain, butt), consts), ["F1-S1"])

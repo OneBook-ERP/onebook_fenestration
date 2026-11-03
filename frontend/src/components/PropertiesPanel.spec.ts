@@ -1,6 +1,6 @@
 import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { Select } from 'frappe-ui'
+import { Checkbox, Select } from 'frappe-ui'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PropertiesPanel from '@/components/PropertiesPanel.vue'
 import { useDesignerStore } from '@/stores/designer'
@@ -101,5 +101,29 @@ describe('PropertiesPanel', () => {
 		const labels = (glass.props('options') as { label: string }[]).map((o) => o.label)
 		expect(labels).toEqual(['6CTG'])
 		expect(labels.join()).not.toContain('unknown')
+	})
+
+	it('sash shows hardware option controls and Handle updates the design node', async () => {
+		const w = mountPanel([sash, fixed], 'F1.0', [])
+		const selects = () => w.findAllComponents(Select)
+		const labels = selects().map((c) => c.props('label'))
+		expect(labels).toEqual(expect.arrayContaining(['Hinge', 'Hinge type', 'Handle']))
+		const checks = w.findAllComponents(Checkbox).map((c) => c.props('label'))
+		expect(checks).toEqual(['Opening limiter', 'Fly mesh'])
+		const handle = selects().find((c) => c.props('label') === 'Handle')!
+		expect(handle.props('modelValue')).toBe('none')
+		handle.vm.$emit('update:modelValue', 'single')
+		await w.vm.$nextTick()
+		expect((useDesignerStore().design.root as never as { children: { handle?: string }[] }).children[0].handle).toBe('single')
+		const mesh = w.findAllComponents(Checkbox).find((c) => c.props('label') === 'Fly mesh')!
+		mesh.vm.$emit('update:modelValue', true)
+		await w.vm.$nextTick()
+		expect((useDesignerStore().design.root as never as { children: { mesh?: boolean }[] }).children[0].mesh).toBe(true)
+	})
+
+	it('fixed panels have no hardware option controls', () => {
+		const w = mountPanel([sash, fixed], 'F1.1', [])
+		expect(w.text()).not.toContain('Handle')
+		expect(w.findAllComponents(Checkbox)).toHaveLength(0)
 	})
 })

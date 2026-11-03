@@ -3,7 +3,7 @@
 from onebook_fenestration.engine.glazing import glaze
 from onebook_fenestration.engine.hardware import hardware_bom
 from onebook_fenestration.engine.layout import layout
-from onebook_fenestration.engine.members import cut_members
+from onebook_fenestration.engine.members import cut_members, sash_nodes
 from onebook_fenestration.engine.types import EngineResult, SeriesSnapshot
 from onebook_fenestration.engine.validate import validate
 from onebook_fenestration.engine.weights import weights
@@ -23,7 +23,7 @@ def compute(design: dict, snapshot: SeriesSnapshot) -> EngineResult:
 		"perimeter_m": 2 * (width + height) / 1000,
 		"window_kg": window_kg,
 	}
-	hardware, hardware_issues = hardware_bom(members, panes, sash_sizes, shutter_kg, window_vars, snapshot)
+	hardware, hardware_issues = hardware_bom(members, panes, sash_sizes, shutter_kg, window_vars, snapshot, sash_nodes(cells))
 	sash_paths = {m.panel: m.path for m in members if m.role == "sash"}
 	issues = member_issues + glass_issues + hardware_issues + validate(snapshot, sash_sizes, shutter_kg, window_vars, sash_paths)
 
