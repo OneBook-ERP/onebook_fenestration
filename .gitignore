@@ -64,3 +64,6 @@ frontend/node_modules
 onebook_fenestration/public/frontend
 onebook_fenestration/www/fenestration.html
 .worktrees/
+
+# Hilux series source files (client data, never commit)
+doc/Casement_Series_Designs*/
