@@ -1,0 +1,145 @@
+{
+	"code_scheme": "Monolithic: <mm><CTG clear toughened|REF reflective|FRO frosted>. DGU: 24DGU-<pane><C|R>-<gap>-<pane><C>, R = reflective. Laminated: LAM-<pane><C|R>-<pane><C>-<interlayer mm x100, 152 = 1.52 PVB>, trailing S = Sentry. 6mm clear TG keeps legacy code 6CTG (existing designs and Item Prices). Legacy 5TGT stays outside this catalogue. thickness_mm = overall unit; glass_mm = glass panes only.",
+	"glasses": [
+		{
+			"code": "5CTG",
+			"name": "5mm clear TG",
+			"thickness_mm": 5,
+			"glass_mm": 5
+		},
+		{
+			"code": "6CTG",
+			"name": "6mm clear TG",
+			"thickness_mm": 6,
+			"glass_mm": 6
+		},
+		{
+			"code": "8CTG",
+			"name": "8mm clear TG",
+			"thickness_mm": 8,
+			"glass_mm": 8
+		},
+		{
+			"code": "10CTG",
+			"name": "10mm clear TG",
+			"thickness_mm": 10,
+			"glass_mm": 10
+		},
+		{
+			"code": "12CTG",
+			"name": "12mm clear TG",
+			"thickness_mm": 12,
+			"glass_mm": 12
+		},
+		{
+			"code": "5REF",
+			"name": "5mm Reflective",
+			"thickness_mm": 5,
+			"glass_mm": 5
+		},
+		{
+			"code": "6REF",
+			"name": "6mm Reflective",
+			"thickness_mm": 6,
+			"glass_mm": 6
+		},
+		{
+			"code": "8REF",
+			"name": "8mm Reflective",
+			"thickness_mm": 8,
+			"glass_mm": 8
+		},
+		{
+			"code": "24DGU-6C12-6C",
+			"name": "24mm (6+12+6)DGU clear",
+			"thickness_mm": 24,
+			"glass_mm": 12
+		},
+		{
+			"code": "24DGU-5C14-5C",
+			"name": "24mm (5+14+5)DGU clear",
+			"thickness_mm": 24,
+			"glass_mm": 10
+		},
+		{
+			"code": "24DGU-6R12-6C",
+			"name": "24mm (6 Ref+12+6)DGU Reflective + clear",
+			"thickness_mm": 24,
+			"glass_mm": 12
+		},
+		{
+			"code": "24DGU-5R14-5C",
+			"name": "24mm (5 Ref+14+5)DGU Reflective + clear",
+			"thickness_mm": 24,
+			"glass_mm": 10
+		},
+		{
+			"code": "LAM-5C-5C-152",
+			"name": "5+5Lami",
+			"thickness_mm": 11.52,
+			"glass_mm": 10
+		},
+		{
+			"code": "LAM-6C-6C-152",
+			"name": "6+6Lami",
+			"thickness_mm": 13.52,
+			"glass_mm": 12
+		},
+		{
+			"code": "LAM-6C-5C-152",
+			"name": "6+5Lami",
+			"thickness_mm": 12.52,
+			"glass_mm": 11
+		},
+		{
+			"code": "LAM-6R-6C-152",
+			"name": "(6Reflective +6 Clear )Lami",
+			"thickness_mm": 13.52,
+			"glass_mm": 12
+		},
+		{
+			"code": "LAM-6C-8C-152",
+			"name": "6+8Lami",
+			"thickness_mm": 15.52,
+			"glass_mm": 14
+		},
+		{
+			"code": "LAM-8C-8C-152",
+			"name": "8+8Lami",
+			"thickness_mm": 17.52,
+			"glass_mm": 16,
+			"note": "CHECK: sheet labels it 17.52 and describes it as 8mm + 1.52 PVB + 6mm, which is 15.52. Code says 8+8, so 8+8+1.52 = 17.52 and glass_mm 16 are used. Confirm with Hilux."
+		},
+		{
+			"code": "LAM-6C-8C-152S",
+			"name": "6+8 Sentry Lami",
+			"thickness_mm": 15.52,
+			"glass_mm": 14
+		},
+		{
+			"code": "LAM-8C-8C-152S",
+			"name": "8+8 Sentry Lami",
+			"thickness_mm": 17.52,
+			"glass_mm": 16
+		},
+		{
+			"code": "LAM-8C-8C-228S",
+			"name": "8+8Lami (2.28 Sentry Lami)",
+			"thickness_mm": 18.28,
+			"glass_mm": 16,
+			"note": "CHECK: sheet labels it 17.52 but 8+8 glass plus 2.28 Sentry interlayer is 18.28. 18.28 used. Confirm with Hilux."
+		},
+		{
+			"code": "5FRO",
+			"name": "5mm frosted",
+			"thickness_mm": 5,
+			"glass_mm": 5
+		},
+		{
+			"code": "6FRO",
+			"name": "6mm frosted",
+			"thickness_mm": 6,
+			"glass_mm": 6
+		}
+	]
+}

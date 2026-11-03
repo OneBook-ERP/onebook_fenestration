@@ -62,8 +62,11 @@ def _profiles(series: str) -> dict:
 
 
 def _glasses() -> dict:
-	rows = frappe.get_all("Fenestration Glass", fields=["glass_code", "glass_name", "thickness_mm"])
-	return {g.glass_code: {"name": g.glass_name, "thickness_mm": g.thickness_mm} for g in rows}
+	rows = frappe.get_all("Fenestration Glass", fields=["glass_code", "glass_name", "thickness_mm", "glass_mm"])
+	return {
+		g.glass_code: {"name": g.glass_name, "thickness_mm": g.thickness_mm, "glass_mm": g.glass_mm or None}
+		for g in rows
+	}
 
 
 def _member_rule(row) -> dict:

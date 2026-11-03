@@ -12,7 +12,9 @@ def weights(
 		return member.length / 1000 * snapshot.profiles[member.profile].kg_per_m
 
 	def glass_kg(pane: GlassPane) -> float:
-		return pane.width * pane.height / 1e6 * snapshot.glasses[pane.glass].thickness_mm * density
+		spec = snapshot.glasses[pane.glass]
+		mm = spec.thickness_mm if spec.glass_mm is None else spec.glass_mm
+		return pane.width * pane.height / 1e6 * mm * density
 
 	shutter = {m.panel: 0.0 for m in members if m.role == "sash"}
 	for member in members:

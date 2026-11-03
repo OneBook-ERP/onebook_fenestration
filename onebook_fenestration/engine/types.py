@@ -77,6 +77,7 @@ class GlassSpec:
 	code: str
 	name: str
 	thickness_mm: float
+	glass_mm: float | None = None
 
 
 @dataclass(frozen=True)

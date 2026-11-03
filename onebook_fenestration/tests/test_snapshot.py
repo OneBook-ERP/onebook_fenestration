@@ -112,3 +112,12 @@ class TestLegacyGaskets(IntegrationTestCase):
 
 	def fixture(self):
 		return load("cs400_snapshot.json")
+
+
+class TestGlassCatalogue(IntegrationTestCase):
+	def test_catalogue_is_complete(self):
+		rows = json.loads((Path(__file__).parent.parent / "series_studio" / "data" / "hilux_glasses.json").read_text())["glasses"]
+		self.assertEqual(len(rows), 23)
+		self.assertEqual(len({r["code"] for r in rows}), 23)
+		for r in rows:
+			self.assertLessEqual(r["glass_mm"], r["thickness_mm"], r["code"])

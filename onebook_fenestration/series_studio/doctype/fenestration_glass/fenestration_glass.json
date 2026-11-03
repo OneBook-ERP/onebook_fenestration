@@ -7,6 +7,7 @@
   "glass_code",
   "glass_name",
   "thickness_mm",
+  "glass_mm",
   "item"
  ],
  "fields": [
@@ -31,6 +32,12 @@
    "label": "Thickness (mm)",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "glass_mm",
+   "fieldtype": "Float",
+   "label": "Glass thickness for weight (mm)",
+   "description": "Sum of glass panes only (excludes air gap and interlayer). Empty means use Thickness."
   },
   {
    "fieldname": "item",

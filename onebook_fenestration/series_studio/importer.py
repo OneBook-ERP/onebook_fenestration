@@ -110,7 +110,7 @@ def _ensure_glass(glass) -> None:
 	_insert_if_missing(
 		"Fenestration Glass",
 		glass.code,
-		{"glass_code": glass.code, "glass_name": glass.name, "thickness_mm": glass.thickness_mm},
+		{"glass_code": glass.code, "glass_name": glass.name, "thickness_mm": glass.thickness_mm, "glass_mm": glass.glass_mm},
 	)
 
 
