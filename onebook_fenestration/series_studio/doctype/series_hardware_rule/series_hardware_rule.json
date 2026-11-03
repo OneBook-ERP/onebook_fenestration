@@ -12,7 +12,8 @@
   "qty_expr",
   "length_expr",
   "uom",
-  "bom_group"
+  "bom_group",
+  "note"
  ],
  "fields": [
   {
@@ -39,7 +40,7 @@
    "fieldname": "per",
    "fieldtype": "Select",
    "label": "Per",
-   "options": "frame_member\nsash_member\nmullion\ntransom_member\nsash\nglass\nwindow",
+   "options": "frame_member\nsash_member\nmullion\ntransom_member\nsash\nglass\nwindow\nframe_side\npane_side",
    "reqd": 1
   },
   {
@@ -71,6 +72,11 @@
    "fieldtype": "Data",
    "label": "BOM Group",
    "default": "Fabrication Hardware"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
   }
  ],
  "modified": "2026-10-30 00:00:00",

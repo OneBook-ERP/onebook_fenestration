@@ -68,9 +68,9 @@ const customers = useList<{ name: string }>({
 	orderBy: 'name asc',
 	limit: 500,
 })
-const versions = useList<{ name: string }>({
+const versions = useList<{ name: string; series: string; creation: string }>({
 	doctype: 'Series Version',
-	fields: ['name'],
+	fields: ['name', 'series', 'creation'],
 	filters: { docstatus: 1 },
 	limit: 100,
 })
@@ -82,7 +82,15 @@ const filtered = computed(() => {
 	return rows.filter((p) => [p.name, p.project_title, p.customer].some((v) => (v ?? '').toLowerCase().includes(q)))
 })
 const customerOptions = computed(() => (customers.data ?? []).map((c) => ({ label: c.name, value: c.name })))
-const versionOptions = computed(() => (versions.data ?? []).map((v) => ({ label: v.name, value: v.name })))
+const versionOptions = computed(() => {
+	const newestFirst = [...(versions.data ?? [])].sort((a, b) => b.creation.localeCompare(a.creation))
+	const latest = new Set<string>()
+	return newestFirst.map((v) => {
+		const isLatest = !latest.has(v.series)
+		latest.add(v.series)
+		return { label: isLatest ? `${v.name} (latest)` : v.name, value: v.name }
+	})
+})
 const canCreate = computed(() => !!form.project_title.trim() && !!form.default_series_version)
 
 async function create() {

@@ -6,6 +6,7 @@
  "field_order": [
   "series",
   "version_note",
+  "source_hash",
   "deductions",
   "member_rules",
   "hardware_rules",
@@ -27,6 +28,13 @@
    "fieldname": "version_note",
    "fieldtype": "Small Text",
    "label": "Version Note"
+  },
+  {
+   "fieldname": "source_hash",
+   "fieldtype": "Data",
+   "label": "Source Hash",
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "deductions",

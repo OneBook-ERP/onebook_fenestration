@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computeDesign, type ComputeResult } from '@/api'
+import { computeDesign, type ComputeResult, type SeriesInfo } from '@/api'
 import { getNode, newDesign, validateDesign } from '@/design/tree'
 import type { Design } from '@/design/types'
 
@@ -15,6 +15,7 @@ export const useDesignerStore = defineStore('designer', {
 		past: [] as Design[],
 		future: [] as Design[],
 		result: null as ComputeResult | null,
+		seriesInfo: null as SeriesInfo | null,
 		seriesVersion: '',
 		finish: '' as string,
 		priceStructure: '' as string,
@@ -91,7 +92,7 @@ export const useDesignerStore = defineStore('designer', {
 			this.scheduleCompute()
 		},
 		reset(design: Design, seriesVersion: string, finish = '', priceStructure = '') {
-			this.$patch({ design, seriesVersion, finish, priceStructure, selectedPath: 'F1', past: [], future: [], result: null, error: null, dirty: false, dragOrigin: null })
+			this.$patch({ design, seriesVersion, finish, priceStructure, selectedPath: 'F1', past: [], future: [], result: null, seriesInfo: null, error: null, dirty: false, dragOrigin: null })
 			this.scheduleCompute()
 		},
 		cancelCompute() {
@@ -123,6 +124,7 @@ export const useDesignerStore = defineStore('designer', {
 			this.computing = false
 			if (res.ok) {
 				this.result = res.result
+				this.seriesInfo = res.series ?? null
 				this.error = null
 			} else {
 				this.error = res.message

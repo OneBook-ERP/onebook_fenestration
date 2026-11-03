@@ -66,3 +66,9 @@ def _rule_for(snapshot: SeriesSnapshot, role: str) -> MemberRule:
 		if rule.role == role:
 			return rule
 	raise RuleError(f"No member rule for role {role!r} in series {snapshot.code}")
+
+
+def sash_nodes(cells: list[Cell]) -> dict[str, dict]:
+	"""Design node of every sash by panel id, numbered in cell order exactly as cut_members numbers them."""
+	sashes = [c.node for c in cells if c.node["type"] == "sash"]
+	return {f"{FRAME_PANEL}-S{i}": node for i, node in enumerate(sashes, 1)}

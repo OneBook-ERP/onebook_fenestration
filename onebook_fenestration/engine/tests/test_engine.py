@@ -5,6 +5,10 @@ from onebook_fenestration.engine.tests.helpers import load, snapshot, snapshot_w
 from onebook_fenestration.engine.types import RuleError
 
 
+def _rule(data, rule_id):
+	return next(r for r in data["hardware_rules"] if r["id"] == rule_id)
+
+
 class TestSnapshotCheck(unittest.TestCase):
 	def assertRuleError(self, mutate, *needles):
 		snap = snapshot_with(mutate)
@@ -32,7 +36,7 @@ class TestSnapshotCheck(unittest.TestCase):
 		self.assertRuleError(lambda d: d["constants"].pop("glass_density"), "glass_density")
 
 	def test_unknown_hardware_per(self):
-		self.assertRuleError(lambda d: d["hardware_rules"][0].update(per="corner"), "hw_corner_cleat_frame", "corner")
+		self.assertRuleError(lambda d: _rule(d, "hw_corner_cleat_frame").update(per="corner"), "hw_corner_cleat_frame", "corner")
 
 
 class TestSnapshotFromDict(unittest.TestCase):
@@ -67,7 +71,7 @@ class TestFormulaResultTypes(unittest.TestCase):
 				compute(load("w01.json"), snap)
 
 	def test_hardware_qty_must_be_number(self):
-		snap = snapshot_with(lambda d: d["hardware_rules"][0].update(qty="'2'"))
+		snap = snapshot_with(lambda d: _rule(d, "hw_corner_cleat_frame").update(qty="'2'"))
 		with self.assertRaisesRegex(RuleError, "hw_corner_cleat_frame"):
 			compute(load("w01.json"), snap)
 

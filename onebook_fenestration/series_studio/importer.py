@@ -3,14 +3,20 @@
 import frappe
 
 from onebook_fenestration.engine import SeriesSnapshot
-from onebook_fenestration.engine.glazing import GASKETS
+from onebook_fenestration.series_studio.legacy_gaskets import GASKETS
 
 ITEM_GROUP = "Fenestration"
-DEFAULT_HSN_CODES = {"Profile": "760429", "Hardware": "830241", "Gasket": "400829"}
+DEFAULT_HSN_CODES = {"Profile": "760429", "Hardware": "830241", "Gasket": "400829", "Glass": "70071900"}
+GLASS_ITEM_PREFIX = "FEN-GLASS-"
 
 
 def import_snapshot_json(
-	series_code: str, data: dict, title: str, system_type: str = "Casement", hsn_codes: dict | None = None
+	series_code: str,
+	data: dict,
+	title: str,
+	system_type: str = "Casement",
+	hsn_codes: dict | None = None,
+	source_hash: str | None = None,
 ) -> str:
 	"""Create any missing masters for `data`, then create and submit a Series Version. Returns its name.
 
@@ -20,7 +26,7 @@ def import_snapshot_json(
 	snap = SeriesSnapshot.from_dict(data)
 	_ensure_item_group()
 	for glass in snap.glasses.values():
-		_ensure_glass(glass)
+		_ensure_glass(glass, hsn_codes)
 	_ensure_series(series_code, title, system_type)
 	roles = {}
 	for rule in snap.member_rules:
@@ -29,12 +35,16 @@ def import_snapshot_json(
 		_ensure_item(profile.code, profile.name, "Kg", "Profile", hsn_codes)
 		_ensure_profile(profile, series_code, roles.get(profile.code, "accessory"))
 	for rule in snap.hardware_rules:
-		_ensure_item(rule.item, rule.name, rule.uom, "Hardware", hsn_codes)
-	ensure_gasket_items(hsn_codes)
+		if rule.group == "Gasket":
+			_ensure_item(rule.item, rule.name, "Meter", "Gasket", hsn_codes)
+		else:
+			_ensure_item(rule.item, rule.name, rule.uom, "Hardware", hsn_codes)
 	version = frappe.get_doc(
 		{
 			"doctype": "Series Version",
 			"series": series_code,
+			"version_note": data.get("version_note"),
+			"source_hash": source_hash,
 			"deductions": [{"deduction_key": k, "value": v} for k, v in snap.deductions.items()],
 			"constants": [{"constant_key": k, "value": v} for k, v in snap.constants.items()],
 			"member_rules": [_member_row(rule) for rule in snap.member_rules],
@@ -47,7 +57,7 @@ def import_snapshot_json(
 
 
 def ensure_gasket_items(hsn_codes: dict | None = None) -> None:
-	"""Create the gasket Items the engine's glazing rules emit (G21, G23) when missing."""
+	"""Create the legacy gasket Items (G21, G23) when missing, for versions published before gaskets were rules."""
 	hsn_codes = DEFAULT_HSN_CODES if hsn_codes is None else hsn_codes
 	_ensure_item_group()
 	for code, name in GASKETS.items():
@@ -76,6 +86,7 @@ def _hardware_row(rule) -> dict:
 		"length_expr": rule.length,
 		"uom": rule.uom,
 		"bom_group": rule.group,
+		"note": rule.note,
 	}
 
 
@@ -103,12 +114,14 @@ def _ensure_item_group() -> None:
 	)
 
 
-def _ensure_glass(glass) -> None:
-	_insert_if_missing(
-		"Fenestration Glass",
-		glass.code,
-		{"glass_code": glass.code, "glass_name": glass.name, "thickness_mm": glass.thickness_mm},
-	)
+def _ensure_glass(glass, hsn_codes: dict) -> None:
+	"""A new glass also gets its Item (FEN-GLASS-<code>, priced per m²); an existing glass is left as it is."""
+	if frappe.db.exists("Fenestration Glass", glass.code):
+		return
+	item = GLASS_ITEM_PREFIX + glass.code
+	_ensure_item(item, glass.name, "Square Meter", "Glass", hsn_codes)
+	values = {"glass_code": glass.code, "glass_name": glass.name, "thickness_mm": glass.thickness_mm, "glass_mm": glass.glass_mm}
+	frappe.get_doc({"doctype": "Fenestration Glass", **values, "item": item}).insert()
 
 
 def _ensure_series(series_code: str, title: str, system_type: str) -> None:

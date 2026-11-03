@@ -91,6 +91,26 @@
 	],
 	"hardware_rules": [
 		{
+			"id": "gasket_frame",
+			"item": "G21",
+			"name": "FRAME GASKET CASEMENT",
+			"per": "frame_side",
+			"qty": "1",
+			"length": "side_len",
+			"group": "Gasket"
+		},
+		{
+			"id": "gasket_glazing",
+			"item": "G23",
+			"name": "GASKET 3MM",
+			"per": "pane_side",
+			"qty": "1",
+			"length": "side_len - 2*glazing_gasket",
+			"when": "glass_t >= 5 and glass_t <= 6",
+			"group": "Gasket",
+			"note": "ASSUMPTION: 3 mm glazing gasket for 5-6 mm glass (EvA sample shows 6 mm only)"
+		},
+		{
 			"id": "hw_corner_cleat_frame",
 			"item": "H401",
 			"name": "CORNER CLEAT",

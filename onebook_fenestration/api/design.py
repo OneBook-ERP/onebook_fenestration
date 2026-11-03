@@ -9,6 +9,7 @@ from onebook_fenestration.fenestration.doctype.window_design.window_design impor
 	pricing_to_dict,
 	result_to_dict,
 )
+from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.pricing.rates import (
 	missing_defaults_message,
 	price_design,
@@ -45,7 +46,19 @@ def compute_design(
 	pricing = pricing_to_dict(breakdown)
 	out["issues"] += pricing.pop("issues")
 	out["pricing"] = pricing
-	return {"ok": True, "result": out}
+	return {"ok": True, "result": out, "series": series_info(series_version)}
+
+
+def series_info(series_version: str) -> dict:
+	"""What the designer needs to know of a version: its glass codes and its sash option defaults."""
+	snapshot = get_snapshot(series_version)
+	return {
+		"glasses": sorted(snapshot.glasses),
+		"defaults": {
+			"limiter": snapshot.constants.get("default_limiter", 0) == 1,
+			"mesh": snapshot.constants.get("default_mesh", 0) == 1,
+		},
+	}
 
 
 @frappe.whitelist()

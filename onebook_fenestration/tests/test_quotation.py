@@ -417,6 +417,23 @@ class TestQuotation(IntegrationTestCase):
 		out = api_make_quotation(project.name)
 		self.assertIn("W02 (missing prices: G21, G23)", out["message"])
 
+	def test_gate_refuses_missing_glazing_gasket(self):
+		project, designs = self.make_quote_project()
+		issues = [
+			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-S1: no glazing gasket rule for glass 8LAM"},
+			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-S2: no glazing gasket rule for glass 8LAM"},
+			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-F3: no glazing gasket rule for glass 10TG"},
+		]
+		frappe.db.set_value("Window Design", designs[1].name, "result_json", json.dumps({"issues": issues}))
+		out = api_make_quotation(project.name)
+		self.assertEqual(
+			out,
+			{
+				"ok": False,
+				"message": "Fix these designs before quoting: W02 (missing glazing gasket for glass 8LAM, 10TG)",
+			},
+		)
+
 	def test_status_reports_rounded_total(self):
 		quotation = self.quote()
 		self.assertEqual(

@@ -12,6 +12,10 @@ export interface SashNode {
 	glass: string
 	opening?: string
 	hinge?: string
+	hinge_type?: 'friction' | 'butt'
+	handle?: 'multipoint' | 'single'
+	limiter?: boolean
+	mesh?: boolean
 	ghh?: number
 }
 

@@ -7,6 +7,7 @@
   "glass_code",
   "glass_name",
   "thickness_mm",
+  "glass_mm",
   "item"
  ],
  "fields": [
@@ -29,8 +30,16 @@
    "fieldname": "thickness_mm",
    "fieldtype": "Float",
    "label": "Thickness (mm)",
+   "non_negative": 1,
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "glass_mm",
+   "fieldtype": "Float",
+   "label": "Glass thickness for weight (mm)",
+   "non_negative": 1,
+   "description": "Sum of glass panes only (excludes air gap and interlayer). Empty means use Thickness."
   },
   {
    "fieldname": "item",
@@ -39,7 +48,7 @@
    "options": "Item"
   }
  ],
- "modified": "2026-10-30 00:00:00",
+ "modified": "2026-11-03 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Fenestration Glass",

@@ -11,7 +11,7 @@ REQUIRED_DEDUCTIONS = (
 	"glazing_gasket",
 )
 SNAPSHOT_SECTIONS = ("deductions", "profiles", "member_rules", "hardware_rules", "validation_rules", "glasses", "constants")
-HARDWARE_PER = ("frame_member", "sash_member", "mullion", "transom_member", "sash", "glass", "window")
+HARDWARE_PER = ("frame_member", "sash_member", "mullion", "transom_member", "sash", "glass", "window", "frame_side", "pane_side")
 
 
 class EngineError(Exception):
@@ -60,6 +60,7 @@ class HardwareRule:
 	when: str = "True"
 	length: str | None = None
 	group: str = "Fabrication Hardware"
+	note: str = ""
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ class GlassSpec:
 	code: str
 	name: str
 	thickness_mm: float
+	glass_mm: float | None = None
 
 
 @dataclass(frozen=True)

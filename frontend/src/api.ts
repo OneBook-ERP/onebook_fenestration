@@ -61,8 +61,14 @@ export interface Pricing {
 	unit_price: number
 	rate_per_sqft: number
 }
+export interface SeriesInfo {
+	/** Glass codes of the series version. */
+	glasses: string[]
+	/** Effective series defaults for the sash options a design can override. */
+	defaults: { limiter: boolean; mesh: boolean }
+}
 export type ComputeResponse =
-	| { ok: true; result: ComputeResult }
+	| { ok: true; result: ComputeResult; series?: SeriesInfo }
 	| { ok: false; error_type?: string; message: string }
 
 export interface SaveArgs {

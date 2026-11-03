@@ -1,4 +1,5 @@
 import json
+import unittest.mock
 
 import frappe
 from frappe.tests import IntegrationTestCase
@@ -28,6 +29,22 @@ class TestComputeDesignApi(IntegrationTestCase):
 		out = compute_design(json.dumps(load("w01.json")), self.version)
 		self.assertIs(out["ok"], True)
 		self.assertEqual(out["result"]["area_sqft"], 12.013)
+
+	def test_api_returns_series_glasses_and_defaults(self):
+		from onebook_fenestration.series_studio.snapshot import get_snapshot
+
+		series = compute_design(load("w01.json"), self.version)["series"]
+		self.assertEqual(series["glasses"], sorted(get_snapshot(self.version).glasses))
+		self.assertEqual(series["defaults"], {"limiter": False, "mesh": False})
+
+	def test_api_series_defaults_follow_constants(self):
+		from onebook_fenestration.series_studio.snapshot import get_snapshot
+		from onebook_fenestration.api.design import series_info
+
+		snap = get_snapshot(self.version)
+		snap.constants.update({"default_limiter": 1, "default_mesh": 0})
+		with unittest.mock.patch("onebook_fenestration.api.design.get_snapshot", return_value=snap):
+			self.assertEqual(series_info(self.version)["defaults"], {"limiter": True, "mesh": False})
 
 	def test_api_returns_pricing(self):
 		out = compute_design(load("w01.json"), self.version)

@@ -1,11 +1,8 @@
-"""Glass pane sizes and gasket lengths."""
+"""Glass pane sizes. Gaskets are series hardware rules (per frame_side / pane_side)."""
 
 from onebook_fenestration.engine.layout import Cell
 from onebook_fenestration.engine.members import FRAME_PANEL
-from onebook_fenestration.engine.types import BomLine, GlassPane, Issue, SeriesSnapshot
-
-GASKET_GROUP = "Gasket"
-GASKETS = {"G21": "FRAME GASKET CASEMENT", "G23": "GASKET 3MM"}
+from onebook_fenestration.engine.types import GlassPane, Issue, SeriesSnapshot
 
 
 def glaze(
@@ -13,21 +10,10 @@ def glaze(
 	cells: list[Cell],
 	sash_sizes: dict[str, tuple[float, float]],
 	snapshot: SeriesSnapshot,
-) -> tuple[list[GlassPane], list[BomLine], list[Issue]]:
+) -> tuple[list[GlassPane], list[Issue]]:
 	panes: list[GlassPane] = []
-	bom: list[BomLine] = []
 	issues: list[Issue] = []
 	deductions = snapshot.deductions
-	gasket = deductions["glazing_gasket"]
-
-	def add_gasket(item: str, name: str, panel: str, position: str, length: float):
-		bom.append(BomLine(item, name, 1, "Nos", panel, position, round(length, 1), GASKET_GROUP))
-
-	def add_frame_gasket(panel: str, width: float, height: float):
-		for position, length in (("B", width), ("T", width), ("L", height), ("R", height)):
-			add_gasket("G21", GASKETS["G21"], panel, position, length)
-
-	add_frame_gasket(FRAME_PANEL, design["width"], design["height"])
 
 	sash_number = 0
 	for cell in cells:
@@ -38,7 +24,6 @@ def glaze(
 			if panel not in sash_sizes:
 				continue
 			sash_w, sash_h = sash_sizes[panel]
-			add_frame_gasket(panel, sash_w, sash_h)
 			d = deductions["sash_glass"]
 			width, height = sash_w - 2 * d, sash_h - 2 * d
 		else:
@@ -60,6 +45,4 @@ def glaze(
 			issues.append(Issue("error", "non_positive_size", message, panel, path=cell.path))
 			continue
 		panes.append(GlassPane(panel, len(panes) + 1, code, width, height, cell.path))
-		for position, length in (("W", width), ("W", width), ("H", height), ("H", height)):
-			add_gasket("G23", GASKETS["G23"], panel, position, length - 2 * gasket)
-	return panes, bom, issues
+	return panes, issues
