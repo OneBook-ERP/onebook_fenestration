@@ -1,6 +1,7 @@
 """The single entry point: design tree + series snapshot -> EngineResult."""
 
 from onebook_fenestration.engine.glazing import glaze
+from onebook_fenestration.engine.glazing_members import glass_members
 from onebook_fenestration.engine.hardware import hardware_bom
 from onebook_fenestration.engine.layout import layout
 from onebook_fenestration.engine.members import cut_members, sash_nodes
@@ -14,6 +15,8 @@ def compute(design: dict, snapshot: SeriesSnapshot) -> EngineResult:
 	cells, bars = layout(design)
 	members, member_issues, sash_sizes = cut_members(design, snapshot, cells, bars)
 	panes, glass_issues = glaze(design, cells, sash_sizes, snapshot)
+	glazing, glazing_issues = glass_members(panes, snapshot)
+	members += glazing
 	shutter_kg, window_kg = weights(members, panes, snapshot)
 
 	width, height = design["width"], design["height"]
@@ -25,7 +28,8 @@ def compute(design: dict, snapshot: SeriesSnapshot) -> EngineResult:
 	}
 	hardware, hardware_issues = hardware_bom(members, panes, sash_sizes, shutter_kg, window_vars, snapshot, sash_nodes(cells))
 	sash_paths = {m.panel: m.path for m in members if m.role == "sash"}
-	issues = member_issues + glass_issues + hardware_issues + validate(snapshot, sash_sizes, shutter_kg, window_vars, sash_paths)
+	issues = member_issues + glass_issues + glazing_issues + hardware_issues
+	issues += validate(snapshot, sash_sizes, shutter_kg, window_vars, sash_paths)
 
 	area_m2 = round(width * height / 1e6, 3)
 	return EngineResult(

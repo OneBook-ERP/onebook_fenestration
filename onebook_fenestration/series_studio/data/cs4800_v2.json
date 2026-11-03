@@ -1,0 +1,986 @@
+{
+	"code": "CS4800",
+	"version": "hilux-v2",
+	"version_note": "Hilux CS4800 v2: profiles, member rules (frame, sash, mullion, glazing beads, sash glass adaptors) and deductions from the Hilux CS4800 DXF, tuned to reproduce EvA design 123 where the two differ by rounding. Hardware rules unchanged from v1 (Hilux sheet). Door rows never fire (no door typology yet). Notes with ASSUMPTION/CHECK are open in doc/hilux-questions.md.",
+	"deductions": {
+		"bar_end_frame": 25.5,
+		"bar_end_mullion": 25.5,
+		"bar_end_transom": 25.5,
+		"sash_side_frame": 18.5,
+		"sash_side_mullion": 4.5,
+		"sash_side_transom": 4.5,
+		"sash_glass": 57,
+		"fixed_glass_side_frame": 29.5,
+		"fixed_glass_side_mullion": 15.5,
+		"fixed_glass_side_transom": 15.5,
+		"glazing_gasket": 14
+	},
+	"deduction_notes": {
+		"bar_end_frame": "DXF: mullion H-(25.5*2); EvA 123 mullion 1449",
+		"bar_end_mullion": "CHECK: a bar ending on another bar; the DXF gives only the frame end, 25.5 used for every end (question Q9.3)",
+		"bar_end_transom": "CHECK: a bar ending on another bar; the DXF gives only the frame end, 25.5 used for every end (question Q9.3)",
+		"sash_side_frame": "DXF: sash W-(18.5*2) on a single-sash window; EvA 123 sash 727 / 1463",
+		"sash_side_mullion": "CHECK: from EvA 123 (750 - 18.5 - 4.5 = 727); the DXF has no sash-on-mullion formula (question Q9.3)",
+		"sash_side_transom": "CHECK: taken equal to sash_side_mullion; neither the DXF nor EvA 123 has a transom (question Q9.3)",
+		"sash_glass": "CHECK: EvA 123 gives 57 (727 - 2 x 57 = 613); the DXF gives HS-((52.7*2)+8), i.e. 56.7 per side. EvA kept (question Q9.3)",
+		"fixed_glass_side_frame": "DXF: fixed glass W-((25.5*2)+8) = 29.5 per side; EvA 123 1441 high",
+		"fixed_glass_side_mullion": "CHECK: from EvA 123 (750 - 29.5 - 15.5 = 705); the DXF's two-fixed-pane formula implies 16.6 per side. EvA kept (question Q9.3)",
+		"fixed_glass_side_transom": "CHECK: taken equal to fixed_glass_side_mullion; neither the DXF nor EvA 123 has a transom (question Q9.3)",
+		"glazing_gasket": "CHECK: kept from v1 (14) for the CS4800 glazing gasket rules; EvA 123 cuts G23 at glass - 32 on the fixed pane and glass - 26 on the sash pane, which one deduction cannot give (question Q9.3)"
+	},
+	"profiles": {
+		"CS4801": {
+			"name": "CMT WINDOW OUTER 48MM X 45.5MM",
+			"kg_per_m": 0.732,
+			"bar_lengths": [
+				5800
+			],
+			"note": "CHECK: the DXF Section Details table prints the CS4801 and CS4802 descriptions swapped; EvA reports and the DXF cutting lists use CS4801 = frame (0.732 kg/m), CS4802 = mullion (0.880 kg/m), followed here (question Q9.1)"
+		},
+		"CS4802": {
+			"name": "CMT WINDOW MULLION 40MM X 64MM",
+			"kg_per_m": 0.88,
+			"bar_lengths": [
+				5800
+			],
+			"note": "CHECK: the DXF Section Details table prints the CS4801 and CS4802 descriptions swapped; EvA reports and the DXF cutting lists use CS4801 = frame (0.732 kg/m), CS4802 = mullion (0.880 kg/m), followed here (question Q9.1)"
+		},
+		"CS4803": {
+			"name": "CMT WINDOW SHUTTER 48MM X 70MM",
+			"kg_per_m": 0.942,
+			"bar_lengths": [
+				5800
+			]
+		},
+		"CS4804": {
+			"name": "48MM CASEMENT DOOR SHUTTER",
+			"kg_per_m": 1.2,
+			"bar_lengths": [
+				5800
+			],
+			"note": "Door profile from the DXF; no door typology yet, so no member rule uses it"
+		},
+		"CS4805": {
+			"name": "48MM CASEMENT DOOR FRAME",
+			"kg_per_m": 0.92,
+			"bar_lengths": [
+				5800
+			],
+			"note": "Door profile from the DXF; no door typology yet, so no member rule uses it"
+		},
+		"CS4806": {
+			"name": "48MM CASEMENT DOOR MULLION",
+			"kg_per_m": 1.05,
+			"bar_lengths": [
+				5800
+			],
+			"note": "Door profile from the DXF; no door typology yet, so no member rule uses it"
+		},
+		"CS4807": {
+			"name": "GLAZING BEAD 23MM X 20MM",
+			"kg_per_m": 0.216,
+			"bar_lengths": [
+				5800
+			],
+			"note": "Bead for 5, 6 and 8 mm glass (DXF)"
+		},
+		"CS4808": {
+			"name": "GLAZING BEAD 16MM X 20MM",
+			"kg_per_m": 0.216,
+			"bar_lengths": [
+				5800
+			],
+			"note": "Bead for 12 and 13.5 mm glass (DXF)"
+		},
+		"CS4809": {
+			"name": "GLAZING BEAD FOR 24MM GLASS",
+			"kg_per_m": 0.19,
+			"bar_lengths": [
+				5800
+			],
+			"note": "Bead for 24 mm glass (DXF)"
+		},
+		"CS4810": {
+			"name": "CASEMENT MESH SHUTTER",
+			"kg_per_m": 0.53,
+			"bar_lengths": [
+				5800
+			]
+		},
+		"CS4811": {
+			"name": "GRILL MESH FRAME",
+			"kg_per_m": 0.637,
+			"bar_lengths": [
+				5800
+			]
+		},
+		"CS4812": {
+			"name": "FLYING MULLION",
+			"kg_per_m": 0.713,
+			"bar_lengths": [
+				5800
+			]
+		},
+		"CS4813": {
+			"name": "DOOR BOTTOM ADAPTOR",
+			"kg_per_m": 0.21,
+			"bar_lengths": [
+				3660
+			],
+			"note": "Door profile from the DXF; no door typology yet, so no member rule uses it"
+		},
+		"CS4814": {
+			"name": "THRESHOLD",
+			"kg_per_m": 0.23,
+			"bar_lengths": [
+				3660
+			],
+			"note": "Door profile from the DXF; no door typology yet, so no member rule uses it"
+		},
+		"HSL3409": {
+			"name": "SINGLE GLASS ADAPTOR",
+			"kg_per_m": 0.21,
+			"bar_lengths": [
+				5800
+			],
+			"note": "Sash glass adaptor for single glass (DXF)"
+		},
+		"HSL3410": {
+			"name": "SLD LAMINATED GLASS ADAPTOR 28.9MM X 16.8MM",
+			"kg_per_m": 0.21,
+			"bar_lengths": [
+				5800
+			],
+			"note": "Sash glass adaptor for 12 mm / laminated glass (DXF)"
+		},
+		"E104157": {
+			"name": "MESH INTERLOCK",
+			"kg_per_m": 0.434,
+			"bar_lengths": [
+				4880
+			]
+		}
+	},
+	"member_rules": [
+		{
+			"id": "mr_frame",
+			"role": "frame",
+			"profile": "CS4801",
+			"angles": [
+				45,
+				135
+			],
+			"length": "span",
+			"note": "DXF: frame W / H, 45 degrees; EvA 123 frame 1500 x 4"
+		},
+		{
+			"id": "mr_sash",
+			"role": "sash",
+			"profile": "CS4803",
+			"angles": [
+				45,
+				135
+			],
+			"length": "span - d_start - d_end",
+			"note": "DXF: sash W-(18.5*2), H-(18.5*2), 45 degrees; EvA 123 sash 727 / 1463"
+		},
+		{
+			"id": "mr_mullion",
+			"role": "mullion",
+			"profile": "CS4802",
+			"angles": [
+				90,
+				90
+			],
+			"length": "span - d_start - d_end",
+			"note": "DXF: mullion H-(25.5*2), 90 degrees; EvA 123 mullion 1449"
+		},
+		{
+			"id": "mr_transom",
+			"role": "transom",
+			"profile": "CS4802",
+			"angles": [
+				90,
+				90
+			],
+			"length": "span - d_start - d_end",
+			"note": "ASSUMPTION: transom uses the mullion profile and deductions; the DXF and EvA 123 have no transom (question Q9.4)"
+		},
+		{
+			"id": "mr_bead_single",
+			"role": "bead",
+			"profile": "CS4807",
+			"angles": [
+				90,
+				90
+			],
+			"when": "glass_t >= 5 and glass_t <= 8",
+			"length": "opening_w if position in ('B', 'T') else opening_h - 2*bead_depth",
+			"note": "DXF: CS4807 for 5, 6 and 8 mm glass; read as 5 to 8 mm. Lengths as CS4808 (EvA 123). ASSUMPTION: same 20 mm bead_depth on the L/R beads (question Q9.5)"
+		},
+		{
+			"id": "mr_bead_12",
+			"role": "bead",
+			"profile": "CS4808",
+			"angles": [
+				90,
+				90
+			],
+			"when": "glass_t >= 11.5 and glass_t <= 13.52",
+			"length": "opening_w if position in ('B', 'T') else opening_h - 2*bead_depth",
+			"note": "DXF: CS4808 for 12 and 13.5 mm glass; EvA 123: T/B = opening width (713), L/R = opening height - 2 x 20 (1409). ASSUMPTION: 11.5 to 13.52 mm, so the 11.52 / 12.52 / 13.52 laminates take it too (question Q9.5)"
+		},
+		{
+			"id": "mr_bead_dgu",
+			"role": "bead",
+			"profile": "CS4809",
+			"angles": [
+				90,
+				90
+			],
+			"when": "glass_t >= 20 and glass_t <= 28",
+			"length": "opening_w if position in ('B', 'T') else opening_h - 2*bead_depth",
+			"note": "DXF: CS4809 for 24 mm glass. ASSUMPTION: any DGU 20 to 28 mm, same lengths and 20 mm bead_depth as CS4808 (question Q9.5)"
+		},
+		{
+			"id": "mr_adaptor_single",
+			"role": "glass_adaptor",
+			"profile": "HSL3409",
+			"angles": [
+				45,
+				135
+			],
+			"when": "glass_t >= 5 and glass_t <= 8",
+			"length": "opening_w if position in ('B', 'T') else opening_h",
+			"note": "ASSUMPTION: DXF names HSL3409 'single glass adaptor', read as 5 to 8 mm single glass in a sash; lengths and angles as HSL3410 (question Q9.6)"
+		},
+		{
+			"id": "mr_adaptor_12",
+			"role": "glass_adaptor",
+			"profile": "HSL3410",
+			"angles": [
+				45,
+				135
+			],
+			"when": "glass_t >= 11.5 and glass_t <= 13.52",
+			"length": "opening_w if position in ('B', 'T') else opening_h",
+			"note": "DXF: HSL3410 for 12 mm / laminated glass; EvA 123: opening width / height (621 / 1357), 45 degrees. ASSUMPTION: 11.5 to 13.52 mm; DGU and laminates above 13.52 mm get no adaptor (question Q9.6)"
+		}
+	],
+	"hardware_rules": [
+		{
+			"id": "hl_h401_frame",
+			"item": "H401",
+			"name": "14X32MM ADJUSTABLE CORNER CLEAT (PRIMIUM)",
+			"per": "frame_member",
+			"qty": "2",
+			"when": "position in ('B','T')",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "1 per window frame corner"
+		},
+		{
+			"id": "hl_h402_door_frame",
+			"item": "H402",
+			"name": "38X32MM ADJUSTABLE CORNER CLEAT (PRIMIUM)",
+			"per": "frame_member",
+			"qty": "2",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "door — no door typology yet"
+		},
+		{
+			"id": "hl_h402_door_shutter",
+			"item": "H402",
+			"name": "38X32MM ADJUSTABLE CORNER CLEAT (PRIMIUM)",
+			"per": "sash_member",
+			"qty": "2",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "door — no door typology yet"
+		},
+		{
+			"id": "hl_h403_sash",
+			"item": "H403",
+			"name": "23.6X29.6MM ADJUSTABLE CORNER CLEAT (PRIMIUM)",
+			"per": "sash_member",
+			"qty": "2",
+			"when": "position in ('B','T')",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "1 per shutter corner"
+		},
+		{
+			"id": "hl_h404_mesh_sash",
+			"item": "H404",
+			"name": "14X26MM ADJUSTABLE CORNER CLEAT (PRIMIUM)",
+			"per": "sash",
+			"qty": "4",
+			"when": "mesh",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "4 per mesh shutter (1 per corner), only on sashes with the fly mesh option. ASSUMPTION: Counts assume every shutter has a fly mesh shutter: CS4800 default_mesh = 1"
+		},
+		{
+			"id": "hl_h405_mesh_frame",
+			"item": "H405",
+			"name": "16.5X28MM ADJUSTABLE CORNER CLEAT (PRIMIUM)",
+			"per": "frame_member",
+			"qty": "2",
+			"when": "position in ('B','T')",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: sheet counts 4 for every typology, fixed included, so 1 per frame corner whatever the mesh option"
+		},
+		{
+			"id": "hl_h266_frame",
+			"item": "H266",
+			"name": "SS CHEVERON 35X10X1.2MM",
+			"per": "frame_member",
+			"qty": "2",
+			"when": "position in ('B','T')",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "Sheet counts 4/4/8/12/16: 1 per frame corner"
+		},
+		{
+			"id": "hl_h266_sash",
+			"item": "H266",
+			"name": "SS CHEVERON 35X10X1.2MM",
+			"per": "sash_member",
+			"qty": "2",
+			"when": "position in ('B','T')",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "Sheet counts 4/4/8/12/16: 1 per shutter corner; prose also names mesh shutters but the counts add none"
+		},
+		{
+			"id": "hl_h407_frame",
+			"item": "H407",
+			"name": "SS CHEVERON 35X14 X1.2MM",
+			"per": "frame_member",
+			"qty": "2",
+			"when": "position in ('B','T')",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "1 per frame corner"
+		},
+		{
+			"id": "hl_h409_sash",
+			"item": "H409",
+			"name": "AL CHEVERON 40 X 17.8 X 2MM",
+			"per": "sash_member",
+			"qty": "2",
+			"when": "position in ('B','T')",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "Sheet counts -/-/4/8/12 = 1 per shutter corner (prose says 1 per shutter; counts followed)"
+		},
+		{
+			"id": "hl_h410_mullion",
+			"item": "H410",
+			"name": "Mullion conector",
+			"per": "mullion",
+			"qty": "2",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "2 per mullion (Hilux prose; fits sheet counts 2/2/4 for 1/1/2 mullions). CHECK: sheet says 8 for Triple open (3 mullions), the rule gives 6 (question Q2.4)"
+		},
+		{
+			"id": "hl_h412_mullion",
+			"item": "H412",
+			"name": "ss screw 8 x 50 for Mullion fixing",
+			"per": "mullion",
+			"qty": "4",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "4 per mullion (Hilux prose, sheet counts and EvA W01 agree)"
+		},
+		{
+			"id": "hl_h411_wedge",
+			"item": "H411",
+			"name": "Lifting Wedge",
+			"per": "sash",
+			"qty": "1",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware"
+		},
+		{
+			"id": "hl_h413_butt",
+			"item": "H413",
+			"name": "Window Hinge 2 wing",
+			"per": "sash",
+			"qty": "2",
+			"when": "hinge_type == 'butt'",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: 2 per shutter (Hilux: 2 to 4) and only when the sash hinge type is butt, replacing the friction hinges"
+		},
+		{
+			"id": "hl_h414_butt3",
+			"item": "H414",
+			"name": "Window Hinge 3 wing",
+			"per": "sash",
+			"qty": "3",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: not used by default; H413 2-wing is the butt hinge (Hilux: 3 to 4 per shutter, no rule for when 3-wing is chosen)"
+		},
+		{
+			"id": "hl_h415_door_hinge",
+			"item": "H415",
+			"name": "Door Hinge 3 wing",
+			"per": "sash",
+			"qty": "4",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "door — no door typology yet"
+		},
+		{
+			"id": "hl_h416_friction12",
+			"item": "H416",
+			"name": "Friction hinge 12 inch",
+			"per": "sash",
+			"qty": "1",
+			"when": "hinge_type == 'friction' and sash_w <= friction_hinge_12_max_w",
+			"uom": "Pairs",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: 12 inch up to 600 mm sash width, 14 inch above. Hilux '2 nos per shutter' = 1 pair (Item H416 is stocked in Pairs)"
+		},
+		{
+			"id": "hl_h417_friction14",
+			"item": "H417",
+			"name": "Friction hinge 14 inch",
+			"per": "sash",
+			"qty": "1",
+			"when": "hinge_type == 'friction' and sash_w > friction_hinge_12_max_w",
+			"uom": "Pairs",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: 14 inch above 600 mm sash width. Hilux '2 nos per shutter' = 1 pair, same unit as H416"
+		},
+		{
+			"id": "hl_h418_door",
+			"item": "H418",
+			"name": "Door Lock",
+			"per": "sash",
+			"qty": "1",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "door — no door typology yet"
+		},
+		{
+			"id": "hl_h419_door",
+			"item": "H419",
+			"name": "Lock cylinder",
+			"per": "sash",
+			"qty": "1",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "door — no door typology yet"
+		},
+		{
+			"id": "hl_h420_door",
+			"item": "H420",
+			"name": "Door Handle set",
+			"per": "sash",
+			"qty": "1",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "door — no door typology yet"
+		},
+		{
+			"id": "hl_h421_door",
+			"item": "H421",
+			"name": "Side transmission rod",
+			"per": "sash",
+			"qty": "1",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "door — no door typology yet"
+		},
+		{
+			"id": "hl_h422a_rod600",
+			"item": "H422A",
+			"name": "600mm Transmission Rod for window shutter",
+			"per": "sash",
+			"qty": "1",
+			"when": "handle == 'multipoint' and sash_h < rod_800_min_h",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: rod by sash height (sash height under 700 mm), only with the multipoint handle; Hilux: 'calculated based on shutter height'"
+		},
+		{
+			"id": "hl_h422b_rod800",
+			"item": "H422B",
+			"name": "800mm Transmission Rod for window shutter",
+			"per": "sash",
+			"qty": "1",
+			"when": "handle == 'multipoint' and sash_h >= rod_800_min_h and sash_h < rod_1200_min_h",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: rod by sash height (700 to under 1000 mm), only with the multipoint handle; Hilux: 'calculated based on shutter height'"
+		},
+		{
+			"id": "hl_h422c_rod1200",
+			"item": "H422C",
+			"name": "1200mm Transmission Rod for window shutter",
+			"per": "sash",
+			"qty": "1",
+			"when": "handle == 'multipoint' and sash_h >= rod_1200_min_h",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: rod by sash height (1000 mm and over), only with the multipoint handle; Hilux: 'calculated based on shutter height'"
+		},
+		{
+			"id": "hl_h423_plate",
+			"item": "H423",
+			"name": "Locking Plate",
+			"per": "sash",
+			"qty": "2",
+			"when": "handle == 'multipoint'",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: 2 per window shutter (the 3 is for doors), only with the multipoint handle"
+		},
+		{
+			"id": "hl_h424_door",
+			"item": "H424",
+			"name": "Cover Plate for door lock",
+			"per": "sash",
+			"qty": "1",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "door — no door typology yet"
+		},
+		{
+			"id": "hl_h425_handle",
+			"item": "H425",
+			"name": "window handle multipoint",
+			"per": "sash",
+			"qty": "2",
+			"when": "handle == 'multipoint'",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "2 per shutter (Hilux sheet). EvA (CS400 W01) has 1 per shutter (question Q4.1)"
+		},
+		{
+			"id": "hl_h426_limiter",
+			"item": "H426",
+			"name": "Opening Limiter",
+			"per": "sash",
+			"qty": "1",
+			"when": "limiter",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: 'if needed' = the sash's opening limiter option"
+		},
+		{
+			"id": "hl_h427_mesh_hinge",
+			"item": "H427",
+			"name": "Fly mesh Hinge",
+			"per": "sash",
+			"qty": "2",
+			"when": "mesh",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: only on sashes with the fly mesh option"
+		},
+		{
+			"id": "hl_h428_single",
+			"item": "H428",
+			"name": "Casement Single point handle",
+			"per": "sash",
+			"qty": "1",
+			"when": "handle == 'single'",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: replaces the multipoint handle, rod and locking plates when the sash handle is single point"
+		},
+		{
+			"id": "hl_h429_hinge_screw",
+			"item": "H429",
+			"name": "8 x13 SS screw for Friction hinge fixing",
+			"per": "sash",
+			"qty": "12",
+			"when": "hinge_type == 'friction'",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "6 per friction hinge, 2 hinges per shutter (Hilux sheet). EvA (CS400 W01) has 6 per shutter (question Q3.5)"
+		},
+		{
+			"id": "hl_g21_frame",
+			"item": "G21",
+			"name": "frame Gasket for casement",
+			"per": "frame_side",
+			"qty": "1",
+			"when": "True",
+			"uom": "Meter",
+			"length": "side_len",
+			"group": "Gasket",
+			"note": "Frame and every sash outer sides"
+		},
+		{
+			"id": "hl_g22_glazing",
+			"item": "G22",
+			"name": "gasket for 2mm glass",
+			"per": "pane_side",
+			"qty": "1",
+			"when": "glass_t > 6 and glass_t <= 8",
+			"uom": "Meter",
+			"length": "side_len - 2*glazing_gasket",
+			"group": "Gasket",
+			"note": "ASSUMPTION: glazing gasket by glass thickness, 1 mm gasket step per 1 mm glass (over 6 to 8 mm glass); thicker glass (DGU, laminates over 8 mm) gets no gasket and a no_glazing_gasket warning. Hilux 'x 2 sides/1side' read as 1 side, like EvA W01"
+		},
+		{
+			"id": "hl_g23_glazing",
+			"item": "G23",
+			"name": "gasket for 3mm glass",
+			"per": "pane_side",
+			"qty": "1",
+			"when": "glass_t >= 5 and glass_t <= 6",
+			"uom": "Meter",
+			"length": "side_len - 2*glazing_gasket",
+			"group": "Gasket",
+			"note": "ASSUMPTION: glazing gasket by glass thickness, 1 mm gasket step per 1 mm glass (5-6 mm glass, as Task 1 / EvA W01 6 mm); thicker glass (DGU, laminates over 8 mm) gets no gasket and a no_glazing_gasket warning. Hilux 'x 2 sides/1side' read as 1 side, like EvA W01"
+		},
+		{
+			"id": "hl_g24_glazing",
+			"item": "G24",
+			"name": "gasket for 4mm glass",
+			"per": "pane_side",
+			"qty": "1",
+			"when": "glass_t >= 4 and glass_t < 5",
+			"uom": "Meter",
+			"length": "side_len - 2*glazing_gasket",
+			"group": "Gasket",
+			"note": "ASSUMPTION: glazing gasket by glass thickness, 1 mm gasket step per 1 mm glass (4 to under 5 mm glass); thicker glass (DGU, laminates over 8 mm) gets no gasket and a no_glazing_gasket warning. Hilux 'x 2 sides/1side' read as 1 side, like EvA W01"
+		},
+		{
+			"id": "hl_g25_glazing",
+			"item": "G25",
+			"name": "gasket for 5mm glass",
+			"per": "pane_side",
+			"qty": "1",
+			"when": "glass_t >= 3 and glass_t < 4",
+			"uom": "Meter",
+			"length": "side_len - 2*glazing_gasket",
+			"group": "Gasket",
+			"note": "ASSUMPTION: glazing gasket by glass thickness, 1 mm gasket step per 1 mm glass (3 to under 4 mm glass); thicker glass (DGU, laminates over 8 mm) gets no gasket and a no_glazing_gasket warning. Hilux 'x 2 sides/1side' read as 1 side, like EvA W01"
+		},
+		{
+			"id": "hl_g27_mesh",
+			"item": "G27",
+			"name": "Fly mesh fixing Gasket",
+			"per": "sash",
+			"qty": "1",
+			"when": "mesh",
+			"uom": "Meter",
+			"length": "2*(sash_w + sash_h)",
+			"group": "Gasket",
+			"note": "ASSUMPTION: mesh shutter perimeter = sash perimeter, 1 side, only on sashes with the fly mesh option"
+		},
+		{
+			"id": "hl_g29_fixed",
+			"item": "G29",
+			"name": "frame Glass Gasket for casement",
+			"per": "pane_side",
+			"qty": "1",
+			"when": "not in_sash",
+			"uom": "Meter",
+			"length": "side_len - 2*glazing_gasket",
+			"group": "Gasket",
+			"note": "ASSUMPTION: every side of every fixed (frame-glazed) pane, same length as the glazing gasket (question Q5.2)"
+		},
+		{
+			"id": "hl_h901_packer5",
+			"item": "H901",
+			"name": "Frame Packer 5 mm",
+			"per": "frame_member",
+			"qty": "ceil(0.5*ceil(len/fastener_spacing))",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "0.5 per fastener, rounded up per frame side (reproduces EvA W01 6 and W02 4)"
+		},
+		{
+			"id": "hl_h902_packer3",
+			"item": "H902",
+			"name": "Frame Packer 3 mm",
+			"per": "frame_member",
+			"qty": "ceil(0.5*ceil(len/fastener_spacing))",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "0.5 per fastener, rounded up per frame side (reproduces EvA W01 6 and W02 4)"
+		},
+		{
+			"id": "hl_h903_packer2",
+			"item": "H903",
+			"name": "Frame Packer 2 mm",
+			"per": "frame_member",
+			"qty": "ceil(len/fastener_spacing)",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "1 per fastener"
+		},
+		{
+			"id": "hl_h904_packer1",
+			"item": "H904",
+			"name": "Frame Packer 1 mm",
+			"per": "frame_member",
+			"qty": "ceil(len/fastener_spacing)",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "1 per fastener"
+		},
+		{
+			"id": "hl_h905_glass_packer2",
+			"item": "H905",
+			"name": "Glass Packer 2 mm",
+			"per": "glass",
+			"qty": "8",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: 8 per pane, fixed panes included (Hilux: 2 or 3 mm packer, 8 to 10 per shutter; EvA W01 8 per pane)"
+		},
+		{
+			"id": "hl_h906_glass_packer3",
+			"item": "H906",
+			"name": "Glass Packer 3 mm",
+			"per": "glass",
+			"qty": "8",
+			"when": "False",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: not used by default; Hilux gives no rule for choosing 3 mm over 2 mm packers"
+		},
+		{
+			"id": "hl_h910_guide_rail",
+			"item": "H910",
+			"name": "SS guid rail 13mm",
+			"per": "frame_member",
+			"qty": "len/1000",
+			"when": "False",
+			"uom": "Meter",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: sliding track rail ('per track x bottom'); casement windows have no track, so never used here"
+		},
+		{
+			"id": "hl_h911_fastener",
+			"item": "H911",
+			"name": "8x80 wall fixing fastener screw",
+			"per": "frame_member",
+			"qty": "ceil(len/fastener_spacing)",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: EvA formula ceil(len/fastener_spacing) per frame side kept, fastener_spacing = 500 (reproduces EvA W01 2/3/2/3); Hilux: every 600 to 800 mm"
+		},
+		{
+			"id": "hl_h912_hole_cap",
+			"item": "H912",
+			"name": "Hole cape",
+			"per": "frame_member",
+			"qty": "ceil(len/fastener_spacing)",
+			"when": "True",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "1 per fastener. ASSUMPTION: also on fixed windows (Hilux: not required; rules cannot yet tell a fixed window from the frame side, and EvA W02 charges them)"
+		},
+		{
+			"id": "hl_h913_drain_frame",
+			"item": "H913",
+			"name": "WATER DRAINAGE CAP",
+			"per": "frame_member",
+			"qty": "min(6, floor(len/600) + 1)",
+			"when": "position == 'B'",
+			"uom": "Nos",
+			"group": "Fabrication Hardware",
+			"note": "1 per 600 mm of frame bottom + 1, max 6 (gives EvA W01 2 at 915 wide, sheet 3 for fixed at 1200). SHEET SAYS: 4 for open windows 1200 wide; no plain per-window rule tells open from fixed (question Q7.3)"
+		},
+		{
+			"id": "hl_h914_sealant",
+			"item": "H914",
+			"name": "Sealant",
+			"per": "window",
+			"qty": "ceil(perimeter_m/6)",
+			"when": "True",
+			"uom": "CAN",
+			"group": "Fabrication Hardware",
+			"note": "1 bottle per window up to 6 m frame length (Hilux sheet). Unit CAN = existing Item H914. EvA (CS400 W01) uses 2 x perimeter / 6 (question Q7.4)"
+		},
+		{
+			"id": "hl_h915_masking",
+			"item": "H915",
+			"name": "masking tape",
+			"per": "window",
+			"qty": "1",
+			"when": "True",
+			"uom": "m",
+			"length": "round(2*perimeter_m, 3)",
+			"group": "Fabrication Hardware",
+			"note": "ASSUMPTION: 'frame running meter 2 sides x 2' read as 2 x frame perimeter (EvA W01 8.54 m)"
+		}
+	],
+	"validation_rules": [
+		{
+			"id": "v_shutter_kg",
+			"when": "max_shutter_kg > 0 and shutter_kg > max_shutter_kg",
+			"severity": "error",
+			"message": "Shutter {panel} weighs {shutter_kg} kg, above friction stay limit {max_shutter_kg} kg",
+			"hint": "Use a larger stay, add a transom, or split the sash"
+		}
+	],
+	"glasses": {
+		"5CTG": {
+			"name": "5mm clear TG",
+			"thickness_mm": 5,
+			"glass_mm": 5
+		},
+		"6CTG": {
+			"name": "6mm clear TG",
+			"thickness_mm": 6,
+			"glass_mm": 6
+		},
+		"8CTG": {
+			"name": "8mm clear TG",
+			"thickness_mm": 8,
+			"glass_mm": 8
+		},
+		"10CTG": {
+			"name": "10mm clear TG",
+			"thickness_mm": 10,
+			"glass_mm": 10
+		},
+		"12CTG": {
+			"name": "12mm clear TG",
+			"thickness_mm": 12,
+			"glass_mm": 12
+		},
+		"5REF": {
+			"name": "5mm Reflective",
+			"thickness_mm": 5,
+			"glass_mm": 5
+		},
+		"6REF": {
+			"name": "6mm Reflective",
+			"thickness_mm": 6,
+			"glass_mm": 6
+		},
+		"8REF": {
+			"name": "8mm Reflective",
+			"thickness_mm": 8,
+			"glass_mm": 8
+		},
+		"24DGU-6C12-6C": {
+			"name": "24mm (6+12+6)DGU clear",
+			"thickness_mm": 24,
+			"glass_mm": 12
+		},
+		"24DGU-5C14-5C": {
+			"name": "24mm (5+14+5)DGU clear",
+			"thickness_mm": 24,
+			"glass_mm": 10
+		},
+		"24DGU-6R12-6C": {
+			"name": "24mm (6 Ref+12+6)DGU Reflective + clear",
+			"thickness_mm": 24,
+			"glass_mm": 12
+		},
+		"24DGU-5R14-5C": {
+			"name": "24mm (5 Ref+14+5)DGU Reflective + clear",
+			"thickness_mm": 24,
+			"glass_mm": 10
+		},
+		"LAM-5C-5C-152": {
+			"name": "5+5Lami",
+			"thickness_mm": 11.52,
+			"glass_mm": 10
+		},
+		"LAM-6C-6C-152": {
+			"name": "6+6Lami",
+			"thickness_mm": 13.52,
+			"glass_mm": 12
+		},
+		"LAM-6C-5C-152": {
+			"name": "6+5Lami",
+			"thickness_mm": 12.52,
+			"glass_mm": 11
+		},
+		"LAM-6R-6C-152": {
+			"name": "(6Reflective +6 Clear )Lami",
+			"thickness_mm": 13.52,
+			"glass_mm": 12
+		},
+		"LAM-6C-8C-152": {
+			"name": "6+8Lami",
+			"thickness_mm": 15.52,
+			"glass_mm": 14
+		},
+		"LAM-8C-8C-152": {
+			"name": "8+8Lami",
+			"thickness_mm": 17.52,
+			"glass_mm": 16,
+			"note": "CHECK: sheet labels it 17.52 and describes it as 8mm + 1.52 PVB + 6mm, which is 15.52. Code says 8+8, so 8+8+1.52 = 17.52 and glass_mm 16 are used. Confirm with Hilux."
+		},
+		"LAM-6C-8C-152S": {
+			"name": "6+8 Sentry Lami",
+			"thickness_mm": 15.52,
+			"glass_mm": 14
+		},
+		"LAM-8C-8C-152S": {
+			"name": "8+8 Sentry Lami",
+			"thickness_mm": 17.52,
+			"glass_mm": 16
+		},
+		"LAM-8C-8C-228S": {
+			"name": "8+8Lami (2.28 Sentry Lami)",
+			"thickness_mm": 18.28,
+			"glass_mm": 16,
+			"note": "CHECK: sheet labels it 17.52 but 8+8 glass plus 2.28 Sentry interlayer is 18.28. 18.28 used. Confirm with Hilux."
+		},
+		"5FRO": {
+			"name": "5mm frosted",
+			"thickness_mm": 5,
+			"glass_mm": 5
+		},
+		"6FRO": {
+			"name": "6mm frosted",
+			"thickness_mm": 6,
+			"glass_mm": 6
+		}
+	},
+	"constants": {
+		"glass_density": 2.5,
+		"max_shutter_kg": 25,
+		"default_butt_hinge": 0,
+		"default_single_point_handle": 0,
+		"default_limiter": 0,
+		"fastener_spacing": 500,
+		"friction_hinge_12_max_w": 600,
+		"rod_800_min_h": 700,
+		"rod_1200_min_h": 1000,
+		"default_mesh": 1,
+		"glass_clearance": 4,
+		"bead_depth": 20
+	},
+	"constant_notes": {
+		"glass_clearance": "Glass to bead / adaptor opening clearance per side: DXF fixed glass W-((25.5*2)+8) and EvA 123 (705 + 8 = 713 bead, 613 + 8 = 621 adaptor)",
+		"bead_depth": "Bead depth deducted at each end of the L/R beads: EvA 123 1449 - 2 x 20 = 1409 (CS4807 / CS4808 are 'x 20MM')"
+	}
+}

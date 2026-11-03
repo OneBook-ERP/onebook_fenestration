@@ -1,6 +1,6 @@
 # Questions for Hilux: CS400 and CS4800 hardware, gaskets and glass
 
-These questions come from turning the Hilux CS400 and CS4800 hardware lists into series rules (`onebook_fenestration/series_studio/data/cs400_v2.json` and `cs4800_v1.json`). Each rule we had to guess is marked `ASSUMPTION`, `SHEET SAYS` or `CHECK` in its note, and the rule id is listed in backticks below. Please answer each question with yes/no or pick one option. Option (a) is what the rules do today. Where your sheet and the EvA outputs we were given disagree, CS400 follows EvA for now (so existing quotations do not change) and CS4800 follows your sheet; section 1 lists these.
+These questions come from turning the Hilux CS400 and CS4800 hardware lists into series rules (`onebook_fenestration/series_studio/data/cs400_v2.json` and `cs4800_v2.json`; section 9 covers the CS4800 profiles, beads and adaptors taken from your DXFs). Each rule we had to guess is marked `ASSUMPTION`, `SHEET SAYS` or `CHECK` in its note, and the rule id is listed in backticks below. Please answer each question with yes/no or pick one option. Option (a) is what the rules do today. Where your sheet and the EvA outputs we were given disagree, CS400 follows EvA for now (so existing quotations do not change) and CS4800 follows your sheet; section 1 lists these.
 
 We tested the sheet counts on 1200 × 1200 windows of five types, reading every open type as having one fixed pane: Fixed (one fixed pane), Fixed with mullion (fixed | fixed), Single open (shutter | fixed), Double open (shutter | fixed | shutter) and Triple open (shutter | shutter | fixed | shutter).
 
@@ -77,3 +77,24 @@ The EvA sample W01 is CS400, 915 × 1220, 2 shutters with a T mullion. For each 
 ## 8. CS4800 doors
 
 H402 (door frame and door shutter corners), H415, H418–H421 and H424 are kept as rules that never fire, because the designer has no door type yet. No question; they will get rules when doors are added.
+
+## 9. Profiles, glazing beads and adaptors from the DXFs
+
+CS4800 v2 takes its profiles, cutting deductions, glazing beads and sash glass adaptors from your CS4800 DXF, checked against EvA's design 123 (1500 × 1500, one fixed pane and one outward shutter with a mullion at 750, 12 mm glass). Where the DXF and EvA differ by rounding, the rules follow EvA.
+
+9.1 `CS4801`, `CS4802`: the Section Details table in the CS4800 DXF prints the CS4801 and CS4802 descriptions swapped ("mullion" next to CS4801). EvA and the DXF cutting lists use CS4801 = frame (0.732 kg/m) and CS4802 = mullion (0.880 kg/m), and so do we. Is that right? (yes/no)
+9.2 The DXF tables give one perimeter per profile (the anodised and powder-coat columns are equal). We store it as the profile's visible (finished) perimeter and leave the total perimeter empty. Is the DXF value (a) the visible perimeter or (b) the total perimeter? If (a), please give the total perimeters too.
+9.3 Deductions we could not read straight from the DXF (CS4800 v2 uses the EvA 123 values):
+- `sash_glass`: sash to glass 57 mm per side (EvA 123: 727 − 2 × 57 = 613). The DXF says HS − ((52.7 × 2) + 8), which is 56.7. Which is right: (a) 57, (b) 56.7?
+- `fixed_glass_side_mullion`: fixed glass next to a mullion 15.5 mm (EvA 123: 750 − 29.5 − 15.5 = 705). The DXF formula for two fixed panes implies 16.6. Which is right: (a) 15.5, (b) 16.6?
+- `sash_side_mullion`: shutter next to a mullion 4.5 mm (EvA 123: 750 − 18.5 − 4.5 = 727). The DXF has no formula for it. Is 4.5 right? (yes/no)
+- `bar_end_mullion`, `bar_end_transom`: a mullion or transom ending on another bar is cut like one ending on the frame (25.5 per end). Is that right? (yes/no; if no, give the deduction)
+- `sash_side_transom`, `fixed_glass_side_transom`: we use the mullion values (4.5 and 15.5) next to a transom. Is that right? (yes/no)
+- `glazing_gasket`: the CS4800 glazing gasket rules cut the gasket at glass size − 2 × 14 mm. EvA 123 cuts G23 at glass − 32 on the fixed pane (673 / 1409) and glass − 26 on the shutter pane (587 / 1323). What is the glazing gasket length for (a) fixed glass and (b) shutter glass?
+9.4 `mr_transom`: the DXF has no transom. Does a CS4800 transom use the CS4802 mullion profile and its deductions? (yes/no; if no, which profile)
+9.5 `mr_bead_single`, `mr_bead_12`, `mr_bead_dgu`: the DXF gives CS4807 for 5, 6 and 8 mm glass, CS4808 for 12 and 13.5 mm and CS4809 for 24 mm. We use CS4807 from 5 to 8 mm, CS4808 from 11.5 to 13.52 mm (so the 5+5, 6+5 and 6+6 laminates take it) and CS4809 for any DGU from 20 to 28 mm. Glass between these (10 mm, laminates above 13.52 mm) gets no bead and a "no glazing bead" warning. (a) Is that right? (b) Which bead goes with 10 mm glass and with the 15.52 to 18.28 mm laminates? (c) Do CS4807 and CS4809 also lose 20 mm at each end of the side beads, like CS4808 in EvA 123?
+9.6 `mr_adaptor_single`, `mr_adaptor_12`: in a shutter we fit HSL3409 single glass adaptor for 5 to 8 mm glass and HSL3410 laminated glass adaptor for 11.5 to 13.52 mm glass (EvA 123 uses HSL3410 for 12 mm). DGU and laminates above 13.52 mm get no adaptor. Is that right? Which adaptor (if any) goes with 10 mm glass, 24 mm DGU and the thicker laminates? Is HSL3409 cut like HSL3410 (glass + 8 mm, 45°)?
+9.7 EvA's design 123 shutter weighs 29.8 kg, but CS4800's shutter weight limit (`max_shutter_kg`, friction stay) is 25 kg, so our designer flags it as an error. What is the CS4800 shutter weight limit?
+9.8 The CS400 DXF gives 4880 and 5800 mm bars for E104159 (mullion) and E104160 (sash). The EvA data we were given has 4800 and 5800. Which is right: (a) 4800 (what CS400 uses today), (b) 4880?
+9.9 One drawing sheet in the CS400 DXF has the title block "series = CS4800". Is that sheet CS400 or CS4800?
+9.10 EvA design 123 uses 12 mm reflective toughened glass, but the glass catalogue has no 12 mm reflective glass (only 12 mm clear toughened, 12CTG, which our test uses). Should a 12 mm reflective toughened glass be added? (yes/no; give its code)

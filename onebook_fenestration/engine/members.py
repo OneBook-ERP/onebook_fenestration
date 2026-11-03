@@ -1,6 +1,6 @@
 """Cut list for frame, bars and sashes from the series member rules."""
 
-from onebook_fenestration.engine.formula import evaluate_number
+from onebook_fenestration.engine.formula import evaluate, evaluate_number
 from onebook_fenestration.engine.layout import Bar, Cell
 from onebook_fenestration.engine.types import CutMember, Issue, MemberRule, RuleError, SeriesSnapshot
 
@@ -14,22 +14,23 @@ def cut_members(
 	issues: list[Issue] = []
 	sash_sizes: dict[str, tuple[float, float]] = {}
 
-	def length_of(role: str, span: float, d_start: float = 0, d_end: float = 0) -> float:
-		rule = _rule_for(snapshot, role)
+	def rule_and_length(
+		role: str, span: float, d_start: float = 0, d_end: float = 0
+	) -> tuple[MemberRule, float]:
 		variables = {"span": span, "d_start": d_start, "d_end": d_end}
-		return float(round(evaluate_number(rule.length, variables, rule.id), 1))
+		rule = _rule_for(snapshot, role, variables)
+		return rule, float(round(evaluate_number(rule.length, variables, rule.id), 1))
 
-	def emit(panel: str, role: str, position: str, length: float, path: str):
-		rule = _rule_for(snapshot, role)
-		members.append(CutMember(panel, role, position, rule.profile, length, rule.angles, path))
+	def emit(panel: str, rule: MemberRule, position: str, length: float, path: str):
+		members.append(CutMember(panel, rule.role, position, rule.profile, length, rule.angles, path))
 
 	def add(path: str, role: str, position: str, span: float, d_start: float = 0, d_end: float = 0):
-		length = length_of(role, span, d_start, d_end)
+		rule, length = rule_and_length(role, span, d_start, d_end)
 		if length <= 0:
 			message = f"{path}: {role} {position} length is {length} mm"
 			issues.append(Issue("error", "non_positive_size", message, FRAME_PANEL, path=path))
 			return
-		emit(FRAME_PANEL, role, position, length, path)
+		emit(FRAME_PANEL, rule, position, length, path)
 
 	width, height = design["width"], design["height"]
 	for position, span in (("B", width), ("T", width), ("L", height), ("R", height)):
@@ -50,22 +51,29 @@ def cut_members(
 		side = {s: deductions[f"sash_side_{cell.sides[s]}"] for s in "LRBT"}
 		sash_w = cell.w - side["L"] - side["R"]
 		sash_h = cell.h - side["B"] - side["T"]
-		lengths = {pos: length_of("sash", sash_w if pos in "BT" else sash_h) for pos in "BTLR"}
-		if any(length <= 0 for length in lengths.values()):
+		cuts = {pos: rule_and_length("sash", sash_w if pos in "BT" else sash_h) for pos in "BTLR"}
+		if any(length <= 0 for _, length in cuts.values()):
 			message = f"{panel}: sash size is {round(sash_w, 1)} x {round(sash_h, 1)} mm"
 			issues.append(Issue("error", "non_positive_size", message, panel, path=cell.path))
 			continue
-		for pos, length in lengths.items():
-			emit(panel, "sash", pos, length, cell.path)
+		for pos, (rule, length) in cuts.items():
+			emit(panel, rule, pos, length, cell.path)
 		sash_sizes[panel] = (round(sash_w, 1), round(sash_h, 1))
 	return members, issues, sash_sizes
 
 
-def _rule_for(snapshot: SeriesSnapshot, role: str) -> MemberRule:
-	for rule in snapshot.member_rules:
-		if rule.role == role:
-			return rule
-	raise RuleError(f"No member rule for role {role!r} in series {snapshot.code}")
+def matching_rules(snapshot: SeriesSnapshot, role: str, variables: dict) -> list[MemberRule]:
+	"""The member rules of `role` whose `when` holds for `variables` (an empty `when` always holds), in series order."""
+	rules = [r for r in snapshot.member_rules if r.role == role]
+	return [r for r in rules if not r.when or evaluate(r.when, variables, r.id)]
+
+
+def _rule_for(snapshot: SeriesSnapshot, role: str, variables: dict) -> MemberRule:
+	"""Frame, sash and bar members are cut once, so the first matching rule wins."""
+	rules = matching_rules(snapshot, role, variables)
+	if not rules:
+		raise RuleError(f"No member rule for role {role!r} in series {snapshot.code}")
+	return rules[0]
 
 
 def sash_nodes(cells: list[Cell]) -> dict[str, dict]:

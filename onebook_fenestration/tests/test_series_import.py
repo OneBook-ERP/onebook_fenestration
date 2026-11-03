@@ -170,3 +170,101 @@ class TestImportHiluxSeries(IntegrationTestCase):
 		self.addCleanup(setattr, hilux, "load_series_data", original)
 		hilux.load_series_data = lambda f: {**original(f), "version_note": "changed"}
 		self.assertEqual(set(hilux.import_hilux_series()), {"CS400", "CS4800"})
+
+
+class TestMemberRuleWhen(IntegrationTestCase):
+	def test_member_rule_when_imports(self):
+		from onebook_fenestration.series_studio.snapshot import get_snapshot
+
+		data = load_fixture("cs400_snapshot.json")
+		data["constants"]["glass_clearance"] = 4
+		data["member_rules"].append(
+			{
+				"id": "t_bead",
+				"role": "bead",
+				"profile": "E104160",
+				"angles": [90, 90],
+				"length": "opening_w",
+				"when": "glass_t <= 8",
+			}
+		)
+		version = import_test_series(data)
+		rows = {r.rule_id: r.when_expr for r in frappe.get_doc("Series Version", version).member_rules}
+		self.assertEqual((rows["t_bead"], rows["mr_frame"]), ("glass_t <= 8", None))
+		rules = {r.id: r.when for r in get_snapshot(version).member_rules}
+		self.assertEqual((rules["t_bead"], rules["mr_frame"]), ("glass_t <= 8", ""))
+
+
+class TestProfilePerimeters(IntegrationTestCase):
+	def make_profile(self, code: str, visible: float, total: float) -> None:
+		frappe.get_doc(
+			{
+				"doctype": "Fenestration Profile",
+				"profile_code": code,
+				"profile_name": code,
+				"series": SERIES,
+				"role": "accessory",
+				"kg_per_m": 1,
+				"bar_lengths": "5800",
+				"visible_perimeter_mm": visible,
+			}
+		).insert()
+		# total_perimeter_mm is computed from a section DXF (cleared on save without one), so set it directly.
+		frappe.db.set_value("Fenestration Profile", code, "total_perimeter_mm", total)
+
+	def test_perimeters_fill_only_empty(self):
+		from onebook_fenestration.series_studio import data as hilux
+
+		self.make_profile("TSTPER1", 55, 300)
+		self.make_profile("TSTPER2", 0, 0)
+		original = hilux.load_profile_perimeters
+		self.addCleanup(setattr, hilux, "load_profile_perimeters", original)
+		hilux.load_profile_perimeters = lambda: {
+			"TSTPER1": {"perimeter_mm": 234},
+			"TSTPER2": {"perimeter_mm": 139},
+			"TSTNONE": {"perimeter_mm": 1},
+		}
+		hilux.import_hilux_series()
+		fields = ["visible_perimeter_mm", "total_perimeter_mm"]
+		self.assertEqual(frappe.db.get_value("Fenestration Profile", "TSTPER1", fields), (55, 300))
+		self.assertEqual(frappe.db.get_value("Fenestration Profile", "TSTPER2", fields), (139, 0))
+		self.assertFalse(frappe.db.exists("Fenestration Profile", "TSTNONE"))
+
+	def test_perimeters_are_not_series_data(self):
+		from onebook_fenestration.series_studio import data as hilux
+
+		for _, filename, _ in hilux.HILUX_SERIES:
+			self.assertNotIn("perimeter_mm", json.dumps(hilux.load_series_data(filename)), filename)
+
+
+class TestCs4800V2Import(IntegrationTestCase):
+	def test_cs4800_v2_imports_and_computes_123(self):
+		from onebook_fenestration.engine import compute
+		from onebook_fenestration.series_studio import data as hilux
+		from onebook_fenestration.series_studio.snapshot import get_snapshot
+
+		self.assertIn(("CS4800", "cs4800_v2.json", "CS4800 Premium Casement"), hilux.HILUX_SERIES)
+		self.assertNotIn("cs4800_v1.json", [f for _, f, _ in hilux.HILUX_SERIES])
+		import_snapshot_json("CS400", hilux.load_series_data("cs400_v2.json"), "CS400 Economical Casement")
+		version = import_snapshot_json(
+			"CS4800", hilux.load_series_data("cs4800_v2.json"), "CS4800 Premium Casement"
+		)
+		self.addCleanup(frappe.cache.hdel, "fen_snapshot", version)
+		result = compute(load_fixture("d123.json"), get_snapshot(version))
+		cuts = {(m.profile, m.role) for m in result.members}
+		self.assertEqual(
+			cuts,
+			{
+				("CS4801", "frame"),
+				("CS4802", "mullion"),
+				("CS4803", "sash"),
+				("CS4808", "bead"),
+				("HSL3410", "glass_adaptor"),
+			},
+		)
+		self.assertAlmostEqual(result.window_kg, 66.829, delta=0.005)
+		self.assertEqual(frappe.db.get_value("Fenestration Profile", "HSL3410", "role"), "bead")
+		six = load_fixture("d123.json")
+		for child in six["root"]["children"]:
+			child["glass"] = "6CTG"
+		self.assertIn("CS4807", {m.profile for m in compute(six, get_snapshot(version)).members})

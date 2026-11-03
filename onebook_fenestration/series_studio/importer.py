@@ -8,6 +8,8 @@ from onebook_fenestration.series_studio.legacy_gaskets import GASKETS
 ITEM_GROUP = "Fenestration"
 DEFAULT_HSN_CODES = {"Profile": "760429", "Hardware": "830241", "Gasket": "400829", "Glass": "70071900"}
 GLASS_ITEM_PREFIX = "FEN-GLASS-"
+# Fenestration Profile role for a member rule role that has no profile role of its own.
+PROFILE_ROLES = {"glass_adaptor": "bead"}
 
 
 def import_snapshot_json(
@@ -30,7 +32,7 @@ def import_snapshot_json(
 	_ensure_series(series_code, title, system_type)
 	roles = {}
 	for rule in snap.member_rules:
-		roles.setdefault(rule.profile, rule.role)
+		roles.setdefault(rule.profile, PROFILE_ROLES.get(rule.role, rule.role))
 	for profile in snap.profiles.values():
 		_ensure_item(profile.code, profile.name, "Kg", "Profile", hsn_codes)
 		_ensure_profile(profile, series_code, roles.get(profile.code, "accessory"))
@@ -72,6 +74,7 @@ def _member_row(rule) -> dict:
 		"angle_start": rule.angles[0],
 		"angle_end": rule.angles[1],
 		"length_expr": rule.length,
+		"when_expr": rule.when or None,
 	}
 
 
