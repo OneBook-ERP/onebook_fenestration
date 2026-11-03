@@ -137,6 +137,19 @@ class TestMemberRuleWhen(unittest.TestCase):
 		members, _, _ = cut_members(FIXED_6, snapshot_with(mutate), *layout(FIXED_6))
 		self.assertEqual({m.profile for m in members if m.role == "frame"}, {"E104156"})
 
+	def test_structural_when_sees_series_constants_and_deductions(self):
+		from onebook_fenestration.engine.tests.helpers import snapshot_with
+
+		def mutate(data):
+			frame = data["member_rules"][0]
+			when = "span > t_big_frame_min and bar_end_frame > 0"
+			data["member_rules"].insert(0, {**frame, "id": "mr_frame_big", "profile": "E104159", "when": when})
+			data["constants"]["t_big_frame_min"] = 900
+
+		members, _, _ = cut_members(FIXED_6, snapshot_with(mutate), *layout(FIXED_6))
+		frames = {m.position: m.profile for m in members if m.role == "frame"}
+		self.assertEqual(frames, {"B": "E104159", "T": "E104159", "L": "E104156", "R": "E104156"})
+
 	def test_adaptor_counts_in_its_shutter_weight(self):
 		from onebook_fenestration.engine.tests.helpers import snapshot_with
 

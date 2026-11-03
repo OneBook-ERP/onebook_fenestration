@@ -216,18 +216,17 @@ class TestProfilePerimeters(IntegrationTestCase):
 		from onebook_fenestration.series_studio import data as hilux
 
 		self.make_profile("TSTPER1", 55, 300)
-		self.make_profile("TSTPER2", 0, 0)
-		original = hilux.load_profile_perimeters
-		self.addCleanup(setattr, hilux, "load_profile_perimeters", original)
-		hilux.load_profile_perimeters = lambda: {
-			"TSTPER1": {"perimeter_mm": 234},
-			"TSTPER2": {"perimeter_mm": 139},
-			"TSTNONE": {"perimeter_mm": 1},
-		}
-		hilux.import_hilux_series()
+		self.make_profile("TSTPER2", 40, 0)
+		hilux.fill_profile_perimeters(
+			{
+				"TSTPER1": {"perimeter_mm": 234},
+				"TSTPER2": {"perimeter_mm": 139},
+				"TSTNONE": {"perimeter_mm": 1},
+			}
+		)
 		fields = ["visible_perimeter_mm", "total_perimeter_mm"]
 		self.assertEqual(frappe.db.get_value("Fenestration Profile", "TSTPER1", fields), (55, 300))
-		self.assertEqual(frappe.db.get_value("Fenestration Profile", "TSTPER2", fields), (139, 0))
+		self.assertEqual(frappe.db.get_value("Fenestration Profile", "TSTPER2", fields), (40, 139))
 		self.assertFalse(frappe.db.exists("Fenestration Profile", "TSTNONE"))
 
 	def test_perimeters_are_not_series_data(self):

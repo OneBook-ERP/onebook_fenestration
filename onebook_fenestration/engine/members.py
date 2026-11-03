@@ -14,10 +14,12 @@ def cut_members(
 	issues: list[Issue] = []
 	sash_sizes: dict[str, tuple[float, float]] = {}
 
+	base = {**snapshot.deductions, **snapshot.constants}
+
 	def rule_and_length(
 		role: str, span: float, d_start: float = 0, d_end: float = 0
 	) -> tuple[MemberRule, float]:
-		variables = {"span": span, "d_start": d_start, "d_end": d_end}
+		variables = {**base, "span": span, "d_start": d_start, "d_end": d_end}
 		rule = _rule_for(snapshot, role, variables)
 		return rule, float(round(evaluate_number(rule.length, variables, rule.id), 1))
 
