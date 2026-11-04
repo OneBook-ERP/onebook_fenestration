@@ -9,7 +9,6 @@ SECTION_FIELDS = (
 	"width_mm",
 	"depth_mm",
 	"perimeter_mm",
-	"total_perimeter_mm",
 	"ix_mm4",
 	"iy_mm4",
 	"computed_kg_per_m",
@@ -22,7 +21,10 @@ class FenestrationProfile(Document):
 	def validate(self):
 		self.validate_bar_lengths()
 		if not self.dxf_file:
-			self.clear_section()
+			# Only drop DXF-derived geometry when the DXF itself was removed; imported outlines and the
+			# commercial perimeters (visible/total) must survive plain saves.
+			if not self.is_new() and self.has_value_changed("dxf_file"):
+				self.clear_section()
 		elif self.has_value_changed("dxf_file") or not self.area_mm2:
 			self.fill_section_from_dxf()
 
