@@ -30,6 +30,10 @@ class TestReadiness(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		self.make_settings()
 
+	def tearDown(self):
+		frappe.set_user("Administrator")
+		super().tearDown()
+
 	def make_settings(self):
 		if not frappe.db.exists("Price List", PRICE_LIST):
 			frappe.get_doc(
@@ -92,25 +96,26 @@ class TestReadiness(IntegrationTestCase):
 			}
 		).insert()
 
-	def draft_with_gasket_rule(self, when):
-		"""A draft copy of CS400 whose only pane_side gasket rule applies when `when` holds."""
+	def draft_with_gasket_rule(self, *whens):
+		"""A draft copy of CS400 whose only pane_side gasket rules apply when each of `whens` holds."""
 		draft = frappe.copy_doc(frappe.get_doc("Series Version", self.version))
 		draft.hardware_rules = [
 			r for r in draft.hardware_rules if not (r.bom_group == "Gasket" and r.per == "pane_side")
 		]
-		draft.append(
-			"hardware_rules",
-			{
-				"rule_id": "tst_glazing_gasket",
-				"item": "H401",
-				"item_name": "Test gasket",
-				"per": "pane_side",
-				"qty_expr": "1",
-				"length_expr": "side_len",
-				"when_expr": when,
-				"bom_group": "Gasket",
-			},
-		)
+		for number, when in enumerate(whens):
+			draft.append(
+				"hardware_rules",
+				{
+					"rule_id": f"tst_glazing_gasket_{number}",
+					"item": "H401",
+					"item_name": "Test gasket",
+					"per": "pane_side",
+					"qty_expr": "1",
+					"length_expr": "side_len",
+					"when_expr": when,
+					"bom_group": "Gasket",
+				},
+			)
 		return draft.insert().name
 
 	def checks(self, version):
@@ -153,7 +158,7 @@ class TestReadiness(IntegrationTestCase):
 		check = self.checks(self.version)["item_links"]
 		self.assertEqual((check["status"], check["items"]), ("block", ["E104159"]))
 
-	def test_glass_without_gasket_warns(self):
+	def make_thick_glass(self):
 		if not frappe.db.exists("Fenestration Glass", THICK_GLASS):
 			frappe.get_doc(
 				{
@@ -163,13 +168,26 @@ class TestReadiness(IntegrationTestCase):
 					"thickness_mm": 30,
 				}
 			).insert()
+
+	def test_glass_without_gasket_warns(self):
+		self.make_thick_glass()
 		draft = self.draft_with_gasket_rule("glass_t <= 8")
 		check = self.checks(draft)["gasket_rules"]
 		self.assertEqual(check["status"], "warn")
-		self.assertIn(THICK_GLASS, check["items"])
+		self.assertIn(f"{THICK_GLASS} (fixed)", check["items"])
+		self.assertIn(f"{THICK_GLASS} (sash)", check["items"])
 		thin = [code for code, glass in get_snapshot(draft).glasses.items() if glass.thickness_mm <= 8]
 		self.assertTrue(thin)
-		self.assertFalse(set(thin) & set(check["items"]))
+		flagged = {item.rsplit(" (", 1)[0] for item in check["items"]}
+		self.assertFalse(set(thin) & flagged)
+
+	def test_fixed_only_gasket_still_warns_for_sash(self):
+		# CS4800 style: one rule for any fixed glass, one for thin glass anywhere
+		self.make_thick_glass()
+		draft = self.draft_with_gasket_rule("not in_sash", "glass_t <= 8")
+		items = self.checks(draft)["gasket_rules"]["items"]
+		self.assertIn(f"{THICK_GLASS} (sash)", items)
+		self.assertNotIn(f"{THICK_GLASS} (fixed)", items)
 
 	def test_missing_outline_warns(self):
 		self.make_ready(self.version)

@@ -8,17 +8,12 @@ import frappe
 from frappe import _
 
 from onebook_fenestration.engine import SeriesSnapshot
-from onebook_fenestration.engine.formula import evaluate
-from onebook_fenestration.engine.hardware import GASKET_GROUP, _contexts
-from onebook_fenestration.engine.members import FRAME_PANEL
-from onebook_fenestration.engine.types import GlassPane, RuleError
+from onebook_fenestration.engine.hardware import glazing_gasket_gaps
 from onebook_fenestration.pricing.rate_sheet import _version_items
 from onebook_fenestration.pricing.rates import _item_prices
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 SETTINGS_FIELDS = ("cost_price_list", "default_price_structure", "default_finish")
-# Any sash panel name works: the pane_side context only distinguishes the frame panel from a sash.
-SASH_PANEL = "S1"
 
 
 @frappe.whitelist()
@@ -38,8 +33,8 @@ def readiness(series_version: str) -> dict:
 		_check("item_links", "block", _unlinked(profiles, sorted(snapshot.glasses))),
 		_check("prices", "block", _unpriced(series_version)),
 		_check("gasket_rules", "warn", _ungasketed_glasses(snapshot)),
-		_check("perimeters", "warn", _profiles_where(profiles, _no_perimeter)),
-		_check("outlines", "warn", _profiles_where(profiles, lambda p: not p.section_svg)),
+		_check("perimeters", "warn", _without_perimeters(profiles)),
+		_check("outlines", "warn", _without_outline(profiles)),
 	]
 	return {"ok": all(c["status"] != "block" for c in checks), "checks": checks}
 
@@ -79,38 +74,23 @@ def _unpriced(series_version: str) -> list[str]:
 
 
 def _ungasketed_glasses(snapshot: SeriesSnapshot) -> list[str]:
-	"""Glasses no Gasket-group pane_side rule applies to, glazed in the frame or in a sash.
-
-	Uses the engine's own pane_side contexts and formula evaluator on a one-pane probe per glass, so the answer is
-	the same as the engine's no_glazing_gasket warning for a real design.
-	"""
-	rules = [r for r in snapshot.hardware_rules if r.group == GASKET_GROUP and r.per == "pane_side"]
-	base = {**snapshot.deductions, **snapshot.constants}
-	return [code for code in sorted(snapshot.glasses) if not _gasketed(code, rules, base, snapshot)]
+	"""Glass and glazing pairs ("6CTG (sash)") that would get the engine's no_glazing_gasket warning."""
+	return [f"{glass} ({'sash' if in_sash else 'fixed'})" for glass, in_sash in glazing_gasket_gaps(snapshot)]
 
 
-def _gasketed(glass: str, rules: list, base: dict, snapshot: SeriesSnapshot) -> bool:
-	probes = [GlassPane(panel, 1, glass, 1000.0, 1000.0) for panel in (FRAME_PANEL, SASH_PANEL)]
-	for rule in rules:
-		for _panel, _position, variables in _contexts("pane_side", [], probes, {}, {}, {}, snapshot, {}, {}):
-			try:
-				if evaluate(rule.when, {**base, **variables}, rule.id):
-					return True
-			except RuleError:
-				continue
-	return False
+def _without_perimeters(codes: list[str]) -> list[str]:
+	return _profiles_matching(codes, {"visible_perimeter_mm": 0, "total_perimeter_mm": 0})
 
 
-def _no_perimeter(profile) -> bool:
-	return not profile.visible_perimeter_mm and not profile.total_perimeter_mm
+def _without_outline(codes: list[str]) -> list[str]:
+	return _profiles_matching(codes, {"section_svg": ["is", "not set"]})
 
 
-def _profiles_where(codes: list[str], predicate) -> list[str]:
+def _profiles_matching(codes: list[str], filters: dict) -> list[str]:
 	if not codes:
 		return []
-	rows = frappe.get_all(
-		"Fenestration Profile",
-		filters={"profile_code": ["in", codes]},
-		fields=["profile_code", "section_svg", "visible_perimeter_mm", "total_perimeter_mm"],
+	return sorted(
+		frappe.get_all(
+			"Fenestration Profile", filters={"profile_code": ["in", codes], **filters}, pluck="profile_code"
+		)
 	)
-	return sorted(row.profile_code for row in rows if predicate(row))

@@ -5,11 +5,13 @@ Rule variables: series constants and deductions (context variables win on a name
 
 from onebook_fenestration.engine.formula import evaluate, evaluate_number
 from onebook_fenestration.engine.members import FRAME_PANEL
-from onebook_fenestration.engine.types import BomLine, CutMember, GlassPane, Issue, SeriesSnapshot
+from onebook_fenestration.engine.types import BomLine, CutMember, GlassPane, Issue, RuleError, SeriesSnapshot
 
 GASKET_GROUP = "Gasket"
 # Sash option defaults come from 0/1 series constants; anything else is an invalid_series_constant error.
 DEFAULT_CONSTANTS = ("default_butt_hinge", "default_single_point_handle", "default_limiter", "default_mesh")
+# Any panel other than the frame is a sash for pane_side rules (in_sash).
+PROBE_SASH = "S1"
 MEMBER_ROLES = {"frame_member": "frame", "sash_member": "sash", "mullion": "mullion", "transom_member": "transom"}
 
 
@@ -43,6 +45,35 @@ def hardware_bom(
 			if rule.per == "pane_side" and rule.group == GASKET_GROUP:
 				gasketed.add(variables["pane_no"])
 	return bom, issues + _ungasketed_issues(panes, gasketed)
+
+
+def glazing_gasket_gaps(snapshot: SeriesSnapshot) -> list[tuple[str, bool]]:
+	"""(glass, in_sash) for each catalogue glass and glazing (fixed in the frame / in a sash) that no Gasket-group
+	pane_side rule applies to, i.e. where a design would get the no_glazing_gasket warning.
+
+	Probes one pane per glass and glazing through the same pane_side context `hardware_bom` uses. A rule whose
+	`when` cannot be evaluated for the probe counts as not applying.
+	"""
+	rules = [r for r in snapshot.hardware_rules if r.group == GASKET_GROUP and r.per == "pane_side"]
+	base = {**snapshot.deductions, **snapshot.constants}
+	gaps = []
+	for glass in sorted(snapshot.glasses):
+		for panel in (FRAME_PANEL, PROBE_SASH):
+			probe = GlassPane(panel, 1, glass, 1000.0, 1000.0)
+			if not _any_rule_applies(rules, probe, base, snapshot):
+				gaps.append((glass, _in_sash(probe)))
+	return gaps
+
+
+def _any_rule_applies(rules, pane: GlassPane, base: dict, snapshot: SeriesSnapshot) -> bool:
+	for rule in rules:
+		for _panel, _position, variables in _contexts("pane_side", [], [pane], {}, {}, {}, snapshot, {}, {}):
+			try:
+				if evaluate(rule.when, {**base, **variables}, rule.id):
+					return True
+			except RuleError:
+				continue
+	return False
 
 
 def _ungasketed_issues(panes: list[GlassPane], gasketed: set[int]) -> list[Issue]:
