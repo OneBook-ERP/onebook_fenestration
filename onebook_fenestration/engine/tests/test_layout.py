@@ -11,7 +11,7 @@ class TestLayout(unittest.TestCase):
 		self.assertEqual([(c.x, c.w, c.h) for c in cells], [(0, 457.5, 1220), (457.5, 457.5, 1220)])
 		self.assertEqual(cells[0].sides, {"L": "frame", "R": "mullion", "B": "frame", "T": "frame"})
 		self.assertEqual(cells[1].sides, {"L": "mullion", "R": "frame", "B": "frame", "T": "frame"})
-		self.assertEqual(bars, [Bar("mullion", "M1", 1220, ("frame", "frame"))])
+		self.assertEqual(bars, [Bar("mullion", "M1", 1220, ("frame", "frame"), 457.5, 0)])
 
 	def test_nested_transom_ends_on_mullion(self):
 		d = {
@@ -34,7 +34,7 @@ class TestLayout(unittest.TestCase):
 		}
 		cells, bars = layout(d)
 		self.assertEqual(len(cells), 3)
-		self.assertEqual(bars[1], Bar("transom", "T1", 750, ("mullion", "frame")))
+		self.assertEqual(bars[1], Bar("transom", "T1", 750, ("mullion", "frame"), 1000, 750))
 		self.assertEqual(cells[1].sides, {"L": "mullion", "R": "frame", "B": "frame", "T": "transom"})
 
 	def test_bad_split_positions(self):
