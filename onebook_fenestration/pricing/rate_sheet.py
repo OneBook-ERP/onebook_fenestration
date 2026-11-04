@@ -20,7 +20,12 @@ def series_items(series_versions: list[str] | None = None) -> list[dict]:
 	Each dict has item_code, item_name, kind, uom (stock uom), rate_basis and series (comma list of series codes).
 	Glasses are the version's snapshot catalogue mapped through Fenestration Glass.item.
 	"""
-	versions = series_versions or frappe.get_all("Series Version", filters={"docstatus": 1}, pluck="name")
+	submitted = frappe.get_all(
+		"Series Version",
+		filters={"docstatus": 1, **({"name": ["in", series_versions]} if series_versions else {})},
+		pluck="name",
+	)
+	versions = submitted
 	used = {}  # item_code -> (kind, set of series)
 	for version in versions:
 		series = frappe.db.get_value("Series Version", version, "series")
@@ -72,7 +77,7 @@ def download_rate_sheet() -> None:
 def import_rate_sheet(file_url: str) -> dict:
 	frappe.only_for(ROLES)
 	price_list = _cost_price_list(required=True)
-	rows = read_xlsx_file_from_attached_file(file_url=file_url) or []
+	rows = _read_rows(file_url)
 	if not rows:
 		frappe.throw(_("The rate sheet is empty"))
 	header = [str(h or "").strip() for h in rows[0]]
@@ -89,6 +94,23 @@ def import_rate_sheet(file_url: str) -> dict:
 		else:
 			result["skipped"].append({"row": number, "item_code": row.get("item_code"), "reason": outcome})
 	return result
+
+
+def _read_rows(file_url: str) -> list:
+	"""Rows of an uploaded .xlsx the user may read; anything else is a clean error."""
+	file_name = frappe.db.get_value("File", {"file_url": file_url}, "name") if file_url else None
+	if not file_name:
+		frappe.throw(_("File not found"))
+	file_doc = frappe.get_doc("File", file_name)
+	unattached = not file_doc.attached_to_doctype or file_doc.attached_to_doctype == "Fenestration Settings"
+	if not (unattached or file_doc.has_permission("read")):
+		frappe.throw(_("You cannot read this file"), frappe.PermissionError)
+	if not (file_doc.file_name or "").lower().endswith(".xlsx"):
+		frappe.throw(_("Not a valid .xlsx file"))
+	try:
+		return read_xlsx_file_from_attached_file(file_url=file_doc.file_url) or []
+	except Exception:
+		frappe.throw(_("Not a valid .xlsx file"))
 
 
 def _import_row(price_list: str, row: dict) -> str:
@@ -113,7 +135,7 @@ def _import_row(price_list: str, row: dict) -> str:
 def _upsert_price(price_list: str, item_code: str, uom: str, rate: float, valid_from) -> str:
 	name = frappe.db.get_value(
 		"Item Price",
-		{"price_list": price_list, "item_code": item_code, "valid_from": valid_from, "customer": ["is", "not set"], "supplier": ["is", "not set"]},
+		{"price_list": price_list, "item_code": item_code, "valid_from": valid_from, "uom": uom, "customer": ["is", "not set"], "supplier": ["is", "not set"], "batch_no": ["is", "not set"]},
 		"name",
 	)
 	if not name:

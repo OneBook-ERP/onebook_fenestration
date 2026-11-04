@@ -123,3 +123,48 @@ class TestRateSheet(IntegrationTestCase):
 			import_rate_sheet("/private/files/x.xlsx")
 		with self.assertRaises(frappe.PermissionError):
 			rate_sheet.download_rate_sheet()
+
+	def test_import_rejects_bad_files(self):
+		with self.assertRaises(frappe.ValidationError):
+			import_rate_sheet("/private/files/does-not-exist.xlsx")
+		for name, content in (("notes.txt", b"hello"), ("fake.xlsx", b"not a zip")):
+			url = frappe.get_doc({"doctype": "File", "file_name": name, "content": content, "is_private": 1}).insert().file_url
+			with self.assertRaises(frappe.ValidationError):
+				import_rate_sheet(url)
+
+	def test_import_rejects_unreadable_attached_file(self):
+		user = "tst-rate-sheet@example.com"
+		frappe.get_doc(
+			{"doctype": "User", "email": user, "first_name": "Tst", "send_welcome_email": 0, "roles": [{"role": "Fenestration Engineer"}]}
+		).insert()
+		content = make_xlsx([HEADER, ["E104156", 300, None]], "Rates").getvalue()
+		url = frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": "attached.xlsx",
+				"content": content,
+				"is_private": 1,
+				"attached_to_doctype": "User",
+				"attached_to_name": "Administrator",
+			}
+		).insert().file_url
+		frappe.set_user(user)
+		with self.assertRaises(frappe.PermissionError):
+			import_rate_sheet(url)
+
+	def test_other_uom_price_is_left_alone(self):
+		item = frappe.get_doc("Item", "H401")
+		if not any(row.uom == "Box" for row in item.uoms):
+			item.append("uoms", {"uom": "Box", "conversion_factor": 10})
+			item.save()
+		frappe.get_doc(
+			{"doctype": "Item Price", "price_list": self.price_list, "item_code": "H401", "uom": "Box", "price_list_rate": 9, "valid_from": today()}
+		).insert()
+		result = import_rate_sheet(self.upload([["H401", 5, None]]))
+		self.assertEqual(result["created"], 1)
+		self.assertEqual(sorted(p.price_list_rate for p in self.prices("H401")), [5, 9])
+
+	def test_explicit_versions_must_be_submitted(self):
+		draft = frappe.get_doc(frappe.get_doc("Series Version", self.version).as_dict() | {"name": None, "docstatus": 0, "amended_from": None})
+		draft.insert()
+		self.assertEqual(series_items([draft.name]), [])
