@@ -11,6 +11,8 @@ REQUIRED_DEDUCTIONS = (
 	"glazing_gasket",
 )
 SNAPSHOT_SECTIONS = ("deductions", "profiles", "member_rules", "hardware_rules", "validation_rules", "glasses", "constants")
+# Member roles cut per side of a glass pane; their rules need the constant glass_clearance.
+GLASS_MEMBER_ROLES = ("bead", "glass_adaptor")
 HARDWARE_PER = ("frame_member", "sash_member", "mullion", "transom_member", "sash", "glass", "window", "frame_side", "pane_side")
 
 
@@ -47,6 +49,7 @@ class MemberRule:
 	profile: str
 	angles: tuple[int, int]
 	length: str
+	when: str = ""
 
 
 @dataclass(frozen=True)
@@ -109,7 +112,8 @@ class SeriesSnapshot:
 		member_rules = []
 		for r in sections["member_rules"]:
 			rule = _row(MemberRule, r, f"member rule {r.get('id')}")
-			member_rules.append(MemberRule(rule.id, rule.role, rule.profile, tuple(rule.angles), rule.length))
+			angles, when = tuple(rule.angles), rule.when or ""
+			member_rules.append(MemberRule(rule.id, rule.role, rule.profile, angles, rule.length, when))
 		return cls(
 			code=code,
 			version=version,
@@ -130,6 +134,9 @@ class SeriesSnapshot:
 		]
 		if "glass_density" not in self.constants:
 			problems.append("constant 'glass_density' missing")
+		glazing = any(rule.role in GLASS_MEMBER_ROLES for rule in self.member_rules)
+		if glazing and "glass_clearance" not in self.constants:
+			problems.append("constant 'glass_clearance' missing (bead / glass_adaptor rules need it)")
 		problems += [
 			f"{rule.id}: unknown per {rule.per!r} (allowed: {', '.join(HARDWARE_PER)})"
 			for rule in self.hardware_rules

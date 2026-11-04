@@ -35,7 +35,7 @@ def build_snapshot_dict(series_version: str | Document) -> dict:
 		"version": doc.name,
 		"deductions": {row.deduction_key: row.value for row in doc.deductions},
 		"constants": {row.constant_key: row.value for row in doc.constants},
-		"profiles": _profiles(doc.series),
+		"profiles": _profiles(doc.series, {row.profile for row in doc.member_rules}),
 		"member_rules": [_member_rule(row) for row in doc.member_rules],
 		"hardware_rules": [_hardware_rule(row) for row in doc.hardware_rules],
 		"validation_rules": [_validation_rule(row) for row in doc.validation_rules],
@@ -43,10 +43,11 @@ def build_snapshot_dict(series_version: str | Document) -> dict:
 	}
 
 
-def _profiles(series: str) -> dict:
+def _profiles(series: str, rule_profiles: set[str]) -> dict:
+	"""The series' own profiles plus any profile its member rules use from another series (a profile has one series)."""
 	rows = frappe.get_all(
 		"Fenestration Profile",
-		filters={"series": series},
+		or_filters={"series": series, "name": ("in", sorted(rule_profiles) or [""])},
 		fields=["profile_code", "profile_name", "kg_per_m", "bar_lengths", "use_computed_weight", "computed_kg_per_m", "visible_perimeter_mm", "total_perimeter_mm"],
 	)
 	return {
@@ -76,6 +77,7 @@ def _member_rule(row) -> dict:
 		"profile": row.profile,
 		"angles": [row.angle_start, row.angle_end],
 		"length": row.length_expr,
+		"when": row.when_expr or "",
 	}
 
 

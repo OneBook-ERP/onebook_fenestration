@@ -16,9 +16,10 @@ def weights(
 		mm = spec.thickness_mm if spec.glass_mm is None else spec.glass_mm
 		return pane.width * pane.height / 1e6 * mm * density
 
+	# Every member cut for a sash panel (sash profile, glass adaptor) weighs on that shutter.
 	shutter = {m.panel: 0.0 for m in members if m.role == "sash"}
 	for member in members:
-		if member.role == "sash":
+		if member.panel in shutter:
 			shutter[member.panel] += member_kg(member)
 	for pane in panes:
 		if pane.panel in shutter:

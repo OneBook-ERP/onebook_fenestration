@@ -1,0 +1,5 @@
+{"width": 1500, "height": 1500, "series": "CS4800",
+ "root": {"type": "split", "dir": "v", "at": [750],
+          "children": [
+            {"type": "fixed", "glass": "12CTG"},
+            {"type": "sash", "opening": "out", "hinge": "right", "glass": "12CTG"}]}}

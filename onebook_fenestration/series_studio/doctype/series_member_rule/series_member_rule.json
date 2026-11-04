@@ -9,7 +9,8 @@
   "profile",
   "angle_start",
   "angle_end",
-  "length_expr"
+  "length_expr",
+  "when_expr"
  ],
  "fields": [
   {
@@ -23,7 +24,7 @@
    "fieldname": "role",
    "fieldtype": "Select",
    "label": "Role",
-   "options": "frame\nsash\nmullion\ntransom",
+   "options": "frame\nsash\nmullion\ntransom\nbead\nglass_adaptor",
    "reqd": 1,
    "in_list_view": 1
   },
@@ -55,9 +56,15 @@
    "label": "Length Formula",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "when_expr",
+   "fieldtype": "Small Text",
+   "label": "When",
+   "description": "Optional condition; empty means always. A rule whose condition is false cuts no member."
   }
  ],
- "modified": "2026-10-30 00:00:00",
+ "modified": "2026-11-03 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Series Member Rule",
