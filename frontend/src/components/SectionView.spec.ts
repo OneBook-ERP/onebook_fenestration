@@ -191,6 +191,24 @@ describe('SectionView', () => {
 				if (a !== b && a.y === b.y) expect(Math.abs(a.x - b.x)).toBeGreaterThanOrEqual(half(a.text) + half(b.text))
 	})
 
+	it('keeps a dropped label in its tooltip when both label lines are taken', async () => {
+		const cut = structuredClone(W01_CUT)
+		cut.result.dims = cut.result.dims.filter((d) => d.chain !== 'profiles')
+		cut.result.dims.push(
+			{ start: 0, end: 10, label: '10.25', chain: 'profiles' },
+			{ start: 10, end: 20, label: '10.5', chain: 'profiles' },
+			{ start: 20, end: 30, label: '10.75', chain: 'profiles' },
+		)
+		fake.response = cut
+		const w = mountView()
+		await flushPromises()
+		const row = w.get('[data-chain="profiles"]')
+		const shown = row.findAll('text').map((t) => t.text())
+		const dropped = ['10.25', '10.5', '10.75'].filter((l) => !shown.includes(l))
+		expect(dropped).toEqual(['10.75'])
+		expect(row.findAll('title').map((t) => t.text())).toContain('10.75 mm')
+	})
+
 	it('draws the glass band as thick as the glass', async () => {
 		const cut = structuredClone(W01_CUT)
 		;(cut.result.pieces[2] as Record<string, unknown>).thickness = 6

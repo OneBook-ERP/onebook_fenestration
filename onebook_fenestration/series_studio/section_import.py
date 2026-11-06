@@ -32,8 +32,13 @@ GRID_LINE_SHARE = 0.9
 TABLE_END_GAP = 2.5
 # A code label is one word (descriptions have spaces); position in the Profile Code column does the rest.
 CODE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
-# Hilux profile names give the size as "<DEPTH>MM X <FACE>MM", e.g. "CMT T MULLION 40MM X 60MM".
-SIZE_PATTERN = re.compile(r"(\d+(?:\.\d+)?)\s*(?:MM)?\s*X\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
+# Hilux profile names give the size as "<DEPTH>MM X <FACE>MM", e.g. "CMT T MULLION 40MM X 60MM". Sizes stand
+# alone (not part of a longer word or number); a match with an MM unit beats one without ("2X3 TRACK 48MM X 70MM").
+SIZE_PATTERN = re.compile(
+	r"(?<![\w.])(\d+(?:\.\d+)?)\s*(MM)?\s*X\s*(\d+(?:\.\d+)?)\s*(MM)?(?!\w)", re.IGNORECASE
+)
+# Roles whose names are known to follow the DEPTH X FACE convention; other profiles are never guessed.
+GUESSED_ROLES = {"frame", "sash", "mullion", "transom"}
 # How close (mm) a drawn extent must be to a size in the name to count as that size.
 SIZE_TOLERANCE = 1.5
 
@@ -68,10 +73,11 @@ def import_profile_sections(dxf_path: str, profile_codes: list[str] | None = Non
 	"""Store the outline of each profile row (default: every row in the sheet) on its Fenestration Profile.
 
 	The outline is stored as drawn; `section_rotation` (guessed from the profile name, see `guess_rotation`) turns
-	it for display, and width_mm / depth_mm are the turned extents. A rotation already set (non-zero) is kept.
+	it for display, and width_mm / depth_mm are the turned extents. Only frame / sash / mullion / transom profiles are
+guessed; a rotation already set (non-zero) is kept.
 	Profiles with their own `dxf_file` keep the outline computed from it. Returns updated codes, skipped ones with a
-	reason, codes whose rotation could not be guessed (`rotation_unknown`) and codes whose set rotation was kept
-	(`rotation_kept`).
+	reason, profiles whose rotation was not guessed with a reason (`rotation_unknown`) and codes whose set rotation
+	was kept (`rotation_kept`).
 	"""
 	frappe.only_for("System Manager")
 	try:
@@ -87,12 +93,14 @@ def import_profile_sections(dxf_path: str, profile_codes: list[str] | None = Non
 			result["skipped"].append({"code": code, "reason": reason})
 			continue
 		rotation = int(profile.section_rotation or 0)
-		if rotation:
+		if profile.role not in GUESSED_ROLES:
+			result["rotation_unknown"].append({"code": code, "reason": "role not guessed"})
+		elif rotation:
 			result["rotation_kept"].append(code)
 		else:
 			guess = guess_rotation(profile.profile_name, outline.width_mm, outline.depth_mm)
 			if guess is None:
-				result["rotation_unknown"].append(code)
+				result["rotation_unknown"].append({"code": code, "reason": "name sizes do not match the drawing"})
 			rotation = guess or 0
 		_svg, width, depth = rotate_path(outline.svg, rotation)
 		frappe.db.set_value(
@@ -110,10 +118,11 @@ def guess_rotation(name: str | None, width: float, depth: float) -> int | None:
 	90 when the drawing has the depth along x, 0 when it already has the face along x; None when the name has no
 	sizes, the drawing matches neither, or both (depth and face too close to tell).
 	"""
-	match = SIZE_PATTERN.search(name or "")
-	if not match:
+	matches = list(SIZE_PATTERN.finditer(name or ""))
+	if not matches:
 		return None
-	depth_mm, face_mm = float(match[1]), float(match[2])
+	match = next((m for m in matches if m[2] or m[4]), matches[0])
+	depth_mm, face_mm = float(match[1]), float(match[3])
 	turned = _near(width, depth_mm) and _near(depth, face_mm)
 	upright = _near(width, face_mm) and _near(depth, depth_mm)
 	if turned == upright:
@@ -127,7 +136,7 @@ def _near(a: float, b: float) -> bool:
 
 def _profile(code: str):
 	return frappe.db.get_value(
-		"Fenestration Profile", code, ["name", "profile_name", "dxf_file", "section_rotation"], as_dict=True
+		"Fenestration Profile", code, ["name", "profile_name", "role", "dxf_file", "section_rotation"], as_dict=True
 	)
 
 

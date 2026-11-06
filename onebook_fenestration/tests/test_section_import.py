@@ -156,7 +156,10 @@ ROTATION_ROWS = (
 	("TSTR2", "TST SASH 40mm x 64.5MM", 64.5, 40),
 	("TSTR3", "TST PLAIN BEAD", 30, 20),
 	("TSTR4", "TST 40 X 60", 40, 60),
+	("TSTR5", "TST ADAPTOR 28.9MM X 16.8MM", 16.8, 28.9),
 )
+# rows whose role is not a frame / sash / mullion / transom: the naming convention is not proven for them
+ROTATION_ROLES = {"TSTR5": "accessory"}
 
 
 def build_rotation_dxf(path):
@@ -192,7 +195,13 @@ class TestSectionImportRotation(IntegrationTestCase):
 			frappe.db.set_value(
 				"Fenestration Profile",
 				code,
-				{"profile_name": name, "dxf_file": None, "section_svg": None, "section_rotation": "0"},
+				{
+					"profile_name": name,
+					"role": ROTATION_ROLES.get(code, "frame"),
+					"dxf_file": None,
+					"section_svg": None,
+					"section_rotation": "0",
+				},
 			)
 
 	def profile(self, code):
@@ -203,14 +212,17 @@ class TestSectionImportRotation(IntegrationTestCase):
 	def test_rotation_guess_from_name(self):
 		frappe.db.set_value("Fenestration Profile", "TSTR4", "section_rotation", "270")
 		result = import_profile_sections(self.path, [row[0] for row in ROTATION_ROWS])
-		self.assertEqual(sorted(result["updated"]), ["TSTR1", "TSTR2", "TSTR3", "TSTR4"])
-		self.assertEqual(result["rotation_unknown"], ["TSTR3"])
+		self.assertEqual(sorted(result["updated"]), ["TSTR1", "TSTR2", "TSTR3", "TSTR4", "TSTR5"])
+		unknown = {row["code"]: row["reason"] for row in result["rotation_unknown"]}
+		self.assertEqual(sorted(unknown), ["TSTR3", "TSTR5"])
+		self.assertEqual(unknown["TSTR5"], "role not guessed")
 		self.assertEqual(result["rotation_kept"], ["TSTR4"])
 		expected = {
 			"TSTR1": ("90", 60, 40),  # drawn depth along x: turned
 			"TSTR2": ("0", 64.5, 40),  # drawn face along x: as is
 			"TSTR3": ("0", 30, 20),  # name has no sizes: left alone
 			"TSTR4": ("270", 60, 40),  # set by hand: kept, extents follow it
+			"TSTR5": ("0", 16.8, 28.9),  # accessory: name would say 90, but its role is not guessed
 		}
 		for code, (rotation, width, depth) in expected.items():
 			profile = self.profile(code)
@@ -235,3 +247,13 @@ class TestRotationGuess(IntegrationTestCase):
 		self.assertIsNone(guess_rotation("40MM X 60MM", 50, 50))
 		self.assertIsNone(guess_rotation("40MM X 40.5MM", 40, 40.5))  # both orientations fit
 		self.assertIsNone(guess_rotation(None, 40, 60))
+
+	def test_guess_rotation_prefers_mm_sizes(self):
+		from onebook_fenestration.series_studio.section_import import guess_rotation
+
+		# "2X3" is part of a product name; the MM sizes are the profile's
+		self.assertEqual(guess_rotation("2X3 TRACK 48MM X 70MM", 48, 70), 90)
+		self.assertEqual(guess_rotation("2X3 TRACK 48MM X 70MM", 70, 48), 0)
+		# sizes must stand alone, not run on from a longer word or number
+		self.assertIsNone(guess_rotation("ABC40 X 60", 40, 60))
+		self.assertIsNone(guess_rotation("1.40 X 60", 40, 60))
