@@ -163,4 +163,69 @@ describe('SectionView', () => {
 		await flushPromises()
 		expect(fake.calls).toHaveLength(2)
 	})
+
+	it('keeps dimension labels in a chain from overlapping', async () => {
+		const cut = structuredClone(W01_CUT)
+		cut.result.dims = cut.result.dims.filter((d) => d.chain !== 'profiles')
+		cut.result.dims.push(
+			{ start: 0, end: 40, label: '40', chain: 'profiles' },
+			{ start: 18, end: 82.5, label: '64.5', chain: 'profiles' },
+			{ start: 70, end: 110, label: '40', chain: 'profiles' },
+		)
+		fake.response = cut
+		const w = mountView()
+		await flushPromises()
+		const labels = w
+			.get('[data-chain="profiles"]')
+			.findAll('text')
+			.map((t) => ({ text: t.text(), x: Number(t.attributes('x')), y: Number(t.attributes('y')), hidden: t.attributes('visibility') === 'hidden' }))
+			.filter((l) => !l.hidden)
+		expect(labels.map((l) => l.text)).toEqual(expect.arrayContaining(['40', '64.5']))
+		const forty = labels.find((l) => l.text === '40')!
+		const sixty = labels.find((l) => l.text === '64.5')!
+		expect(sixty.y).not.toBe(forty.y)
+		// 9-unit font: about 0.6 em per character; labels on one line keep clear of each other.
+		const half = (t: string) => (t.length * 9 * 0.6) / 2
+		for (const a of labels)
+			for (const b of labels)
+				if (a !== b && a.y === b.y) expect(Math.abs(a.x - b.x)).toBeGreaterThanOrEqual(half(a.text) + half(b.text))
+	})
+
+	it('keeps a dropped label in its tooltip when both label lines are taken', async () => {
+		const cut = structuredClone(W01_CUT)
+		cut.result.dims = cut.result.dims.filter((d) => d.chain !== 'profiles')
+		cut.result.dims.push(
+			{ start: 0, end: 10, label: '10.25', chain: 'profiles' },
+			{ start: 10, end: 20, label: '10.5', chain: 'profiles' },
+			{ start: 20, end: 30, label: '10.75', chain: 'profiles' },
+		)
+		fake.response = cut
+		const w = mountView()
+		await flushPromises()
+		const row = w.get('[data-chain="profiles"]')
+		const shown = row.findAll('text').map((t) => t.text())
+		const dropped = ['10.25', '10.5', '10.75'].filter((l) => !shown.includes(l))
+		expect(dropped).toEqual(['10.75'])
+		expect(row.findAll('title').map((t) => t.text())).toContain('10.75 mm')
+	})
+
+	it('draws the glass band as thick as the glass', async () => {
+		const cut = structuredClone(W01_CUT)
+		;(cut.result.pieces[2] as Record<string, unknown>).thickness = 6
+		fake.response = cut
+		const w = mountView()
+		await flushPromises()
+		const k = (640 - 2 * 28) / 915
+		const glass = w.get('[data-piece="2"]')
+		expect(Number(glass.attributes('height'))).toBeCloseTo(6 * k, 6)
+		const centre = Number(glass.attributes('y')) + Number(glass.attributes('height')) / 2
+
+		fake.response = structuredClone(W01_CUT)
+		const v = mountView()
+		await flushPromises()
+		const standIn = v.get('[data-piece="2"]')
+		expect(Number(standIn.attributes('height'))).toBeCloseTo(24 * k, 6)
+		// same glass line: the band is centred where the stand-in is
+		expect(Number(standIn.attributes('y')) + Number(standIn.attributes('height')) / 2).toBeCloseTo(centre, 6)
+	})
 })

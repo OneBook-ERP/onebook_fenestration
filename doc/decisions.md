@@ -182,5 +182,7 @@ Rejected: hard-coding bead and adaptor sizes in the engine (series numbers belon
 
 - The engine cuts the section from the layout and deductions; the API takes a design dict/JSON like `compute_design`.
 - Profile outlines come from the Hilux section DXFs and are stored in the DB only, never committed.
-- PROVISIONAL until checked visually: face width = outline x-extent, and the mirror convention.
+- Orientation (changed 2026-11-06): the Hilux sheet draws some profiles with the depth along x (E104156, E104159, CS4801) and others with the face along x. Each Fenestration Profile has a `section_rotation` (0/90/180/270, editable data). The outline is stored as drawn; `width_mm` (face, along the cut) and `depth_mm` are its extents after rotation, and the `cross_section` API returns outlines already rotated. The section importer guesses 90 or 0 from Hilux's "DEPTH X FACE" names (e.g. "40MM X 60MM") against the drawn extents (1.5 mm tolerance), keeps any non-zero rotation already set, and lists profiles it cannot guess. Which quarter turn puts the outside at the top (90 vs 270) is for the engineer to correct.
+- Glass is drawn as thick as its glass spec's overall `thickness_mm`.
+- PROVISIONAL until checked visually: the mirror convention.
 

@@ -142,6 +142,8 @@ export interface SectionPiece {
 	end: number
 	/** Outline flipped: it is the right/top member of its pair. */
 	mirrored: boolean
+	/** Glass: overall unit thickness in mm (drawn as the band's depth); 0 for profiles. */
+	thickness: number
 }
 export interface SectionDim {
 	start: number
