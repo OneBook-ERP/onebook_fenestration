@@ -13,7 +13,7 @@ def after_install():
 	setup_production_items()
 
 
-def after_setup_wizard(args=None):
+def after_setup_wizard(wizard_args: dict | None = None):
 	"""A site installed before the ERPNext setup wizard gets the masters that need its Item Group root."""
 	_sync()
 	setup_production_items()

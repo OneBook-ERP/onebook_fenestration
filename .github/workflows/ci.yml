@@ -104,6 +104,15 @@ jobs:
         env:
           CI: 'Yes'
 
+      - name: Start web server
+        working-directory: /home/runner/frappe-bench
+        run: |
+          # wkhtmltopdf fetches print assets from the site URL.
+          echo "127.0.0.1 test_site" | sudo tee -a /etc/hosts
+          bench --site test_site set-config host_name "http://test_site:8000"
+          nohup bench serve --port 8000 > serve.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://test_site:8000/api/method/ping && break; sleep 2; done
+
       - name: Run Tests
         working-directory: /home/runner/frappe-bench
         run: |
