@@ -173,7 +173,14 @@ def _staleness(project: str, quotation: str) -> dict:
 	}
 
 
+def has_india_compliance() -> bool:
+	"""Quotations rely on india_compliance's GST fields and validation."""
+	return "india_compliance" in frappe.get_installed_apps()
+
+
 def check_quotable(project, designs: list[dict]) -> None:
+	if not has_india_compliance():
+		raise QuoteNotReady(_("Install India Compliance to set up GST before quoting"))
 	if not project.customer:
 		raise QuoteNotReady(_("Set a customer on the project"))
 	if not project.company:

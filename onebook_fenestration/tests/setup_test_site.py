@@ -24,7 +24,7 @@ def before_tests():
 			"currency": "INR",
 			"full_name": "Test User",
 			"email": "test@example.com",
-			"password": "test",
+			"password": frappe.generate_hash(length=32),
 			"company_name": COMPANY,
 			"company_abbr": "Hilux",
 			"chart_of_accounts": "Standard",

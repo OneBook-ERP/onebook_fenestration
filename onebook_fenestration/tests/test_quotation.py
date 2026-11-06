@@ -404,6 +404,14 @@ class TestQuotation(IntegrationTestCase):
 			out = api_make_quotation(project.name)
 		self.assertEqual(out, {"ok": False, "message": "Set a company on the project"})
 
+	def test_quoting_needs_india_compliance(self):
+		project, _designs = self.make_quote_project()
+		with patch("onebook_fenestration.fenestration.quotation.has_india_compliance", return_value=False):
+			out = api_make_quotation(project.name)
+		self.assertEqual(
+			out, {"ok": False, "message": "Install India Compliance to set up GST before quoting"}
+		)
+
 	def test_no_company_address_refused(self):
 		project, _designs = self.make_quote_project()
 		with patch("onebook_fenestration.fenestration.quotation.company_address", return_value=None):
