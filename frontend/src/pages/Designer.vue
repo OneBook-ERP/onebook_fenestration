@@ -5,7 +5,9 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type SavedDesign } from '@/api'
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
+import SectionView from '@/components/SectionView.vue'
 import WindowCanvas from '@/components/WindowCanvas.vue'
+import { layoutGeom } from '@/design/geometry'
 import { TEMPLATES } from '@/design/templates'
 import { typology } from '@/design/typology'
 import { getNode, moveSplit, newDesign, setLeaf, splitCell } from '@/design/tree'
@@ -46,6 +48,24 @@ const lockMessage = computed(() =>
 const toolHint = 'Select a panel on the drawing to use these tools'
 const designType = computed(() => typology(store.design.root))
 const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
+
+type CutAxis = 'h' | 'v'
+const sectionOn = ref(false)
+const cutAxis = ref<CutAxis>('h')
+/** Cut positions in mm; null until the user picks a cell or the engine snaps the cut elsewhere. */
+const cutAt = ref<Record<CutAxis, number | null>>({ h: null, v: null })
+/** Where the markers go: the chosen cut, else the engine's default (centre of the first cell). */
+const cutPos = computed(() => {
+	const first = layoutGeom(store.design).cells[0]
+	return {
+		axis: cutAxis.value,
+		h: cutAt.value.h ?? first.y + first.h / 2,
+		v: cutAt.value.v ?? first.x + first.w / 2,
+	}
+})
+function setCut(axis: CutAxis, at: number) {
+	if (cutAt.value[axis] !== at) cutAt.value = { ...cutAt.value, [axis]: at }
+}
 
 const finishList = useList<FinishRow>({
 	doctype: 'Profile Finish',
@@ -218,6 +238,14 @@ async function copy() {
 						@click="view = v.value"
 					/>
 				</div>
+				<Button
+					label="Section"
+					aria-label="Section"
+					:variant="sectionOn ? 'subtle' : 'outline'"
+					:aria-pressed="sectionOn"
+					class="min-h-9"
+					@click="sectionOn = !sectionOn"
+				/>
 				<Button label="Save" aria-label="Save" variant="solid" class="min-h-9" :disabled="blocked" @click="save" />
 			</div>
 		</header>
@@ -247,21 +275,38 @@ async function copy() {
 					<Button label="Louver" aria-label="Louver" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('louver')" />
 				</Tooltip>
 			</nav>
-			<main class="flex min-h-[50vh] min-w-0 flex-1 md:min-h-0 items-center justify-center overflow-hidden p-2">
+			<main
+				class="flex min-h-[50vh] min-w-0 flex-1 flex-col md:min-h-0 items-center p-2"
+				:class="sectionOn ? 'justify-start overflow-y-auto overflow-x-hidden' : 'justify-center overflow-hidden'"
+			>
 				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
-				<WindowCanvas
-					v-else-if="!loadError"
-					ref="canvas"
-					:design="store.design"
-					:selected-path="store.selectedPath"
-					:issue-paths="issuePaths"
-					:view="view"
-					:finish-color="finishColor"
-					@select="store.select"
-					@move-split="onMoveSplit"
-					@drag-start="store.beginDrag()"
-					@drag-end="store.endDrag()"
-				/>
+				<template v-else-if="!loadError">
+					<div class="flex w-full flex-1 items-center justify-center" :class="sectionOn ? 'min-h-[45vh]' : 'min-h-0'">
+						<WindowCanvas
+							ref="canvas"
+							:design="store.design"
+							:selected-path="store.selectedPath"
+							:issue-paths="issuePaths"
+							:view="view"
+							:finish-color="finishColor"
+							:section="sectionOn ? cutPos : null"
+							@select="store.select"
+							@move-split="onMoveSplit"
+							@drag-start="store.beginDrag()"
+							@drag-end="store.endDrag()"
+							@update:cut="(c) => setCut(c.axis, c.at)"
+						/>
+					</div>
+					<SectionView
+						v-if="sectionOn && store.seriesVersion"
+						v-model:axis="cutAxis"
+						class="shrink-0"
+						:design="store.design"
+						:series-version="store.seriesVersion"
+						:at="cutPos[cutAxis]"
+						@cut="(at) => setCut(cutAxis, at)"
+					/>
+				</template>
 			</main>
 			<PropertiesPanel v-model:meta="meta" :finishes="finishes" :ref-error="refError" :ref-readonly="!!savedName" />
 		</div>

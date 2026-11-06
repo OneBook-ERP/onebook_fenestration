@@ -7,6 +7,7 @@ import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
 import { computeDesign, copyDesign, getDesign, getFenestrationDefaults, saveDesign } from '@/api'
 import { routes } from '@/router'
 import { useDesignerStore } from '@/stores/designer'
+import { layoutGeom } from '@/design/geometry'
 
 vi.mock('@/api', () => ({
 	computeDesign: vi.fn(),
@@ -16,9 +17,18 @@ vi.mock('@/api', () => ({
 	getFenestrationDefaults: vi.fn(),
 	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
 }))
+const cuts = vi.hoisted(() => [] as Record<string, unknown>[])
 vi.mock('frappe-ui', async (orig) => ({
 	...(await orig<object>()),
 	toast: { success: vi.fn(), error: vi.fn() },
+	createResource: (opts: { makeParams: () => Record<string, unknown> }) => ({
+		data: null,
+		fetch: async () => {
+			const p = opts.makeParams()
+			cuts.push(p)
+			return { ok: true, result: { axis: p.axis, at: p.at, length: 0, pieces: [], dims: [], issues: [] }, outlines: {} }
+		},
+	}),
 	useList: (await import('@/test-utils')).fakeUseList({
 		'Profile Finish': [
 			{ name: 'GREY', finish_name: 'Grey', color: '#8A8F98' },
@@ -446,5 +456,28 @@ describe('Designer page', () => {
 		wrapper.unmount()
 		await vi.advanceTimersByTimeAsync(300)
 		expect(computeDesign).not.toHaveBeenCalled()
+	})
+	it('section toggle shows the cut view and a cell click moves the cut', async () => {
+		cuts.length = 0
+		const { wrapper } = await setup()
+		const seg = (t: string) => wrapper.findAll('button').find((b) => b.text() === t)
+		expect(seg('B–B horizontal')).toBeUndefined()
+		expect(button(wrapper, 'Section').attributes('aria-pressed')).toBe('false')
+		await button(wrapper, 'Section').trigger('click')
+		await flushPromises()
+		expect(button(wrapper, 'Section').attributes('aria-pressed')).toBe('true')
+		expect(seg('B–B horizontal')).toBeDefined()
+		expect(wrapper.findAll('[data-cut]')).toHaveLength(2)
+		expect(cuts.at(-1)).toMatchObject({ series_version: 'SV1', axis: 'h' })
+		await seg('A–A vertical')!.trigger('click')
+		await flushPromises()
+		expect(cuts.at(-1)!.axis).toBe('v')
+		const cell = layoutGeom(useDesignerStore().design).cells.at(-1)!
+		await wrapper.find(`[data-path="${cell.path}"]`).trigger('click')
+		await flushPromises()
+		expect(cuts.at(-1)).toMatchObject({ axis: 'v', at: cell.x + cell.w / 2 })
+		await button(wrapper, 'Section').trigger('click')
+		expect(wrapper.findAll('[data-cut]')).toHaveLength(0)
+		expect(seg('B–B horizontal')).toBeUndefined()
 	})
 })
