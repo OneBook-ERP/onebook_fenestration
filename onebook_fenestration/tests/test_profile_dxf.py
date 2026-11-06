@@ -103,3 +103,22 @@ class TestProfileDxf(IntegrationTestCase):
 			self.assertFalse(profile.get(fieldname), fieldname)
 		self.assertEqual(profile.visible_perimeter_mm, 90)
 		self.assertEqual(profile.total_perimeter_mm, 202)
+
+	def test_rotation_change_recomputes_extents(self):
+		profile = profile_doc("TSTP4", None).insert()
+		frappe.db.set_value(
+			"Fenestration Profile",
+			"TSTP4",
+			{"section_svg": "M 0 0 L 40 0 L 40 60 L 0 60 Z", "width_mm": 40, "depth_mm": 60},
+		)
+		profile.reload()
+		profile.section_rotation = "90"
+		profile.save()
+		profile.reload()
+		self.assertEqual((profile.width_mm, profile.depth_mm), (60, 40))
+		self.assertEqual(profile.section_svg, "M 0 0 L 40 0 L 40 60 L 0 60 Z")
+		profile.save()  # unchanged rotation: extents left alone
+		self.assertEqual((profile.width_mm, profile.depth_mm), (60, 40))
+		profile.section_rotation = "0"
+		profile.save()
+		self.assertEqual((profile.width_mm, profile.depth_mm), (40, 60))

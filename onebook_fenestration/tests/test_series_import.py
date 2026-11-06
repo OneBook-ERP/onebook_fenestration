@@ -137,10 +137,17 @@ class TestHiluxSeriesImport(IntegrationTestCase):
 		version = self.import_series("CS4800", "cs4800_v1.json", "CS4800 Premium Casement")
 		self.assertEqual(frappe.db.get_value("Series Version", version, "docstatus"), 1)
 		snap = get_snapshot(version)
-		self.assertEqual(set(snap.profiles), set(data["profiles"]))
+		# the snapshot reads the live profile masters of the series, which may hold more than this file
+		self.assertLessEqual(set(data["profiles"]), set(snap.profiles))
 		self.assertLessEqual({r.profile for r in snap.member_rules}, set(data["profiles"]))
-		for code in data["profiles"]:
-			self.assertIn("PLACEHOLDER until DXF", snap.profiles[code].name, code)
+		for code, row in data["profiles"].items():
+			profile = snap.profiles[code]
+			self.assertIn("PLACEHOLDER until DXF", profile.name, code)
+			self.assertEqual(
+				(profile.name, profile.kg_per_m, tuple(profile.bar_lengths)),
+				(row["name"], row["kg_per_m"], tuple(row["bar_lengths"])),
+				code,
+			)
 			item = frappe.db.get_value("Fenestration Profile", code, "item")
 			self.assertEqual(frappe.db.get_value("Item", item, "fen_item_kind"), "Profile")
 		self.assertIn("PLACEHOLDER until DXF", frappe.db.get_value("Series Version", version, "version_note"))

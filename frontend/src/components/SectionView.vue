@@ -24,9 +24,15 @@ const AXES = [
 const VIEW_W = 640
 const PAD_X = 28
 const LABEL_H = 48
-const ROW_H = 18
+/** Room for a dimension line with a label line above it and a second label line below it. */
+const ROW_H = 24
+const FONT = 9
+/** Estimated label width per character, in font sizes (Inter digits are about 0.6 em). */
+const CHAR_EM = 0.6
+/** Clear space between neighbouring labels on one line: about a character, so values never read as one. */
+const LABEL_GAP = 6
 const TICK = 3
-/** Display stand-ins, not series data: depth of a profile with no outline and of the glass band. */
+/** Display stand-ins, not series data: depth of a profile with no outline and of a glass band with no thickness. */
 const BOX_DEPTH_MM = 60
 const GLASS_DEPTH_MM = 24
 const CHAINS: Chain[] = ['profiles', 'glass', 'cells', 'overall']
@@ -114,7 +120,7 @@ const drawn = computed<DrawnPiece[]>(() =>
 		const w = (piece.end - piece.start) * k.value
 		const outline = piece.kind === 'profile' ? (outlines.value[piece.code] ?? null) : null
 		if (!outline || !(outline.width > 0)) {
-			const mm = piece.kind === 'glass' ? GLASS_DEPTH_MM : BOX_DEPTH_MM
+			const mm = piece.kind === 'glass' ? (piece.thickness > 0 ? piece.thickness : GLASS_DEPTH_MM) : BOX_DEPTH_MM
 			return { piece, x, w, depth: mm * k.value, outline: null, transform: '' }
 		}
 		// Uniform scale: the outline's face width becomes the piece width.
@@ -135,21 +141,43 @@ const missing = computed(() => {
 	return [...codes].sort()
 })
 
+interface PlacedDim {
+	dim: SectionDim
+	x: number
+	/** Label baseline; null when it fits on neither label line (the value is then only in the tooltip). */
+	labelY: number | null
+}
+
 const rows = computed(() => {
 	const dims = section.value?.dims ?? []
 	const top = LABEL_H + stripDepth.value + 10
 	return CHAINS.map((chain) => dims.filter((d) => d.chain === chain))
 		.filter((list) => list.length)
-		.map((list, i) => ({ y: top + (i + 1) * ROW_H, dims: list }))
+		.map((list, i) => {
+			const y = top + (i + 1) * ROW_H
+			return { y, dims: placeLabels(list, y) }
+		})
 })
 
-/** Labels that do not fit their segment alternate above and below the line so neighbours do not overlap. */
-function labelY(y: number, dm: SectionDim, j: number): number {
-	const tooNarrow = (dm.end - dm.start) * k.value < dm.label.length * 5.5 + 8
-	return tooNarrow && j % 2 ? y + 11 : y - 3
+/**
+ * Each label goes above its dimension line; when it would run into a label already there it drops to a second
+ * line below, and when both are taken it is left out (its value stays in the dimension's tooltip).
+ */
+function placeLabels(dims: SectionDim[], y: number): PlacedDim[] {
+	const lines = [y - 3, y + FONT + 2]
+	const taken: [number, number][][] = lines.map(() => [])
+	return dims.map((dim) => {
+		const x = (sx(dim.start) + sx(dim.end)) / 2
+		const half = (dim.label.length * FONT * CHAR_EM) / 2 + LABEL_GAP / 2
+		const span: [number, number] = [x - half, x + half]
+		const line = taken.findIndex((spans) => spans.every(([a, b]) => span[1] <= a || span[0] >= b))
+		if (line < 0) return { dim, x, labelY: null }
+		taken[line].push(span)
+		return { dim, x, labelY: lines[line] }
+	})
 }
 
-const viewH = computed(() => LABEL_H + stripDepth.value + 10 + rows.value.length * ROW_H + 10)
+const viewH = computed(() => LABEL_H + stripDepth.value + 10 + rows.value.length * ROW_H + FONT + 6)
 const title = computed(() => (axis.value === 'h' ? 'Section B–B, left to right' : 'Section A–A, bottom to top'))
 const issues = computed(() => section.value?.issues ?? [])
 </script>
@@ -234,15 +262,16 @@ const issues = computed(() => section.value?.issues ?? [])
 						:fill="C.dim"
 					>{{ d.piece.code }}</text>
 				</template>
-				<g :stroke="C.dim" stroke-width="0.75" font-size="9" :fill="C.dim">
-					<g v-for="row in rows" :key="row.y" :data-chain="row.dims[0].chain">
-						<g v-for="(dm, j) in row.dims" :key="j">
+				<g :stroke="C.dim" stroke-width="0.75" :font-size="FONT" :fill="C.dim">
+					<g v-for="row in rows" :key="row.y" :data-chain="row.dims[0].dim.chain">
+						<g v-for="({ dim: dm, x, labelY }, j) in row.dims" :key="j">
+							<title>{{ dm.label }} mm</title>
 							<line :x1="sx(dm.start)" :x2="sx(dm.end)" :y1="row.y" :y2="row.y" />
 							<line :x1="sx(dm.start)" :x2="sx(dm.start)" :y1="row.y - TICK - 1" :y2="row.y + TICK + 1" />
 							<line :x1="sx(dm.end)" :x2="sx(dm.end)" :y1="row.y - TICK - 1" :y2="row.y + TICK + 1" />
 							<line :x1="sx(dm.start) - TICK" :x2="sx(dm.start) + TICK" :y1="row.y + TICK" :y2="row.y - TICK" />
 							<line :x1="sx(dm.end) - TICK" :x2="sx(dm.end) + TICK" :y1="row.y + TICK" :y2="row.y - TICK" />
-							<text :x="(sx(dm.start) + sx(dm.end)) / 2" :y="labelY(row.y, dm, j)" text-anchor="middle" stroke="none">{{ dm.label }}</text>
+							<text v-if="labelY !== null" :x="x" :y="labelY" text-anchor="middle" stroke="none">{{ dm.label }}</text>
 						</g>
 					</g>
 				</g>

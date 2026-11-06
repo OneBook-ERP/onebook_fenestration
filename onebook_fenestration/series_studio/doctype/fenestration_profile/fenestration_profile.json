@@ -22,6 +22,7 @@
   "area_mm2",
   "width_mm",
   "depth_mm",
+  "section_rotation",
   "perimeter_mm",
   "total_perimeter_mm",
   "column_break_section",
@@ -142,6 +143,14 @@
    "precision": "1"
   },
   {
+   "fieldname": "section_rotation",
+   "fieldtype": "Select",
+   "label": "Section Rotation",
+   "options": "0\n90\n180\n270",
+   "default": "0",
+   "description": "Rotate the imported outline so the profile face runs along the cut and the outside is at the top. Width and depth follow the rotation."
+  },
+  {
    "fieldname": "perimeter_mm",
    "fieldtype": "Float",
    "label": "Outer Perimeter (mm)",
@@ -200,7 +209,7 @@
    "hidden": 1
   }
  ],
- "modified": "2026-11-04 04:01:00",
+  "modified": "2026-11-06 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Fenestration Profile",
