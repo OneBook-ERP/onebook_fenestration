@@ -6,9 +6,11 @@ Axis "v" (A-A) cuts vertically at x = `at`; pieces run bottom -> top and `start`
 `at` snaps to the centre of the cell it falls in (outside the frame: the nearest cell), so the cut never runs along a bar.
 
 Pieces are placed with the deductions the cut list uses; glass sizes come from `compute()`. Each profile piece is
-`widths[code]` wide (the profile outline's x-extent); `mirrored` marks pieces on the high side (R / T) of their
-opening, whose outline the drawing flips. Pieces are listed in construction order: frame, then per crossed cell its
-low-side sash and glass members, the glass, its high-side members, then the bar to the next cell, and the far frame.
+`widths[code]` wide (the profile's face width: its outline's extent along the cut, after the profile's section
+rotation); `mirrored` marks pieces on the high side (R / T) of their opening, whose outline the drawing flips. Glass
+pieces carry their glass spec's overall thickness. Pieces are listed in construction order: frame, then per crossed
+cell its low-side sash and glass members, the glass, its high-side members, then the bar to the next cell, and the
+far frame.
 """
 
 from dataclasses import dataclass, field
@@ -32,6 +34,8 @@ class SectionPiece:
 	start: float
 	end: float
 	mirrored: bool = False
+	# glass only: overall unit thickness (mm) of the pane's glass spec; 0 for profiles
+	thickness: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -126,7 +130,11 @@ class _Cut:
 		clearance = self.snapshot.constants.get("glass_clearance", 0)
 		for role in GLASS_ROLES:
 			self._place_profiles(role, cell.path, self.low, start - clearance)
-		self.pieces.append(SectionPiece("glass", pane.glass, "glass", pane.panel, _mm(start), _mm(start + size)))
+		spec = self.snapshot.glasses.get(pane.glass)
+		thickness = spec.thickness_mm if spec else 0.0
+		self.pieces.append(
+			SectionPiece("glass", pane.glass, "glass", pane.panel, _mm(start), _mm(start + size), thickness=thickness)
+		)
 		self.dims.append(Dim(_mm(start), _mm(start + size), _label(size), "glass"))
 		for role in GLASS_ROLES:
 			self._place_profiles(role, cell.path, self.high, start + size + clearance)

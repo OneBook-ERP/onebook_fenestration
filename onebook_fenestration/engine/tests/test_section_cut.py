@@ -158,3 +158,11 @@ class TestSectionCut(unittest.TestCase):
 		self.assertEqual([p.role for p in section.pieces], ["frame", "frame"])
 		section = cross_section(load("w02.json"), snapshot(), "h", widths=CS400_WIDTHS)
 		self.assertEqual([p.role for p in section.pieces], ["frame", "mullion", "glass", "frame"])
+
+	def test_glass_piece_has_thickness(self):
+		section = cross_section(load("w01.json"), snapshot(), "h", widths=CS400_WIDTHS)
+		glass = [p for p in section.pieces if p.kind == "glass"]
+		self.assertTrue(glass)
+		self.assertEqual({p.thickness for p in glass}, {6})
+		self.assertEqual({p.thickness for p in section.pieces if p.kind == "profile"}, {0})
+		self.assertEqual(asdict(glass[0])["thickness"], 6)

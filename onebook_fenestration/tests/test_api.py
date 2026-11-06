@@ -162,12 +162,23 @@ class TestCrossSectionApi(IntegrationTestCase):
 		frame = result["pieces"][0]
 		self.assertEqual(
 			frame,
-			{"kind": "profile", "code": "TSTCUT-F", "role": "frame", "panel": "F1", "start": 0, "end": 50, "mirrored": False},
+			{"kind": "profile", "code": "TSTCUT-F", "role": "frame", "panel": "F1", "start": 0, "end": 50, "mirrored": False, "thickness": 0},
 		)
 		self.assertEqual(out["outlines"], {"TSTCUT-F": {"svg": "M 0 0 L 50 0 L 50 70 Z", "width": 50, "depth": 70}})
 		missing = sorted(i["message"].split()[1] for i in result["issues"] if i["code"] == "no_section_width")
 		self.assertEqual(missing, ["TSTCUT-M", "TSTCUT-S"])
 		self.assertIn({"start": 0, "end": 915, "label": "915", "chain": "overall"}, result["dims"])
+
+	def test_api_returns_rotated_outline(self):
+		frappe.db.set_value("Fenestration Profile", "TSTCUT-F", {"section_rotation": "90", "width_mm": 70, "depth_mm": 50})
+		try:
+			out = cross_section(load("w01.json"), self.version, "h")
+		finally:
+			frappe.db.set_value(
+				"Fenestration Profile", "TSTCUT-F", {"section_rotation": "0", "width_mm": 50, "depth_mm": 70}
+			)
+		self.assertEqual(out["outlines"], {"TSTCUT-F": {"svg": "M 70 0 L 70 50 L 0 50 Z", "width": 70, "depth": 50}})
+		self.assertEqual(out["result"]["pieces"][0]["end"], 70)
 
 	def test_cross_section_api_errors(self):
 		self.assertEqual(cross_section(load("w01.json"), self.version, "x")["error_type"], "design")

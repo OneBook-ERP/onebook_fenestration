@@ -148,3 +148,90 @@ class TestSectionImport(IntegrationTestCase):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):
 			import_profile_sections(self.path)
+
+
+# (code, profile name, drawn width x height in the DXF); names follow Hilux's "DEPTH X FACE"
+ROTATION_ROWS = (
+	("TSTR1", "TST 40MM X 60MM", 40, 60),
+	("TSTR2", "TST SASH 40mm x 64.5MM", 64.5, 40),
+	("TSTR3", "TST PLAIN BEAD", 30, 20),
+	("TSTR4", "TST 40 X 60", 40, 60),
+)
+
+
+def build_rotation_dxf(path):
+	"""Section Details table with one rectangle per ROTATION_ROWS row, 80 mm row pitch."""
+	doc = ezdxf.new("R2018")
+	msp = doc.modelspace()
+	msp.add_mtext("\\LSection  Drawing\\l", dxfattribs={"insert": (80, 1010), "char_height": TEXT_HEIGHT})
+	for text, x in (("Profile Description", 250), ("Profile Code", 320), ("Standard Bar", 380)):
+		msp.add_mtext(text, dxfattribs={"insert": (x, 1005), "char_height": TEXT_HEIGHT, "attachment_point": 5})
+	for i, (code, _name, width, height) in enumerate(ROTATION_ROWS):
+		y = 950 - 80 * i
+		msp.add_mtext(code, dxfattribs={"insert": (305, y), "char_height": TEXT_HEIGHT})
+		rectangle(msp, 90, y - 25, width, height)
+	for i in range(len(ROTATION_ROWS) + 1):
+		msp.add_line((50, 990 - 80 * i), (450, 990 - 80 * i))
+	doc.saveas(path)
+
+
+class TestSectionImportRotation(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		cls.tmp = tempfile.mkdtemp()
+		cls.path = os.path.join(cls.tmp, "rotation.dxf")
+		build_rotation_dxf(cls.path)
+
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+		make_masters()
+		for code, name, _w, _h in ROTATION_ROWS:
+			make_profile(code)
+			frappe.db.set_value(
+				"Fenestration Profile",
+				code,
+				{"profile_name": name, "dxf_file": None, "section_svg": None, "section_rotation": "0"},
+			)
+
+	def profile(self, code):
+		return frappe.db.get_value(
+			"Fenestration Profile", code, ["section_rotation", "width_mm", "depth_mm", "section_svg"], as_dict=True
+		)
+
+	def test_rotation_guess_from_name(self):
+		frappe.db.set_value("Fenestration Profile", "TSTR4", "section_rotation", "270")
+		result = import_profile_sections(self.path, [row[0] for row in ROTATION_ROWS])
+		self.assertEqual(sorted(result["updated"]), ["TSTR1", "TSTR2", "TSTR3", "TSTR4"])
+		self.assertEqual(result["rotation_unknown"], ["TSTR3"])
+		self.assertEqual(result["rotation_kept"], ["TSTR4"])
+		expected = {
+			"TSTR1": ("90", 60, 40),  # drawn depth along x: turned
+			"TSTR2": ("0", 64.5, 40),  # drawn face along x: as is
+			"TSTR3": ("0", 30, 20),  # name has no sizes: left alone
+			"TSTR4": ("270", 60, 40),  # set by hand: kept, extents follow it
+		}
+		for code, (rotation, width, depth) in expected.items():
+			profile = self.profile(code)
+			self.assertEqual(profile.section_rotation, rotation, code)
+			self.assertAlmostEqual(profile.width_mm, width, delta=0.01, msg=code)
+			self.assertAlmostEqual(profile.depth_mm, depth, delta=0.01, msg=code)
+		# the stored outline stays the raw, unrotated drawing
+		_min_x, _min_y, max_x, max_y = svg_bbox(self.profile("TSTR1").section_svg)
+		self.assertAlmostEqual(max_x, 40, delta=0.01)
+		self.assertAlmostEqual(max_y, 60, delta=0.01)
+
+
+class TestRotationGuess(IntegrationTestCase):
+	def test_guess_rotation(self):
+		from onebook_fenestration.series_studio.section_import import guess_rotation
+
+		self.assertEqual(guess_rotation("CMT T MULLION 40MM X 60MM", 40, 60), 90)
+		self.assertEqual(guess_rotation("CMT SASH 40MM X 64.5MM", 64.45, 40), 0)
+		self.assertEqual(guess_rotation("CMT OUTER 40MM X 42MM", 40, 42), 90)
+		self.assertEqual(guess_rotation("x 48 x 70", 69.7, 48), 0)
+		self.assertIsNone(guess_rotation("BEAD", 20, 10))
+		self.assertIsNone(guess_rotation("40MM X 60MM", 50, 50))
+		self.assertIsNone(guess_rotation("40MM X 40.5MM", 40, 40.5))  # both orientations fit
+		self.assertIsNone(guess_rotation(None, 40, 60))

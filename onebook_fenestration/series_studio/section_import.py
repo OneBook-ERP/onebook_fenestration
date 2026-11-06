@@ -2,7 +2,8 @@
 
 The sheet has a table whose rows carry a profile code in the "Profile Code" column and a drawing of the profile's
 cross-section in the "Section  Drawing" column. Each drawing becomes an SVG path (mm, bbox at 0,0, y down) stored on
-the Fenestration Profile, for display only: weights and perimeters are never touched.
+the Fenestration Profile, for display only: weights and perimeters are never touched. The drawing is stored as
+drawn; the profile's `section_rotation` turns it so the face runs along the cut (see `guess_rotation`).
 
 Run from bench (System Manager only):
 	bench --site <site> execute onebook_fenestration.series_studio.section_import.import_profile_sections \
@@ -18,6 +19,8 @@ import frappe
 from ezdxf import bbox
 from ezdxf.path import make_path
 
+from onebook_fenestration.series_studio.outline import rotate_path
+
 SECTION_HEADER = "section drawing"
 DESCRIPTION_HEADER = "profile description"
 CODE_HEADER = "profile code"
@@ -29,6 +32,10 @@ GRID_LINE_SHARE = 0.9
 TABLE_END_GAP = 2.5
 # A code label is one word (descriptions have spaces); position in the Profile Code column does the rest.
 CODE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+# Hilux profile names give the size as "<DEPTH>MM X <FACE>MM", e.g. "CMT T MULLION 40MM X 60MM".
+SIZE_PATTERN = re.compile(r"(\d+(?:\.\d+)?)\s*(?:MM)?\s*X\s*(\d+(?:\.\d+)?)", re.IGNORECASE)
+# How close (mm) a drawn extent must be to a size in the name to count as that size.
+SIZE_TOLERANCE = 1.5
 
 
 class SectionSheetError(Exception):
@@ -60,36 +67,75 @@ class Box:
 def import_profile_sections(dxf_path: str, profile_codes: list[str] | None = None) -> dict:
 	"""Store the outline of each profile row (default: every row in the sheet) on its Fenestration Profile.
 
-	Profiles with their own `dxf_file` keep the outline computed from it. Returns updated codes and skipped ones
-	with a reason.
+	The outline is stored as drawn; `section_rotation` (guessed from the profile name, see `guess_rotation`) turns
+	it for display, and width_mm / depth_mm are the turned extents. A rotation already set (non-zero) is kept.
+	Profiles with their own `dxf_file` keep the outline computed from it. Returns updated codes, skipped ones with a
+	reason, codes whose rotation could not be guessed (`rotation_unknown`) and codes whose set rotation was kept
+	(`rotation_kept`).
 	"""
 	frappe.only_for("System Manager")
 	try:
 		outlines = read_sections(dxf_path)
 	except (OSError, ezdxf.DXFError, SectionSheetError) as exc:
 		frappe.throw(f"Could not read section sheet {dxf_path}: {exc}")
-	result = {"updated": [], "skipped": []}
+	result = {"updated": [], "skipped": [], "rotation_unknown": [], "rotation_kept": []}
 	for code in profile_codes or sorted(outlines):
-		reason = _skip_reason(code, outlines.get(code))
+		outline = outlines.get(code)
+		profile = _profile(code)
+		reason = _skip_reason(outline, profile)
 		if reason:
 			result["skipped"].append({"code": code, "reason": reason})
 			continue
-		outline = outlines[code]
+		rotation = int(profile.section_rotation or 0)
+		if rotation:
+			result["rotation_kept"].append(code)
+		else:
+			guess = guess_rotation(profile.profile_name, outline.width_mm, outline.depth_mm)
+			if guess is None:
+				result["rotation_unknown"].append(code)
+			rotation = guess or 0
+		_svg, width, depth = rotate_path(outline.svg, rotation)
 		frappe.db.set_value(
 			"Fenestration Profile",
 			code,
-			{"section_svg": outline.svg, "width_mm": outline.width_mm, "depth_mm": outline.depth_mm},
+			{"section_svg": outline.svg, "section_rotation": str(rotation), "width_mm": width, "depth_mm": depth},
 		)
 		result["updated"].append(code)
 	return result
 
 
-def _skip_reason(code: str, outline: Outline | None) -> str | None:
+def guess_rotation(name: str | None, width: float, depth: float) -> int | None:
+	"""Quarter turn that puts the profile face along x, from a "<DEPTH>MM X <FACE>MM" name and the drawn extents.
+
+	90 when the drawing has the depth along x, 0 when it already has the face along x; None when the name has no
+	sizes, the drawing matches neither, or both (depth and face too close to tell).
+	"""
+	match = SIZE_PATTERN.search(name or "")
+	if not match:
+		return None
+	depth_mm, face_mm = float(match[1]), float(match[2])
+	turned = _near(width, depth_mm) and _near(depth, face_mm)
+	upright = _near(width, face_mm) and _near(depth, depth_mm)
+	if turned == upright:
+		return None
+	return 90 if turned else 0
+
+
+def _near(a: float, b: float) -> bool:
+	return abs(a - b) <= SIZE_TOLERANCE
+
+
+def _profile(code: str):
+	return frappe.db.get_value(
+		"Fenestration Profile", code, ["name", "profile_name", "dxf_file", "section_rotation"], as_dict=True
+	)
+
+
+def _skip_reason(outline: Outline | None, profile) -> str | None:
 	if outline is None:
 		return "not in the Section Details table"
 	if not outline.svg:
 		return "no drawing in its table row"
-	profile = frappe.db.get_value("Fenestration Profile", code, ["name", "dxf_file"], as_dict=True)
 	if not profile:
 		return "no Fenestration Profile with this code"
 	if profile.dxf_file:

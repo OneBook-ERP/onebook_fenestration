@@ -10,6 +10,7 @@ from onebook_fenestration.fenestration.doctype.window_design.window_design impor
 	pricing_to_dict,
 	result_to_dict,
 )
+from onebook_fenestration.series_studio.outline import rotate_path
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.pricing.rates import (
 	missing_defaults_message,
@@ -62,12 +63,16 @@ def cross_section(design: dict | str, series_version: str, axis: str, at: float 
 	except RuleError as exc:
 		return {"ok": False, "error_type": "series", "message": str(exc)}
 	codes = {piece.code for piece in section.pieces if piece.kind == "profile"}
-	outlines = {
-		code: {"svg": p.section_svg, "width": p.width_mm, "depth": p.depth_mm}
-		for code, p in sorted(profiles.items())
-		if code in codes and p.section_svg
-	}
+	outlines = {code: _outline(p) for code, p in sorted(profiles.items()) if code in codes and p.section_svg}
 	return {"ok": True, "result": json.loads(json.dumps(dataclasses.asdict(section))), "outlines": outlines}
+
+
+def _outline(profile) -> dict:
+	"""The stored outline turned by the profile's `section_rotation`: face along x, bbox at 0,0."""
+	if not int(profile.section_rotation or 0):
+		return {"svg": profile.section_svg, "width": profile.width_mm, "depth": profile.depth_mm}
+	svg, width, depth = rotate_path(profile.section_svg, profile.section_rotation)
+	return {"svg": svg, "width": width, "depth": depth}
 
 
 def _profile_sections(codes: list[str]) -> dict:
@@ -75,7 +80,7 @@ def _profile_sections(codes: list[str]) -> dict:
 	rows = frappe.get_all(
 		"Fenestration Profile",
 		filters={"name": ("in", codes or [""])},
-		fields=["name", "section_svg", "width_mm", "depth_mm"],
+		fields=["name", "section_svg", "section_rotation", "width_mm", "depth_mm"],
 	)
 	return {row.name: row for row in rows}
 
