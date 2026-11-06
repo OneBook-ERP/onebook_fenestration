@@ -27,6 +27,9 @@ class Bar:
 	id: str
 	length_span: float
 	ends: tuple[str, str]
+	# Centre line (x of a mullion, y of a transom) and where its span starts (y of a mullion, x of a transom).
+	at: float = 0.0
+	start: float = 0.0
 
 
 def is_real(value) -> bool:
@@ -77,13 +80,13 @@ def _walk(node, path, depth, x, y, w, h, sides, cells, bars, counters):
 	bounds = _split_bounds(path, node.get("at") or [], span, len(children))
 
 	bar_kind = BAR_KIND[direction]
-	for _ in bounds[1:-1]:
+	for bound in bounds[1:-1]:
 		counters[bar_kind] += 1
 		prefix = "M" if bar_kind == "mullion" else "T"
 		if direction == "v":
-			bars.append(Bar(bar_kind, f"{prefix}{counters[bar_kind]}", h, (sides["B"], sides["T"])))
+			bars.append(Bar(bar_kind, f"{prefix}{counters[bar_kind]}", h, (sides["B"], sides["T"]), x + bound, y))
 		else:
-			bars.append(Bar(bar_kind, f"{prefix}{counters[bar_kind]}", w, (sides["L"], sides["R"])))
+			bars.append(Bar(bar_kind, f"{prefix}{counters[bar_kind]}", w, (sides["L"], sides["R"]), y + bound, x))
 
 	last = len(children) - 1
 	for i, child in enumerate(children):

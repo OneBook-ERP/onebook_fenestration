@@ -130,6 +130,54 @@ export function computeDesign(
 	})
 }
 
+export type CutAxis = 'h' | 'v'
+export type DimChain = 'overall' | 'cells' | 'glass' | 'profiles'
+export interface SectionPiece {
+	kind: 'profile' | 'glass'
+	code: string
+	role: string
+	panel: string
+	/** mm along the cut: x from the frame's left edge (h), y up from its bottom edge (v). */
+	start: number
+	end: number
+	/** Outline flipped: it is the right/top member of its pair. */
+	mirrored: boolean
+}
+export interface SectionDim {
+	start: number
+	end: number
+	label: string
+	chain: DimChain
+}
+/** Profile section outline: SVG path `d` in mm, bbox starting at 0,0 with y down. */
+export interface SectionOutline {
+	svg: string
+	width: number
+	depth: number
+}
+export interface CrossSection {
+	axis: CutAxis
+	/** Where the engine cut, snapped to a cell centre. */
+	at: number
+	length: number
+	pieces: SectionPiece[]
+	dims: SectionDim[]
+	issues: Issue[]
+}
+export type CutResponse =
+	| { ok: true; result: CrossSection; outlines: Record<string, SectionOutline> }
+	| { ok: false; error_type?: string; message: string }
+
+/** Profiles and glass one cut line crosses; `at` null lets the engine cut through the first cell. */
+export function crossSection(design: Design, seriesVersion: string, axis: CutAxis, at: number | null): Promise<CutResponse> {
+	return call(`${API}.cross_section`, {
+		design: JSON.stringify(design),
+		series_version: seriesVersion,
+		axis,
+		at,
+	})
+}
+
 export interface FenestrationDefaults {
 	default_finish: string | null
 	default_price_structure: string | null

@@ -66,3 +66,40 @@ class TestProfileDxf(IntegrationTestCase):
 		profile = profile_doc("TPBAR2", None)
 		profile.bar_lengths = " 4880 , 5800 "
 		profile.insert()
+
+	def test_save_without_dxf_keeps_perimeters(self):
+		profile = profile_doc("TSTP1", None)
+		profile.visible_perimeter_mm = 90
+		profile.total_perimeter_mm = 202
+		profile.insert()
+		profile.save()
+		profile.save()
+		profile.reload()
+		self.assertEqual(profile.visible_perimeter_mm, 90)
+		self.assertEqual(profile.total_perimeter_mm, 202)
+
+	def test_save_without_dxf_keeps_outline(self):
+		profile = profile_doc("TSTP2", None).insert()
+		profile.section_svg = "M0 0 L10 0 L10 10 Z"
+		profile.width_mm = 40
+		profile.depth_mm = 60
+		profile.save()
+		profile.save()
+		profile.reload()
+		self.assertEqual(profile.section_svg, "M0 0 L10 0 L10 10 Z")
+		self.assertEqual(profile.width_mm, 40)
+		self.assertEqual(profile.depth_mm, 60)
+
+	def test_removing_dxf_clears_geometry_not_perimeters(self):
+		file_doc = make_file(FIXTURE.read_bytes())
+		profile = profile_doc("TSTP3", file_doc.file_url).insert()
+		profile.visible_perimeter_mm = 90
+		profile.total_perimeter_mm = 202
+		profile.save()
+		profile.dxf_file = None
+		profile.save()
+		profile.reload()
+		for fieldname in ("area_mm2", "width_mm", "depth_mm", "section_svg"):
+			self.assertFalse(profile.get(fieldname), fieldname)
+		self.assertEqual(profile.visible_perimeter_mm, 90)
+		self.assertEqual(profile.total_perimeter_mm, 202)
