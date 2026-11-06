@@ -165,4 +165,43 @@ describe('PropertiesPanel', () => {
 		expect(w.text()).not.toContain('Handle')
 		expect(w.text()).not.toContain('Fly mesh')
 	})
+
+	it('displays explicit sash width/height, glass width/height, mullion M1 dimensions, and hides cards when deselected', async () => {
+		const w = mountPanel([sash, sash], 'F1.1', [{ panel: 'F1-S2', path: 'F1.1', width: 475.5, height: 1063 }])
+		const store = useDesignerStore()
+		store.result = {
+			members: [
+				{ panel: 'F1-S2', path: 'F1.1', role: 'sash', position: 'B', length: 577 },
+				{ panel: 'F1-S2', path: 'F1.1', role: 'sash', position: 'L', length: 1164 },
+				{ panel: 'M1', role: 'mullion', profile: 'P403', length: 1116, angles: [90, 90] },
+			],
+			glass: [{ panel: 'F1-S2', path: 'F1.1', width: 475.5, height: 1063 }],
+		} as never
+		await w.vm.$nextTick()
+
+		expect(w.text()).toContain('Sash width')
+		expect(w.text()).toContain('577 mm')
+		expect(w.text()).toContain('Sash height')
+		expect(w.text()).toContain('1164 mm')
+		expect(w.text()).toContain('Glass width')
+		expect(w.text()).toContain('475.5 mm')
+		expect(w.text()).toContain('Glass height')
+		expect(w.text()).toContain('1063.0 mm')
+
+		// Select center mullion M1
+		store.select('M1')
+		await w.vm.$nextTick()
+		expect(w.text()).toContain('Selected mullion M1')
+		expect(w.text()).toContain('1116 mm')
+		expect(w.text()).toContain('40 mm')
+		expect(w.text()).toContain('600 mm')
+		expect(w.text()).toContain('P403')
+
+		// Deselect everything (click outside on workspace)
+		store.select('')
+		await w.vm.$nextTick()
+		expect(w.text()).not.toContain('Selected panel')
+		expect(w.text()).not.toContain('Selected mullion')
+		expect(w.text()).not.toContain('Split (vertical)')
+	})
 })

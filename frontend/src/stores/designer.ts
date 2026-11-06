@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computeDesign, type ComputeResult, type SeriesInfo } from '@/api'
+import { layoutGeom } from '@/design/geometry'
 import { getNode, newDesign, validateDesign } from '@/design/tree'
 import type { Design } from '@/design/types'
 
@@ -79,6 +80,12 @@ export const useDesignerStore = defineStore('designer', {
 		/** After undo/redo the selected node may be gone: select its nearest existing ancestor. */
 		keepSelection() {
 			let path = this.selectedPath
+			if (!path) return
+			if (/^[MT]\d+$/.test(path)) {
+				const exists = layoutGeom(this.design).bars.some((b) => b.id === path)
+				if (!exists) this.selectedPath = 'F1'
+				return
+			}
 			while (path.includes('.') && !hasNode(this.design, path)) path = path.slice(0, path.lastIndexOf('.'))
 			this.selectedPath = path
 		},

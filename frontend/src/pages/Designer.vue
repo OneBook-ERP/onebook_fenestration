@@ -111,6 +111,7 @@ const selectedLeaf = computed(() => {
 const canRemoveSplit = computed(() => {
 	const p = store.selectedPath
 	if (!p) return false
+	if (layoutGeom(store.design).bars.some((b) => b.id === p)) return true
 	try {
 		const n = getNode(store.design, p)
 		return n.type === 'split' || p.includes('.')
@@ -145,6 +146,7 @@ async function load(name: string | null) {
 			defaults.default_finish ?? '',
 			defaults.default_price_structure ?? '',
 		)
+		store.select(layoutGeom(store.design).cells[0]?.path ?? 'F1')
 		return
 	}
 	if (name === loadedName) return
@@ -154,6 +156,7 @@ async function load(name: string | null) {
 		if (name !== savedName.value) return
 		meta.value = { ref: doc.design_ref, qty: doc.qty, location: doc.location ?? '' }
 		store.reset(parseJson(doc.design_json), doc.series_version, doc.finish ?? '', doc.price_structure ?? '')
+		store.select(layoutGeom(store.design).cells[0]?.path ?? 'F1')
 		lockedBy.value = doc.locked_by ?? null
 		loadedName = name
 	} catch (e) {
@@ -203,17 +206,26 @@ function toggleExhaustFan() {
 }
 function unsplitSelected() {
 	const p = store.selectedPath
-	const target = getNode(store.design, p).type === 'split' ? p : p.split('.').slice(0, -1).join('.')
+	const bar = layoutGeom(store.design).bars.find((b) => b.id === p)
+	let target = bar ? bar.splitPath : ''
+	if (!target) {
+		try {
+			target = getNode(store.design, p).type === 'split' ? p : p.split('.').slice(0, -1).join('.')
+		} catch {
+			return
+		}
+	}
 	if (!target) return
 	store.apply((d) => removeSplit(d, target))
-	store.select(target)
+	const nextLeaf = layoutGeom(store.design).cells.find((c) => c.path === target || c.path.startsWith(`${target}.`))?.path ?? target
+	store.select(nextLeaf)
 }
 function applyTemplate(tplId: string) {
 	const tpl = TEMPLATES.find((t) => t.id === tplId)
 	if (!tpl) return
 	const { width, height } = store.design
 	store.apply(() => tpl.build(width, height))
-	store.select('F1.0')
+	store.select(layoutGeom(store.design).cells[0]?.path ?? 'F1')
 }
 function onMoveSplit(p: { splitPath: string; index: number; pos: number }) {
 	store.dragTo((d) => moveSplit(d, p.splitPath, p.index, p.pos))
@@ -430,7 +442,7 @@ async function copy() {
 			</nav>
 
 			<main
-				class="flex min-h-[50vh] min-w-0 flex-1 flex-col items-center p-2 md:min-h-0"
+				class="flex min-h-[50vh] min-w-0 flex-1 flex-col items-center bg-white md:min-h-0"
 				:class="sectionOn ? 'justify-start overflow-y-auto overflow-x-hidden' : 'justify-center overflow-hidden'"
 			>
 				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
@@ -445,7 +457,7 @@ async function copy() {
 					/>
 					<div
 						v-else
-						class="flex w-full flex-1 items-center justify-center"
+						class="flex h-full w-full flex-1 items-stretch justify-center"
 						:class="sectionOn ? 'min-h-[45vh]' : 'min-h-0'"
 					>
 						<WindowCanvas
@@ -456,6 +468,8 @@ async function copy() {
 							:view="view === 'outside' ? 'outside' : 'inside'"
 							:finish-color="view === 'outside' ? outsideFinishColor : finishColor"
 							:section="sectionOn ? cutPos : null"
+							:members="store.result?.members"
+							:glass="store.result?.glass"
 							@select="store.select"
 							@move-split="onMoveSplit"
 							@drag-start="store.beginDrag()"

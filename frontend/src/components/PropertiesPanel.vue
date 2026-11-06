@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { FormControl, Select, useList } from 'frappe-ui'
 import { computed } from 'vue'
+import { layoutGeom } from '@/design/geometry'
 import { getNode, moveSplit, removeSplit, setLeaf, setSize } from '@/design/tree'
 import { panelLabel } from '@/design/typology'
 import type { DesignNode, LeafNode, SplitNode } from '@/design/types'
 import { useDesignerStore } from '@/stores/designer'
+
+const FRAME_FACE = 42
+const BAR_FACE = 40
+const SASH_FACE = 50
 
 export interface Meta {
 	ref: string
@@ -38,13 +43,83 @@ const glassOptions = computed(() => {
 	}
 	return opts
 })
+const geom = computed(() => layoutGeom(store.design))
+const selectedCellGeom = computed(() => geom.value.cells.find((c) => c.path === store.selectedPath) ?? null)
+const selectedBar = computed(() => geom.value.bars.find((b) => b.id === store.selectedPath) ?? null)
+const barMember = computed(() => {
+	if (!selectedBar.value) return null
+	return (store.result?.members ?? []).find((m) => m.panel === selectedBar.value?.id || m.path === selectedBar.value?.id) ?? null
+})
+const barCutLength = computed(() => {
+	const b = selectedBar.value
+	if (!b) return '—'
+	if (barMember.value?.length !== undefined) {
+		return `${Number(barMember.value.length).toFixed(0)} mm`
+	}
+	const { width, height } = store.design
+	if (b.dir === 'v') {
+		const bIn = b.y === 0 ? FRAME_FACE : BAR_FACE / 2
+		const tIn = b.y + b.length === height ? FRAME_FACE : BAR_FACE / 2
+		return `${Math.max(0, b.length - bIn - tIn).toFixed(0)} mm`
+	}
+	const lIn = b.x === 0 ? FRAME_FACE : BAR_FACE / 2
+	const rIn = b.x + b.length === width ? FRAME_FACE : BAR_FACE / 2
+	return `${Math.max(0, b.length - lIn - rIn).toFixed(0)} mm`
+})
+
 const selectedLabel = computed(() => panelLabel(store.selectedPath, store.result))
+const glassRow = computed(() => store.result?.glass.find((g) => g.path === store.selectedPath) ?? null)
 const glassCut = computed(() => {
-	const row = store.result?.glass.find((g) => g.path === store.selectedPath)
+	const row = glassRow.value
 	const mm = (v: number | undefined) => (typeof v === 'number' ? v.toFixed(1) : null)
 	const w = mm(row?.width)
 	const h = mm(row?.height)
 	return w && h ? `${w} × ${h} mm` : '—'
+})
+
+const glassDims = computed(() => {
+	const row = glassRow.value
+	if (typeof row?.width === 'number' && typeof row?.height === 'number') {
+		return { w: `${row.width.toFixed(1)} mm`, h: `${row.height.toFixed(1)} mm` }
+	}
+	const c = selectedCellGeom.value
+	if (!c) return { w: '—', h: '—' }
+	const { width, height } = store.design
+	const l = c.x === 0 ? FRAME_FACE : BAR_FACE / 2
+	const r = c.x + c.w === width ? FRAME_FACE : BAR_FACE / 2
+	const b = c.y === 0 ? FRAME_FACE : BAR_FACE / 2
+	const t = c.y + c.h === height ? FRAME_FACE : BAR_FACE / 2
+	const sashIn = c.node.type === 'sash' ? SASH_FACE * 2 : 0
+	return {
+		w: `${Math.max(0, c.w - l - r - sashIn).toFixed(1)} mm`,
+		h: `${Math.max(0, c.h - t - b - sashIn).toFixed(1)} mm`,
+	}
+})
+
+const sashDims = computed(() => {
+	if (leaf.value?.type !== 'sash') return { w: '—', h: '—' }
+	const members = (store.result?.members ?? []).filter(
+		(m) => m.path === store.selectedPath && m.role === 'sash',
+	)
+	const wMember = members.find((m) => m.position === 'B' || m.position === 'T')
+	const hMember = members.find((m) => m.position === 'L' || m.position === 'R')
+	if (wMember?.length !== undefined && hMember?.length !== undefined) {
+		return {
+			w: `${Number(wMember.length).toFixed(0)} mm`,
+			h: `${Number(hMember.length).toFixed(0)} mm`,
+		}
+	}
+	const c = selectedCellGeom.value
+	if (!c) return { w: '—', h: '—' }
+	const { width, height } = store.design
+	const l = c.x === 0 ? FRAME_FACE : BAR_FACE / 2
+	const r = c.x + c.w === width ? FRAME_FACE : BAR_FACE / 2
+	const b = c.y === 0 ? FRAME_FACE : BAR_FACE / 2
+	const t = c.y + c.h === height ? FRAME_FACE : BAR_FACE / 2
+	return {
+		w: `${Math.max(0, c.w - l - r).toFixed(0)} mm`,
+		h: `${Math.max(0, c.h - t - b).toFixed(0)} mm`,
+	}
 })
 
 const sashSize = computed(() => {
@@ -164,11 +239,14 @@ function nodeAt(path: string): DesignNode | null {
 	}
 }
 const leaf = computed(() => {
+	if (!store.selectedPath) return null
 	const n = nodeAt(store.selectedPath)
 	return n && n.type !== 'split' ? n : null
 })
 const splitPath = computed(() => {
 	const p = store.selectedPath
+	if (!p) return ''
+	if (selectedBar.value) return selectedBar.value.splitPath
 	return nodeAt(p)?.type === 'split' ? p : p.split('.').slice(0, -1).join('.')
 })
 const split = computed<SplitNode | null>(() => {
@@ -379,9 +457,27 @@ function optNum(e: Event): number | undefined {
 
 				<!-- Derived Engineering Summary Table -->
 				<div class="mt-1 space-y-1.5 border-t border-gray-100 pt-2.5 text-xs">
-					<div v-if="leaf.type === 'sash'" class="flex items-center justify-between text-gray-600">
-						<span>Sash size</span>
-						<span class="font-medium text-gray-900">{{ sashSize }}</span>
+					<template v-if="leaf.type === 'sash'">
+						<div class="flex items-center justify-between text-gray-600">
+							<span>Sash width</span>
+							<span class="font-medium text-gray-900">{{ sashDims.w }}</span>
+						</div>
+						<div class="flex items-center justify-between text-gray-600">
+							<span>Sash height</span>
+							<span class="font-medium text-gray-900">{{ sashDims.h }}</span>
+						</div>
+						<div class="flex items-center justify-between text-gray-600">
+							<span>Sash size</span>
+							<span class="font-medium text-gray-900">{{ sashSize }}</span>
+						</div>
+					</template>
+					<div class="flex items-center justify-between text-gray-600">
+						<span>Glass width</span>
+						<span class="font-medium text-gray-900">{{ glassDims.w }}</span>
+					</div>
+					<div class="flex items-center justify-between text-gray-600">
+						<span>Glass height</span>
+						<span class="font-medium text-gray-900">{{ glassDims.h }}</span>
 					</div>
 					<p class="flex items-center justify-between text-gray-600">
 						<span>Glass cut {{ glassCut }}</span>
@@ -400,6 +496,66 @@ function optNum(e: Event): number | undefined {
 						<span>Exhaust fan cut</span>
 						<span class="font-semibold">180 mm cutout</span>
 					</div>
+				</div>
+			</div>
+		</details>
+
+		<!-- Card 3b: Selected Mullion / Transom -->
+		<details
+			v-if="selectedBar"
+			open
+			class="rounded-xl border-2 border-blue-600 bg-white p-3.5 shadow-2xs"
+		>
+			<summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-gray-900">
+				<span>Selected {{ selectedBar.dir === 'v' ? 'mullion' : 'transom' }} {{ selectedBar.id }}</span>
+				<span class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-xs font-semibold text-blue-700">
+					{{ selectedBar.dir === 'v' ? 'vertical' : 'horizontal' }}
+				</span>
+			</summary>
+			<div class="mt-3 flex flex-col gap-3">
+				<FormControl
+					v-if="split"
+					type="number"
+					:label="`${selectedBar.id} position (mm)`"
+					:model-value="split.at[selectedBar.index]"
+					@change="moveBar(selectedBar.index, $event)"
+				/>
+				<div class="space-y-1.5 border-t border-gray-100 pt-2.5 text-xs">
+					<div class="flex items-center justify-between text-gray-600">
+						<span>Cut length</span>
+						<span class="font-medium text-gray-900">{{ barCutLength }}</span>
+					</div>
+					<div class="flex items-center justify-between text-gray-600">
+						<span>Span</span>
+						<span class="font-medium text-gray-900">{{ selectedBar.length }} mm</span>
+					</div>
+					<div class="flex items-center justify-between text-gray-600">
+						<span>Face width</span>
+						<span class="font-medium text-gray-900">{{ BAR_FACE }} mm</span>
+					</div>
+					<div class="flex items-center justify-between text-gray-600">
+						<span>Position</span>
+						<span class="font-medium text-gray-900">{{ selectedBar.dir === 'v' ? selectedBar.x : selectedBar.y }} mm</span>
+					</div>
+					<div v-if="barMember?.profile" class="flex items-center justify-between text-gray-600">
+						<span>Profile</span>
+						<span class="font-mono font-medium text-gray-900">{{ barMember.profile }}</span>
+					</div>
+					<div v-if="barMember?.angles" class="flex items-center justify-between text-gray-600">
+						<span>Cut angles</span>
+						<span class="font-medium text-gray-900">
+							{{ Array.isArray(barMember.angles) ? `${barMember.angles.join('° / ')}°` : barMember.angles }}
+						</span>
+					</div>
+				</div>
+				<div class="flex justify-end border-t border-gray-100 pt-2">
+					<button
+						type="button"
+						class="text-xs font-medium text-red-600 hover:underline"
+						@click.prevent="onRemoveSplit"
+					>
+						Remove split
+					</button>
 				</div>
 			</div>
 		</details>

@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import w01 from '@/design/__fixtures__/w01.json'
 import type { Design } from '@/design/types'
-import WindowCanvas from './WindowCanvas.vue'
+import WindowCanvas, { MAX_PAN_OFFSET, MAX_ZOOM, MIN_ZOOM } from './WindowCanvas.vue'
 
 function mountCanvas(props: Record<string, unknown> = {}) {
 	return mount(WindowCanvas, {
@@ -265,5 +265,195 @@ describe('WindowCanvas', () => {
 		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
 		expect(m).not.toContain('stroke-dasharray="12 4 3 4"')
 		expect(m).not.toContain('>A<')
+	})
+
+	it('zooms in and out with controls, mouse wheel, and keys while clamping to MIN_ZOOM and MAX_ZOOM', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		expect(svg.attributes('viewBox')).toBe('0 0 640 760')
+
+		await w.find('button[aria-label="Zoom in"]').trigger('click')
+		expect(w.find('button[aria-label="Reset zoom"]').text()).toBe('115%')
+
+		await svg.trigger('wheel', { deltaY: 100 })
+		expect(w.find('button[aria-label="Reset zoom"]').text()).toBe('100%')
+
+		for (let i = 0; i < 30; i++) {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: '-' }))
+		}
+		await w.vm.$nextTick()
+		expect((w.vm as any).zoom).toBe(MIN_ZOOM)
+		expect(w.find('button[aria-label="Zoom out"]').attributes('disabled')).toBeDefined()
+
+		for (let i = 0; i < 40; i++) {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: '+' }))
+		}
+		await w.vm.$nextTick()
+		expect((w.vm as any).zoom).toBe(MAX_ZOOM)
+		expect(w.find('button[aria-label="Zoom in"]').attributes('disabled')).toBeDefined()
+
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))
+		await w.vm.$nextTick()
+		expect((w.vm as any).zoom).toBe(1)
+		expect(svg.attributes('viewBox')).toBe('0 0 640 760')
+		w.unmount()
+	})
+
+	it('holds Shift to grab and move around the workspace and clamps pan to MAX_PAN_OFFSET', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }))
+		await w.vm.$nextTick()
+		expect(svg.attributes('style')).toContain('cursor: grab')
+
+		await svg.trigger('pointerdown', { clientX: 200, clientY: 200, shiftKey: true, button: 0, pointerId: 1 })
+		expect(svg.attributes('style')).toContain('cursor: grabbing')
+
+		await svg.trigger('pointermove', { clientX: 280, clientY: 250, shiftKey: true, pointerId: 1 })
+		expect((w.vm as any).pan).toEqual({ x: 80, y: 50 })
+
+		await svg.trigger('pointermove', { clientX: 9999, clientY: -9999, shiftKey: true, pointerId: 1 })
+		expect((w.vm as any).pan).toEqual({ x: MAX_PAN_OFFSET, y: -MAX_PAN_OFFSET })
+
+		await svg.trigger('pointerup', { pointerId: 1 })
+		window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift' }))
+		await w.vm.$nextTick()
+
+		// Exported SVG markup resets viewBox and background rect to canonical 640x760
+		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
+		expect(m).toContain('viewBox="0 0 640 760"')
+		expect(m).toContain('width="640"')
+		expect(m).toContain('height="760"')
+		w.unmount()
+	})
+
+	it('renders 45° miter or 90° butt corner cut lines on frame and sashes', async () => {
+		const w = mountCanvas()
+		const frameCuts = () => w.findAll('line[data-corner-cut="frame"]')
+		const sashCuts = () => w.findAll('line[data-corner-cut="sash"]')
+		expect(frameCuts()).toHaveLength(4)
+		expect(sashCuts()).toHaveLength(8) // 2 sashes * 4 corners
+		for (const ln of [...frameCuts(), ...sashCuts()]) {
+			expect(ln.attributes('data-cut-angle')).toBe('45')
+			// 45° miter line has non-zero dx and dy
+			expect(Number(ln.attributes('x1'))).not.toBe(Number(ln.attributes('x2')))
+			expect(Number(ln.attributes('y1'))).not.toBe(Number(ln.attributes('y2')))
+		}
+
+		// When members specify 90° butt joints
+		await w.setProps({
+			members: [
+				{ role: 'frame', path: 'F1', angles: [90, 90] },
+				{ role: 'sash', path: 'F1.0', angles: '[90, 90]' },
+				{ role: 'sash', path: 'F1.1', angles: '45/135' },
+			],
+		})
+		for (const ln of frameCuts()) {
+			expect(ln.attributes('data-cut-angle')).toBe('90')
+			expect(Number(ln.attributes('y1'))).toBeCloseTo(Number(ln.attributes('y2')), 6)
+		}
+		expect(sashCuts().slice(0, 4).every((ln) => ln.attributes('data-cut-angle') === '90')).toBe(true)
+		expect(sashCuts().slice(4, 8).every((ln) => ln.attributes('data-cut-angle') === '45')).toBe(true)
+	})
+
+	it('places handles at the center of each sash opposite to the hinge and draws a red hinge side line', async () => {
+		const w = mountCanvas()
+		const handles = w.findAll('rect[data-handle="true"]')
+		expect(handles).toHaveLength(2)
+
+		const cell0 = w.find('[data-path="F1.0"]')
+		const cell1 = w.find('[data-path="F1.1"]')
+		const box0 = {
+			x: Number(cell0.attributes('x')),
+			y: Number(cell0.attributes('y')),
+			w: Number(cell0.attributes('width')),
+			h: Number(cell0.attributes('height')),
+		}
+		const box1 = {
+			x: Number(cell1.attributes('x')),
+			y: Number(cell1.attributes('y')),
+			w: Number(cell1.attributes('width')),
+			h: Number(cell1.attributes('height')),
+		}
+
+		// Vertically centered on each sash
+		const h0CenterY = Number(handles[0].attributes('y')) + Number(handles[0].attributes('height')) / 2
+		const h1CenterY = Number(handles[1].attributes('y')) + Number(handles[1].attributes('height')) / 2
+		expect(h0CenterY).toBeCloseTo(box0.y + box0.h / 2, 5)
+		expect(h1CenterY).toBeCloseTo(box1.y + box1.h / 2, 5)
+
+		// S1 has left hinge -> handle on right half of S1; S2 has right hinge -> handle on left half of S2
+		const h0CenterX = Number(handles[0].attributes('x')) + Number(handles[0].attributes('width')) / 2
+		const h1CenterX = Number(handles[1].attributes('x')) + Number(handles[1].attributes('width')) / 2
+		expect(h0CenterX).toBeGreaterThan(box0.x + box0.w / 2)
+		expect(h1CenterX).toBeLessThan(box1.x + box1.w / 2)
+
+		// Hinge lines in red (#DC2626) on the hinged sides (left edge of S1, right edge of S2)
+		const hingeLines = w.findAll('line[data-hinge-line="true"]')
+		expect(hingeLines).toHaveLength(2)
+		expect(hingeLines[0].attributes('stroke')).toBe('#DC2626')
+		expect(Number(hingeLines[0].attributes('x1'))).toBeCloseTo(box0.x, 5)
+		expect(Number(hingeLines[0].attributes('x2'))).toBeCloseTo(box0.x, 5)
+		expect(hingeLines[1].attributes('stroke')).toBe('#DC2626')
+		expect(Number(hingeLines[1].attributes('x1'))).toBeCloseTo(box1.x + box1.w, 5)
+		expect(Number(hingeLines[1].attributes('x2'))).toBeCloseTo(box1.x + box1.w, 5)
+	})
+
+	it('selects panels reliably even after panning the workspace', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		await svg.trigger('pointerdown', { clientX: 100, clientY: 100, shiftKey: true, button: 0, pointerId: 1 })
+		await svg.trigger('pointermove', { clientX: 160, clientY: 140, shiftKey: true, pointerId: 1 })
+		await svg.trigger('pointerup', { pointerId: 1 })
+
+		await new Promise((r) => setTimeout(r, 10))
+		await w.find('[data-path="F1.1"]').trigger('click', { shiftKey: false })
+		expect(w.emitted('select')![0]).toEqual(['F1.1'])
+	})
+
+	it('shows sash width & height and glass width & height when a sash (e.g. S2 / F1.1) is selected', () => {
+		const w = mountCanvas({
+			selectedPath: 'F1.1',
+			members: [
+				{ role: 'sash', path: 'F1.1', position: 'B', length: 577 },
+				{ role: 'sash', path: 'F1.1', position: 'L', length: 1164 },
+			],
+			glass: [{ path: 'F1.1', width: 475.5, height: 1063 }],
+		})
+		const dims = w.find('[data-selected-dims="F1.1"]')
+		expect(dims.exists()).toBe(true)
+		expect(dims.text()).toContain('Sash: 577 × 1164 mm')
+		expect(dims.text()).toContain('Glass: 475.5 × 1063 mm')
+		expect(dims.text()).toContain('Glass W: 475.5')
+		expect(dims.text()).toContain('Glass H: 1063')
+	})
+
+	it('allows selecting the center mullion M1 and shows its specific dimensions', async () => {
+		const w = mountCanvas({
+			selectedPath: 'M1',
+			members: [{ role: 'mullion', panel: 'M1', length: 1136 }],
+		})
+		const bar = w.find('[data-bar="M1"]')
+		expect(bar.attributes('stroke')).toBe('#2563EB')
+
+		const barDims = w.find('[data-bar-dims="M1"]')
+		expect(barDims.exists()).toBe(true)
+		expect(barDims.text()).toContain('M1: 1136 × 40 mm')
+		expect(barDims.text()).toContain('Pos: 457.5 mm')
+		expect(barDims.text()).toContain('Span: 1220 mm')
+
+		// Clicking the mullion or its badge emits select('M1')
+		await w.find('[data-bar-badge="M1"]').trigger('click')
+		expect(w.emitted('select')![0]).toEqual(['M1'])
+
+		// Clean SVG export strips selection overlays on bars too
+		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
+		expect(m).not.toContain('#2563EB')
+	})
+
+	it('deselects everything when clicking outside the window on the workspace background', async () => {
+		const w = mountCanvas({ selectedPath: 'F1.1' })
+		await w.find('rect[data-workspace-bg="true"]').trigger('click')
+		expect(w.emitted('select')![0]).toEqual([''])
 	})
 })

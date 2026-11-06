@@ -399,7 +399,7 @@ function cellTransformStyle(c: Cell3D) {
 function handleStyle(c: Cell3D) {
 	if (c.hinge === 'top') {
 		return {
-			bottom: '4px',
+			bottom: `${Math.max(2, sashT.value / 2 - 2.5)}px`,
 			left: `${c.w / 2 - 12}px`,
 			width: '24px',
 			height: '5px',
@@ -407,8 +407,8 @@ function handleStyle(c: Cell3D) {
 	}
 	const isLeftHinge = c.hinge !== 'right'
 	return {
-		top: `${c.h * 0.52 - 14}px`,
-		left: isLeftHinge ? `${c.w - sashT.value * 0.75}px` : `${sashT.value * 0.35}px`,
+		top: `${c.h * 0.5 - 14}px`,
+		left: isLeftHinge ? `${c.w - sashT.value / 2 - 2.5}px` : `${sashT.value / 2 - 2.5}px`,
 		width: '5px',
 		height: '28px',
 	}
