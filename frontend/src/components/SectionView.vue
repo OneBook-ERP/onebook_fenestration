@@ -6,46 +6,11 @@
  * bottom edge (read rotated, bottom on the left). Depth runs down the page. Every outline's y=0 (the stored
  * outer face) sits on one reference line; this alignment is an assumption to be checked visually in Task 6.
  */
-import { Button, createResource, frappeRequest } from 'frappe-ui'
+import { Button } from 'frappe-ui'
 import { computed, onUnmounted, ref, watch } from 'vue'
-import type { Issue } from '@/api'
+import { crossSection, type CrossSection, type CutResponse, type CutAxis as Axis, type DimChain as Chain, type SectionDim, type SectionOutline as Outline, type SectionPiece } from '@/api'
 import type { Design } from '@/design/types'
 import { COMPUTE_DEBOUNCE_MS } from '@/stores/designer'
-
-type Axis = 'h' | 'v'
-type Chain = 'overall' | 'cells' | 'glass' | 'profiles'
-
-interface SectionPiece {
-	kind: 'profile' | 'glass'
-	code: string
-	role: string
-	panel: string
-	start: number
-	end: number
-	mirrored: boolean
-}
-interface SectionDim {
-	start: number
-	end: number
-	label: string
-	chain: Chain
-}
-interface Outline {
-	svg: string
-	width: number
-	depth: number
-}
-export interface CrossSection {
-	axis: Axis
-	at: number
-	length: number
-	pieces: SectionPiece[]
-	dims: SectionDim[]
-	issues: Issue[]
-}
-type CutResponse =
-	| { ok: true; result: CrossSection; outlines: Record<string, Outline> }
-	| { ok: false; error_type?: string; message: string }
 
 const props = defineProps<{ design: Design; seriesVersion: string; axis: Axis; at: number | null }>()
 const emit = defineEmits<{ 'update:axis': [axis: Axis]; cut: [at: number] }>()
@@ -79,24 +44,15 @@ const error = ref('')
 let seq = 0
 let timer: ReturnType<typeof setTimeout> | undefined
 
-const resource = createResource({
-	url: 'onebook_fenestration.api.design.cross_section',
-	// The app sets no global resourceFetcher; frappeRequest adds /api/method/, CSRF and unwraps `message`.
-	resourceFetcher: frappeRequest,
-	makeParams: () => ({
-		design: JSON.stringify(props.design),
-		series_version: props.seriesVersion,
-		axis: axis.value,
-		at: props.at,
-	}),
-})
+/** Where the engine last cut, on which axis: moving `at` onto it changes nothing, so it is not refetched. */
+let snapped: { axis: Axis; at: number } | null = null
 
 async function load() {
 	clearTimeout(timer)
 	const mine = ++seq
 	let res: CutResponse
 	try {
-		res = (await resource.fetch()) as CutResponse
+		res = await crossSection(props.design, props.seriesVersion, axis.value, props.at)
 	} catch (e) {
 		if (mine === seq) error.value = e instanceof Error ? e.message : 'Could not cut the design'
 		return
@@ -105,19 +61,28 @@ async function load() {
 	if (!res?.ok) {
 		error.value = res?.message ?? 'Could not cut the design'
 		section.value = null
+		snapped = null
 		return
 	}
 	error.value = ''
 	section.value = res.result
 	outlines.value = res.outlines ?? {}
-	if (res.result.at !== props.at) emit('cut', res.result.at)
+	snapped = { axis: axis.value, at: res.result.at }
+	emit('cut', res.result.at)
 }
 function loadLater() {
 	clearTimeout(timer)
 	timer = setTimeout(load, COMPUTE_DEBOUNCE_MS)
 }
 load()
-watch(() => [axis.value, props.at, props.seriesVersion], load)
+watch(
+	() => [axis.value, props.seriesVersion, props.at] as const,
+	([a, sv, at], [prevA, prevSv]) => {
+		const onlyAtMoved = a === prevA && sv === prevSv
+		if (onlyAtMoved && snapped && snapped.axis === a && at === snapped.at) return
+		load()
+	},
+)
 watch(() => props.design, loadLater, { deep: true })
 onUnmounted(() => {
 	clearTimeout(timer)

@@ -4,7 +4,7 @@ import { toast } from 'frappe-ui'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { h } from 'vue'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
-import { computeDesign, copyDesign, getDesign, getFenestrationDefaults, saveDesign } from '@/api'
+import { computeDesign, copyDesign, crossSection, getDesign, getFenestrationDefaults, saveDesign } from '@/api'
 import { routes } from '@/router'
 import { useDesignerStore } from '@/stores/designer'
 import { layoutGeom } from '@/design/geometry'
@@ -14,21 +14,13 @@ vi.mock('@/api', () => ({
 	saveDesign: vi.fn(),
 	getDesign: vi.fn(),
 	copyDesign: vi.fn(),
+	crossSection: vi.fn(),
 	getFenestrationDefaults: vi.fn(),
 	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
 }))
-const cuts = vi.hoisted(() => [] as Record<string, unknown>[])
 vi.mock('frappe-ui', async (orig) => ({
 	...(await orig<object>()),
 	toast: { success: vi.fn(), error: vi.fn() },
-	createResource: (opts: { makeParams: () => Record<string, unknown> }) => ({
-		data: null,
-		fetch: async () => {
-			const p = opts.makeParams()
-			cuts.push(p)
-			return { ok: true, result: { axis: p.axis, at: p.at, length: 0, pieces: [], dims: [], issues: [] }, outlines: {} }
-		},
-	}),
 	useList: (await import('@/test-utils')).fakeUseList({
 		'Profile Finish': [
 			{ name: 'GREY', finish_name: 'Grey', color: '#8A8F98' },
@@ -114,6 +106,12 @@ describe('Designer page', () => {
 		vi.mocked(computeDesign).mockResolvedValue({ ok: true, result } as never)
 		vi.mocked(getFenestrationDefaults).mockReset()
 		vi.mocked(getFenestrationDefaults).mockResolvedValue({ default_finish: 'GREY', default_price_structure: 'Standard' })
+		vi.mocked(crossSection).mockReset()
+		vi.mocked(crossSection).mockImplementation(async (_d, _sv, axis, at) => ({
+			ok: true,
+			result: { axis, at: at ?? 200, length: 0, pieces: [], dims: [], issues: [] },
+			outlines: {},
+		}))
 		vi.mocked(saveDesign).mockReset()
 		vi.mocked(getDesign).mockReset()
 		vi.mocked(toast.error).mockReset()
@@ -458,9 +456,9 @@ describe('Designer page', () => {
 		expect(computeDesign).not.toHaveBeenCalled()
 	})
 	it('section toggle shows the cut view and a cell click moves the cut', async () => {
-		cuts.length = 0
 		const { wrapper } = await setup()
 		const seg = (t: string) => wrapper.findAll('button').find((b) => b.text() === t)
+		const last = () => vi.mocked(crossSection).mock.calls.at(-1)!
 		expect(seg('B–B horizontal')).toBeUndefined()
 		expect(button(wrapper, 'Section').attributes('aria-pressed')).toBe('false')
 		await button(wrapper, 'Section').trigger('click')
@@ -468,16 +466,48 @@ describe('Designer page', () => {
 		expect(button(wrapper, 'Section').attributes('aria-pressed')).toBe('true')
 		expect(seg('B–B horizontal')).toBeDefined()
 		expect(wrapper.findAll('[data-cut]')).toHaveLength(2)
-		expect(cuts.at(-1)).toMatchObject({ series_version: 'SV1', axis: 'h' })
+		expect(last().slice(1)).toEqual(['SV1', 'h', null])
 		await seg('A–A vertical')!.trigger('click')
 		await flushPromises()
-		expect(cuts.at(-1)!.axis).toBe('v')
+		expect(last()[2]).toBe('v')
 		const cell = layoutGeom(useDesignerStore().design).cells.at(-1)!
 		await wrapper.find(`[data-path="${cell.path}"]`).trigger('click')
 		await flushPromises()
-		expect(cuts.at(-1)).toMatchObject({ axis: 'v', at: cell.x + cell.w / 2 })
+		expect(last().slice(2)).toEqual(['v', cell.x + cell.w / 2])
 		await button(wrapper, 'Section').trigger('click')
 		expect(wrapper.findAll('[data-cut]')).toHaveLength(0)
 		expect(seg('B–B horizontal')).toBeUndefined()
 	})
+
+	it('design edits with no cut picked fetch the section once, after the debounce', async () => {
+		const { wrapper } = await setup()
+		await button(wrapper, 'Section').trigger('click')
+		await flushPromises()
+		const before = vi.mocked(crossSection).mock.calls.length
+		const store = useDesignerStore()
+		for (const width of [1000, 1010, 1020]) store.apply((d) => ({ ...d, width }))
+		await flushPromises()
+		expect(vi.mocked(crossSection).mock.calls.length).toBe(before)
+		await vi.advanceTimersByTimeAsync(300)
+		await flushPromises()
+		expect(vi.mocked(crossSection).mock.calls.length).toBe(before + 1)
+		const call = vi.mocked(crossSection).mock.calls.at(-1)!
+		expect(call[0].width).toBe(1020)
+		expect(call[3]).toBeNull()
+	})
+
+	it('markers follow the engine-snapped cut without refetching', async () => {
+		const { wrapper } = await setup()
+		await button(wrapper, 'Section').trigger('click')
+		await flushPromises()
+		const n = vi.mocked(crossSection).mock.calls.length
+		// The mock engine snaps the default B–B cut to y=200 mm; the marker sits there.
+		const { width, height } = useDesignerStore().design
+		const scale = Math.min(520 / width, 640 / height)
+		const py = (760 - height * scale) / 2 + (height - 200) * scale
+		expect(Number(wrapper.get('[data-cut="h"] line').attributes('y1'))).toBeCloseTo(py, 6)
+		await flushPromises()
+		expect(vi.mocked(crossSection).mock.calls.length).toBe(n)
+	})
+
 })

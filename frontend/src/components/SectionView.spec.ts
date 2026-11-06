@@ -1,34 +1,18 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { reactive } from 'vue'
 import w01 from '@/design/__fixtures__/w01.json'
 import type { Design } from '@/design/types'
-import { frappeRequest } from 'frappe-ui'
 import SectionView from './SectionView.vue'
 
 const fake = vi.hoisted(() => ({
 	calls: [] as Record<string, unknown>[],
 	response: null as unknown,
-	url: '',
-	fetcher: null as unknown,
 }))
 
-vi.mock('frappe-ui', async (orig) => ({
-	...(await orig<object>()),
-	createResource: (opts: { url: string; resourceFetcher?: unknown; makeParams: () => Record<string, unknown> }) => {
-		fake.url = opts.url
-		fake.fetcher = opts.resourceFetcher
-		const r = reactive({
-			data: null as unknown,
-			loading: false,
-			error: null as unknown,
-			fetch: async () => {
-				fake.calls.push(opts.makeParams())
-				r.data = fake.response
-				return r.data
-			},
-		})
-		return r
+vi.mock('@/api', () => ({
+	crossSection: async (design: unknown, seriesVersion: string, axis: string, at: number | null) => {
+		fake.calls.push({ design, series_version: seriesVersion, axis, at })
+		return structuredClone(fake.response)
 	},
 }))
 
@@ -77,10 +61,8 @@ describe('SectionView', () => {
 	it('renders_a_piece_per_section_piece', async () => {
 		const w = mountView()
 		await flushPromises()
-		expect(fake.url).toBe('onebook_fenestration.api.design.cross_section')
-		expect(fake.fetcher).toBe(frappeRequest)
 		expect(fake.calls[0]).toMatchObject({ series_version: 'SV1', axis: 'h', at: null })
-		expect(JSON.parse(fake.calls[0].design as string).width).toBe(915)
+		expect((fake.calls[0].design as Design).width).toBe(915)
 		const pieces = w.findAll('[data-piece]')
 		expect(pieces).toHaveLength(6)
 		expect(w.findAll('path[data-piece]')).toHaveLength(5)
@@ -146,7 +128,7 @@ describe('SectionView', () => {
 		await vi.advanceTimersByTimeAsync(300)
 		await flushPromises()
 		expect(fake.calls).toHaveLength(3)
-		expect(JSON.parse(fake.calls[2].design as string).width).toBe(1001)
+		expect((fake.calls[2].design as Design).width).toBe(1001)
 	})
 
 	it('emits the snapped cut position', async () => {
@@ -169,5 +151,16 @@ describe('SectionView', () => {
 		const svg = w.get('svg')
 		expect(svg.attributes('width')).toBe('100%')
 		expect(svg.attributes('viewBox')).toMatch(/^0 0 \d+(\.\d+)? \d+(\.\d+)?$/)
+	})
+	it('does not refetch when the cut moves to where the engine already cut', async () => {
+		const w = mountView()
+		await flushPromises()
+		expect(fake.calls).toHaveLength(1)
+		await w.setProps({ at: 610 })
+		await flushPromises()
+		expect(fake.calls).toHaveLength(1)
+		await w.setProps({ at: 300 })
+		await flushPromises()
+		expect(fake.calls).toHaveLength(2)
 	})
 })

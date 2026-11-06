@@ -2,7 +2,7 @@
 import { Alert, Badge, Button, Tooltip, toast, useList } from 'frappe-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type SavedDesign } from '@/api'
+import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type CutAxis, type SavedDesign } from '@/api'
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
 import SectionView from '@/components/SectionView.vue'
@@ -49,22 +49,24 @@ const toolHint = 'Select a panel on the drawing to use these tools'
 const designType = computed(() => typology(store.design.root))
 const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
 
-type CutAxis = 'h' | 'v'
 const sectionOn = ref(false)
 const cutAxis = ref<CutAxis>('h')
-/** Cut positions in mm; null until the user picks a cell or the engine snaps the cut elsewhere. */
+/** The cut the user picked (cell centre, mm), sent to the engine; null lets the engine cut the first cell. */
 const cutAt = ref<Record<CutAxis, number | null>>({ h: null, v: null })
-/** Where the markers go: the chosen cut, else the engine's default (centre of the first cell). */
+/** Where the engine actually cut. Only places the markers; never sent back, so it cannot trigger a fetch. */
+const cutSnapped = ref<Record<CutAxis, number | null>>({ h: null, v: null })
+/** Marker positions: engine cut, else the picked cut, else the engine's default (centre of the first cell). */
 const cutPos = computed(() => {
 	const first = layoutGeom(store.design).cells[0]
-	return {
-		axis: cutAxis.value,
-		h: cutAt.value.h ?? first.y + first.h / 2,
-		v: cutAt.value.v ?? first.x + first.w / 2,
-	}
+	const pos = (a: CutAxis, fallback: number) => cutSnapped.value[a] ?? cutAt.value[a] ?? fallback
+	return { axis: cutAxis.value, h: pos('h', first.y + first.h / 2), v: pos('v', first.x + first.w / 2) }
 })
-function setCut(axis: CutAxis, at: number) {
-	if (cutAt.value[axis] !== at) cutAt.value = { ...cutAt.value, [axis]: at }
+function pickCut(axis: CutAxis, at: number) {
+	cutAt.value = { ...cutAt.value, [axis]: at }
+	cutSnapped.value = { ...cutSnapped.value, [axis]: null }
+}
+function onSnapped(at: number) {
+	cutSnapped.value = { ...cutSnapped.value, [cutAxis.value]: at }
 }
 
 const finishList = useList<FinishRow>({
@@ -294,7 +296,7 @@ async function copy() {
 							@move-split="onMoveSplit"
 							@drag-start="store.beginDrag()"
 							@drag-end="store.endDrag()"
-							@update:cut="(c) => setCut(c.axis, c.at)"
+							@update:cut="(c) => pickCut(c.axis, c.at)"
 						/>
 					</div>
 					<SectionView
@@ -303,8 +305,8 @@ async function copy() {
 						class="shrink-0"
 						:design="store.design"
 						:series-version="store.seriesVersion"
-						:at="cutPos[cutAxis]"
-						@cut="(at) => setCut(cutAxis, at)"
+						:at="cutAt[cutAxis]"
+						@cut="onSnapped"
 					/>
 				</template>
 			</main>

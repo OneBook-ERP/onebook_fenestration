@@ -130,8 +130,11 @@ const td = 'px-3 py-1.5 text-sm'
 				/>
 			</div>
 
-			<div v-if="!collapsed" class="px-2 py-1">
-				<TabButtons v-model="tab" :options="tabOptions" />
+			<div v-if="!collapsed" class="min-w-0 px-2 py-1">
+				<!-- The tab strip is wider than a phone; it scrolls here instead of widening the page. -->
+				<div data-testid="results-tabs" class="min-w-0 overflow-x-auto">
+					<TabButtons v-model="tab" :options="tabOptions" />
+				</div>
 			</div>
 
 		<div v-if="!collapsed" class="max-h-48 overflow-auto">

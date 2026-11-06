@@ -120,4 +120,9 @@ describe('ResultsBar', () => {
 		expect(w2.find('table').exists()).toBe(false)
 		expect(w2.findAll('button').find((b) => b.text() === 'Show results')!.attributes('aria-expanded')).toBe('false')
 	})
+	it('tab strip scrolls inside its own container instead of widening the page', () => {
+		const strip = mountBar(base).get('[data-testid="results-tabs"]')
+		for (const c of ['overflow-x-auto', 'min-w-0']) expect(strip.classes()).toContain(c)
+		expect(strip.element.parentElement!.className).toContain('min-w-0')
+	})
 })
