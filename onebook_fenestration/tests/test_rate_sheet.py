@@ -168,3 +168,39 @@ class TestRateSheet(IntegrationTestCase):
 		draft = frappe.get_doc(frappe.get_doc("Series Version", self.version).as_dict() | {"name": None, "docstatus": 0, "amended_from": None})
 		draft.insert()
 		self.assertEqual(series_items([draft.name]), [])
+
+	def make_engineer(self):
+		user = "tst-engineer-only@example.com"
+		if not frappe.db.exists("User", user):
+			frappe.get_doc(
+				{"doctype": "User", "email": user, "first_name": "Tst", "send_welcome_email": 0, "roles": [{"role": "Fenestration Engineer"}]}
+			).insert()
+		return user
+
+	def test_engineer_without_item_price_rights_can_import(self):
+		user = self.make_engineer()
+		frappe.set_user(user)
+		self.assertEqual(import_rate_sheet(self.upload([["E104156", 300, None]]))["created"], 1)
+		self.assertEqual(import_rate_sheet(self.upload([["E104156", 310, None]]))["updated"], 1)
+		self.assertEqual(self.prices("E104156")[0].price_list_rate, 310)
+
+	def test_unattached_file_of_another_user_is_refused(self):
+		url = self.upload([["E104156", 300, None]])
+		frappe.set_user(self.make_engineer())
+		with self.assertRaises(frappe.PermissionError):
+			import_rate_sheet(url)
+
+	def test_rate_parsing(self):
+		result = import_rate_sheet(
+			self.upload([["E104156", "1,234.50", None], ["H401", True, None], ["E104159", "inf", None], ["E104160", "nan", None]])
+		)
+		self.assertEqual(result["created"], 1)
+		self.assertEqual(self.prices("E104156")[0].price_list_rate, 1234.5)
+		self.assertEqual([s["row"] for s in result["skipped"]], [3, 4, 5])
+
+	def test_plain_desk_user_needs_role(self):
+		user = "tst-plain-desk@example.com"
+		frappe.get_doc({"doctype": "User", "email": user, "first_name": "Plain", "send_welcome_email": 0}).insert()
+		frappe.set_user(user)
+		with self.assertRaises(frappe.PermissionError):
+			rate_sheet_rows()

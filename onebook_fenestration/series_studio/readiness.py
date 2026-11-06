@@ -7,7 +7,7 @@ nothing blocks.
 import frappe
 from frappe import _
 
-from onebook_fenestration.engine import SeriesSnapshot
+from onebook_fenestration.engine import RuleError, SeriesSnapshot
 from onebook_fenestration.engine.hardware import glazing_gasket_gaps
 from onebook_fenestration.pricing.rate_sheet import _version_items
 from onebook_fenestration.pricing.rates import _item_prices
@@ -19,7 +19,11 @@ SETTINGS_FIELDS = ("cost_price_list", "default_price_structure", "default_finish
 @frappe.whitelist()
 def readiness(series_version: str) -> dict:
 	frappe.has_permission("Series Version", "read", doc=series_version, throw=True)
-	snapshot = get_snapshot(series_version)
+	try:
+		snapshot = get_snapshot(series_version)
+		snapshot.check()  # a bad draft rule would otherwise surface as a traceback in a later check
+	except RuleError as exc:
+		return {"ok": False, "checks": [{"check": "rules", "status": "block", "items": [str(exc)]}]}
 	profiles = sorted(
 		{
 			r.profile

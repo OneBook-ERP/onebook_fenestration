@@ -1,5 +1,7 @@
 """Rate sheet: download the items a series needs priced, import the filled-in rates as Item Prices."""
 
+import math
+
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, today
@@ -73,7 +75,7 @@ def download_rate_sheet() -> None:
 	frappe.response["type"] = "binary"
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def import_rate_sheet(file_url: str) -> dict:
 	frappe.only_for(ROLES)
 	price_list = _cost_price_list(required=True)
@@ -102,8 +104,10 @@ def _read_rows(file_url: str) -> list:
 	if not file_name:
 		frappe.throw(_("File not found"))
 	file_doc = frappe.get_doc("File", file_name)
+	# Fenestration Settings is the Desk upload target; its files are not permission-checked beyond ownership
 	unattached = not file_doc.attached_to_doctype or file_doc.attached_to_doctype == "Fenestration Settings"
-	if not (unattached or file_doc.has_permission("read")):
+	own_upload = file_doc.owner == frappe.session.user
+	if not ((unattached and own_upload) or file_doc.has_permission("read")):
 		frappe.throw(_("You cannot read this file"), frappe.PermissionError)
 	if not (file_doc.file_name or "").lower().endswith(".xlsx"):
 		frappe.throw(_("Not a valid .xlsx file"))
@@ -119,9 +123,8 @@ def _import_row(price_list: str, row: dict) -> str:
 	uom = frappe.db.get_value("Item", item_code, "stock_uom") if item_code else None
 	if not uom:
 		return _("Unknown item")
-	try:
-		rate = flt(row["new_rate"]) if not isinstance(row["new_rate"], str) else float(row["new_rate"])
-	except ValueError:
+	rate = _parse_rate(row["new_rate"])
+	if rate is None:
 		return _("Rate is not a number")
 	if rate <= 0:
 		return _("Rate must be greater than zero")
@@ -132,10 +135,21 @@ def _import_row(price_list: str, row: dict) -> str:
 	return _upsert_price(price_list, item_code, uom, rate, valid_from)
 
 
+def _parse_rate(value) -> float | None:
+	"""A finite number from a cell (text may use thousands commas); None when it is not one."""
+	if isinstance(value, bool):
+		return None
+	try:
+		rate = float(value.replace(",", "").strip()) if isinstance(value, str) else float(value)
+	except (TypeError, ValueError):
+		return None
+	return rate if math.isfinite(rate) else None
+
+
 def _upsert_price(price_list: str, item_code: str, uom: str, rate: float, valid_from) -> str:
 	name = frappe.db.get_value(
 		"Item Price",
-		{"price_list": price_list, "item_code": item_code, "valid_from": valid_from, "uom": uom, "customer": ["is", "not set"], "supplier": ["is", "not set"], "batch_no": ["is", "not set"]},
+		{"price_list": price_list, "item_code": item_code, "valid_from": valid_from, "uom": uom, "customer": ["is", "not set"], "supplier": ["is", "not set"], "batch_no": ["is", "not set"], "packing_unit": 0},
 		"name",
 	)
 	if not name:
@@ -148,11 +162,13 @@ def _upsert_price(price_list: str, item_code: str, uom: str, rate: float, valid_
 				"price_list_rate": rate,
 				"valid_from": valid_from,
 			}
-		).insert()
+		).insert(ignore_permissions=True)  # the endpoint is role-gated; Item Price create needs a Master Manager
 		return "created"
-	if flt(frappe.db.get_value("Item Price", name, "price_list_rate")) == rate:
+	price = frappe.get_doc("Item Price", name)
+	if flt(price.price_list_rate) == rate:
 		return "unchanged"
-	frappe.db.set_value("Item Price", name, "price_list_rate", rate)
+	price.price_list_rate = rate
+	price.save(ignore_permissions=True)
 	return "updated"
 
 

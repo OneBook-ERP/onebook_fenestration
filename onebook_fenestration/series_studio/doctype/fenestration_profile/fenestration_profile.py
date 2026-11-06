@@ -23,6 +23,7 @@ class FenestrationProfile(Document):
 		if not self.dxf_file:
 			# Only drop DXF-derived geometry when the DXF itself was removed; imported outlines and the
 			# commercial perimeters (visible/total) must survive plain saves.
+			# is_new guard: has_value_changed is True on a new doc, so every insert would clear imported geometry
 			if not self.is_new() and self.has_value_changed("dxf_file"):
 				self.clear_section()
 		elif self.has_value_changed("dxf_file") or not self.area_mm2:

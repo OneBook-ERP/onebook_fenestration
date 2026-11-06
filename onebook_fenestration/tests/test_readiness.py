@@ -207,3 +207,12 @@ class TestReadiness(IntegrationTestCase):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):
 			readiness(self.version)
+
+	def test_incomplete_draft_is_a_blocking_check(self):
+		draft = frappe.copy_doc(frappe.get_doc("Series Version", self.version))
+		draft.docstatus = 0
+		draft.insert()
+		frappe.db.set_value("Series Member Rule", draft.member_rules[0].name, "profile", "NO-SUCH-PROFILE")
+		report = readiness(draft.name)
+		self.assertFalse(report["ok"])
+		self.assertEqual((report["checks"][0]["check"], report["checks"][0]["status"]), ("rules", "block"))
