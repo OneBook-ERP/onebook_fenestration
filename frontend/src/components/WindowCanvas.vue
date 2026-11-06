@@ -91,18 +91,28 @@ function inset(b: Box, mm: number): Box {
 	return { x: b.x + d, y: b.y + d, w: Math.max(0, b.w - 2 * d), h: Math.max(0, b.h - 2 * d) }
 }
 
+type HingeSide = 'left' | 'right' | 'top'
+
+interface HandlePos {
+	x: number
+	y: number
+	w: number
+	h: number
+}
+
 interface CellView {
 	cell: CellGeom
 	box: Box
 	glass: Box
 	panelId: string
 	glassNo: number
+	selected: boolean
 	stroke: string
 	strokeWidth: number
 	lines: string[]
+	side: HingeSide | null
+	handle: HandlePos | null
 }
-
-type HingeSide = 'left' | 'right' | 'top'
 
 function hingeSide(c: CellGeom): HingeSide | null {
 	const node = c.node
@@ -124,6 +134,32 @@ function openingLines(b: Box, side: HingeSide): string[] {
 	]
 }
 
+function computeHandlePos(cell: CellGeom, box: Box, glass: Box, side: HingeSide | null): HandlePos | null {
+	if (cell.node.type !== 'sash') return null
+	const hSide = side || 'left'
+	if (hSide === 'top') {
+		return {
+			x: box.x + box.w / 2 - 12,
+			y: glass.y + glass.h + Math.max(2, (box.y + box.h - (glass.y + glass.h)) / 2 - 2.5),
+			w: 24,
+			h: 5,
+		}
+	}
+	const ghhMm = cell.node.ghh || cell.h * 0.5
+	const clampedGhh = Math.max(cell.y + 120, Math.min(cell.y + cell.h - 120, ghhMm))
+	const handleCenterY = py(clampedGhh)
+	const railCenterX =
+		hSide === 'left'
+			? glass.x + glass.w + (box.x + box.w - (glass.x + glass.w)) / 2
+			: box.x + (glass.x - box.x) / 2
+	return {
+		x: railCenterX - 2.5,
+		y: handleCenterY - 13,
+		w: 5,
+		h: 26,
+	}
+}
+
 const cells = computed<CellView[]>(() => {
 	// Fixed panes show only their glass number; F<n> would clash with the frame id.
 	const counts: Record<string, number> = { S: 0, L: 0 }
@@ -141,9 +177,12 @@ const cells = computed<CellView[]>(() => {
 			glass,
 			panelId: prefix ? `${prefix}${++counts[prefix]}` : '',
 			glassNo: i + 1,
+			selected,
 			stroke: selected ? C.select : issue ? C.issue : C.stroke,
 			strokeWidth: selected ? 3 : issue ? 2 : 1,
 			lines: side ? openingLines(glass, side) : [],
+			side,
+			handle: computeHandlePos(cell, box, glass, side),
 		}
 	})
 })
@@ -173,6 +212,18 @@ const frameBox = computed<Box>(() => ({
 	w: props.design.width * scale.value,
 	h: props.design.height * scale.value,
 }))
+
+const gridPath = computed(() => {
+	const step = 24
+	const parts: string[] = []
+	for (let x = step; x < props.viewW; x += step) {
+		parts.push(`M ${x} 0 L ${x} ${props.viewH}`)
+	}
+	for (let y = step; y < props.viewH; y += step) {
+		parts.push(`M 0 ${y} L ${props.viewW} ${y}`)
+	}
+	return parts.join(' ')
+})
 
 interface Dim {
 	from: number
@@ -259,6 +310,15 @@ function getSvgMarkup(): string {
 			el.setAttribute('stroke-width', '1')
 			el.removeAttribute('class')
 		}
+		if (el.classList.contains('hl-badge')) {
+			el.setAttribute('fill', '#FFFFFF')
+			el.setAttribute('stroke', C.dim)
+			el.removeAttribute('class')
+		}
+		if (el.classList.contains('hl-badge-text')) {
+			el.setAttribute('fill', C.dim)
+			el.removeAttribute('class')
+		}
 	})
 	return clone.outerHTML
 }
@@ -278,6 +338,9 @@ defineExpose({ getSvgMarkup })
 		:font-family="FONT"
 	>
 		<rect x="0" y="0" :width="viewW" :height="viewH" fill="#FFFFFF" />
+		<g pointer-events="none">
+			<path :d="gridPath" fill="none" stroke="#F1F5F9" stroke-width="1" />
+		</g>
 		<rect
 			:x="frameBox.x"
 			:y="frameBox.y"
@@ -330,42 +393,91 @@ defineExpose({ getSvgMarkup })
 				:stroke="C.stroke"
 				pointer-events="none"
 			/>
+			<!-- Exhaust Fan Cutout Graphic -->
+			<g
+				v-if="v.cell.node.fan"
+				pointer-events="none"
+				:transform="`translate(${v.glass.x + v.glass.w / 2}, ${v.glass.y + Math.min(v.glass.h * 0.28, 54)})`"
+			>
+				<circle cx="0" cy="0" :r="Math.min(28, v.glass.w * 0.25)" fill="#FFFFFF" fill-opacity="0.82" :stroke="C.dim" stroke-width="1.4" />
+				<circle cx="0" cy="0" :r="Math.min(22, v.glass.w * 0.2)" fill="none" :stroke="C.stroke" stroke-dasharray="3 2" />
+				<circle cx="0" cy="0" r="4" :fill="C.dim" />
+				<line x1="-14" y1="0" x2="14" y2="0" :stroke="C.dim" stroke-width="1.2" />
+				<line x1="0" y1="-14" x2="0" y2="14" :stroke="C.dim" stroke-width="1.2" />
+			</g>
+			<!-- Casement Handle Graphic -->
+			<rect
+				v-if="v.handle"
+				:x="v.handle.x"
+				:y="v.handle.y"
+				:width="v.handle.w"
+				:height="v.handle.h"
+				rx="2"
+				fill="#1E293B"
+				pointer-events="none"
+			/>
 			<g v-if="v.cell.node.type === 'fixed'" pointer-events="none" :stroke="C.stroke">
 				<line :x1="v.box.x + v.box.w / 2 - 8" :x2="v.box.x + v.box.w / 2 + 8" :y1="v.box.y + v.box.h / 2" :y2="v.box.y + v.box.h / 2" />
 				<line :x1="v.box.x + v.box.w / 2" :x2="v.box.x + v.box.w / 2" :y1="v.box.y + v.box.h / 2 - 8" :y2="v.box.y + v.box.h / 2 + 8" />
 			</g>
-			<text
-				v-if="v.panelId"
-				:x="v.glass.x + v.glass.w / 2"
-				:y="v.glass.y + v.glass.h / 2 - 8"
-				text-anchor="middle"
-				font-size="16"
-				font-weight="600"
-				:fill="C.dim"
-				pointer-events="none"
-			>{{ v.panelId }}</text>
+			<!-- Top-left Panel Tag Badge (S1 / S2 / L1) -->
+			<g v-if="v.panelId" pointer-events="none">
+				<rect
+					:x="v.glass.x + 8"
+					:y="v.glass.y + 8"
+					width="26"
+					height="18"
+					rx="3"
+					:fill="v.selected ? C.select : '#FFFFFF'"
+					:stroke="v.selected ? C.select : C.stroke"
+					:class="{ 'hl-badge': v.selected }"
+				/>
+				<text
+					:x="v.glass.x + 21"
+					:y="v.glass.y + 21"
+					text-anchor="middle"
+					font-size="11"
+					font-weight="700"
+					:fill="v.selected ? '#FFFFFF' : C.dim"
+					:class="{ 'hl-badge-text': v.selected }"
+				>{{ v.panelId }}</text>
+			</g>
 			<g v-if="v.cell.node.type === 'sash' && v.cell.node.opening" pointer-events="none">
 				<rect
-					:x="v.glass.x + v.glass.w / 2 - 18"
+					:x="v.glass.x + v.glass.w / 2 - 20"
 					:y="v.glass.y + v.glass.h / 2 + 26"
-					width="36"
+					width="40"
 					height="20"
+					rx="3"
 					fill="#FFFFFF"
 					:stroke="C.dim"
 				/>
 				<text
 					:x="v.glass.x + v.glass.w / 2"
-					:y="v.glass.y + v.glass.h / 2 + 41"
+					:y="v.glass.y + v.glass.h / 2 + 40"
 					text-anchor="middle"
-					font-size="12"
+					font-size="11"
+					font-weight="600"
 					:fill="C.dim"
 				>{{ v.cell.node.opening === 'out' ? 'OUT' : 'IN' }}</text>
 			</g>
+			<!-- Circled Pane Number -->
+			<circle
+				:cx="v.glass.x + v.glass.w / 2"
+				:cy="v.glass.y + v.glass.h / 2 - 14"
+				r="11"
+				fill="#FFFFFF"
+				fill-opacity="0.9"
+				:stroke="C.dim"
+				stroke-width="1.1"
+				pointer-events="none"
+			/>
 			<text
 				:x="v.glass.x + v.glass.w / 2"
-				:y="v.glass.y + v.glass.h / 2 + 14"
+				:y="v.glass.y + v.glass.h / 2 - 10"
 				text-anchor="middle"
-				font-size="14"
+				font-size="12"
+				font-weight="600"
 				:fill="C.dim"
 				pointer-events="none"
 			>{{ v.glassNo }}</text>
@@ -387,11 +499,22 @@ defineExpose({ getSvgMarkup })
 				@pointercancel="endDrag"
 				@lostpointercapture="endDrag"
 			/>
+			<rect
+				:x="bar.dir === 'v' ? px(bar.x) - 13 : frameBox.x - 32"
+				:y="bar.dir === 'v' ? frameBox.y - 22 : py(bar.y) - 9"
+				width="26"
+				height="17"
+				rx="3"
+				fill="#FFFFFF"
+				:stroke="C.stroke"
+				pointer-events="none"
+			/>
 			<text
-				:x="bar.dir === 'v' ? px(bar.x) : frameBox.x - 6"
-				:y="bar.dir === 'v' ? frameBox.y - 8 : py(bar.y) + 4"
-				:text-anchor="bar.dir === 'v' ? 'middle' : 'end'"
-				font-size="12"
+				:x="bar.dir === 'v' ? px(bar.x) : frameBox.x - 19"
+				:y="bar.dir === 'v' ? frameBox.y - 10 : py(bar.y) + 4"
+				text-anchor="middle"
+				font-size="11"
+				font-weight="600"
 				:fill="C.dim"
 				pointer-events="none"
 			>{{ bar.id }}</text>
@@ -403,6 +526,7 @@ defineExpose({ getSvgMarkup })
 			:y="frameBox.y - 8"
 			text-anchor="end"
 			font-size="12"
+			font-weight="600"
 			:fill="C.dim"
 		>GHH = {{ fmt(ghh) }}</text>
 		<text :x="viewW / 2" :y="viewH - 8" text-anchor="middle" font-size="12" :fill="C.dim">
@@ -412,17 +536,25 @@ defineExpose({ getSvgMarkup })
 		<g :stroke="C.dim" :fill="C.dim" font-size="12">
 			<g v-for="(d, i) in cols" :key="`c${i}`">
 				<line :x1="px(d.from)" :x2="px(d.to)" :y1="frameBox.y + frameBox.h + 20" :y2="frameBox.y + frameBox.h + 20" />
+				<line :x1="px(d.from)" :x2="px(d.from)" :y1="frameBox.y + frameBox.h + 15" :y2="frameBox.y + frameBox.h + 25" />
+				<line :x1="px(d.to)" :x2="px(d.to)" :y1="frameBox.y + frameBox.h + 15" :y2="frameBox.y + frameBox.h + 25" />
 				<text :x="(px(d.from) + px(d.to)) / 2" :y="frameBox.y + frameBox.h + 16" text-anchor="middle" stroke="none">{{ d.label }}</text>
 			</g>
 			<line :x1="frameBox.x" :x2="frameBox.x + frameBox.w" :y1="frameBox.y + frameBox.h + 44" :y2="frameBox.y + frameBox.h + 44" />
-			<text :x="frameBox.x + frameBox.w / 2" :y="frameBox.y + frameBox.h + 40" text-anchor="middle" stroke="none">{{ fmt(design.width) }}</text>
+			<line :x1="frameBox.x" :x2="frameBox.x" :y1="frameBox.y + frameBox.h + 39" :y2="frameBox.y + frameBox.h + 49" />
+			<line :x1="frameBox.x + frameBox.w" :x2="frameBox.x + frameBox.w" :y1="frameBox.y + frameBox.h + 39" :y2="frameBox.y + frameBox.h + 49" />
+			<text :x="frameBox.x + frameBox.w / 2" :y="frameBox.y + frameBox.h + 40" text-anchor="middle" font-weight="600" stroke="none">{{ fmt(design.width) }}</text>
 
 			<g v-for="(d, i) in rows" :key="`r${i}`">
 				<line :x1="frameBox.x - 20" :x2="frameBox.x - 20" :y1="py(d.from)" :y2="py(d.to)" />
+				<line :x1="frameBox.x - 25" :x2="frameBox.x - 15" :y1="py(d.from)" :y2="py(d.from)" />
+				<line :x1="frameBox.x - 25" :x2="frameBox.x - 15" :y1="py(d.to)" :y2="py(d.to)" />
 				<text :transform="`translate(${frameBox.x - 24} ${(py(d.from) + py(d.to)) / 2}) rotate(-90)`" text-anchor="middle" stroke="none">{{ d.label }}</text>
 			</g>
 			<line :x1="frameBox.x - 44" :x2="frameBox.x - 44" :y1="frameBox.y" :y2="frameBox.y + frameBox.h" />
-			<text :transform="`translate(${frameBox.x - 48} ${frameBox.y + frameBox.h / 2}) rotate(-90)`" text-anchor="middle" stroke="none">{{ fmt(design.height) }}</text>
+			<line :x1="frameBox.x - 49" :x2="frameBox.x - 39" :y1="frameBox.y" :y2="frameBox.y" />
+			<line :x1="frameBox.x - 49" :x2="frameBox.x - 39" :y1="frameBox.y + frameBox.h" :y2="frameBox.y + frameBox.h" />
+			<text :transform="`translate(${frameBox.x - 48} ${frameBox.y + frameBox.h / 2}) rotate(-90)`" text-anchor="middle" font-weight="600" stroke="none">{{ fmt(design.height) }}</text>
 		</g>
 	</svg>
 </template>

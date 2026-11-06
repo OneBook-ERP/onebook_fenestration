@@ -12,13 +12,14 @@
 					:description="m.route ? undefined : 'Soon'"
 					:disabled="!m.route"
 					:aria-disabled="!m.route"
-					:active="m.label === 'Projects'"
+					:active="!isStudio && m.label === 'Projects'"
 				/>
 				<SidebarRailItem
 					v-if="isEngineer"
 					label="Series Studio"
 					icon="lucide-layers"
-					href="/app/profile-series"
+					route="/series-studio"
+					:active="isStudio"
 				/>
 			</div>
 			<Dropdown :options="userMenu" side="right" align="end">
@@ -28,19 +29,34 @@
 			</Dropdown>
 		</SidebarRail>
 
-		<Sidebar v-model:collapsed="collapsed" aria-label="Projects">
-			<SidebarHeader title="Projects" :show-logo="false" />
-			<div class="flex-1 overflow-y-auto">
-				<SidebarItem label="All projects" icon="lucide-folder-kanban" route="/projects" />
-				<SidebarSection label="Recent projects">
+		<Sidebar v-model:collapsed="collapsed" :aria-label="isStudio ? 'Series Studio' : 'Projects'">
+			<template v-if="isStudio">
+				<SidebarHeader title="Series Studio" :show-logo="false" />
+				<div class="flex-1 overflow-y-auto">
 					<SidebarItem
-						v-for="p in recent"
-						:key="p.name"
-						:label="p.project_title || p.name"
-						:route="`/projects/${p.name}`"
+						v-for="item in studioItems"
+						:key="item.tab"
+						:label="item.label"
+						:icon="item.icon"
+						:active="activeStudioTab === item.tab"
+						:route="item.route"
 					/>
-				</SidebarSection>
-			</div>
+				</div>
+			</template>
+			<template v-else>
+				<SidebarHeader title="Projects" :show-logo="false" />
+				<div class="flex-1 overflow-y-auto">
+					<SidebarItem label="All projects" icon="lucide-folder-kanban" route="/projects" />
+					<SidebarSection label="Recent projects">
+						<SidebarItem
+							v-for="p in recent"
+							:key="p.name"
+							:label="p.project_title || p.name"
+							:route="`/projects/${p.name}`"
+						/>
+					</SidebarSection>
+				</div>
+			</template>
 			<SidebarCollapseToggle />
 		</Sidebar>
 
@@ -64,9 +80,11 @@ import {
 	useList,
 } from 'frappe-ui'
 import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { logout } from '@/api'
 
 const props = defineProps<{ user: string; roles: string[] }>()
+const route = useRoute()
 
 interface RecentProject {
 	name: string
@@ -80,6 +98,22 @@ const modules = [
 	{ label: 'Orders', icon: 'lucide-package' },
 ]
 
+const studioItems = [
+	{ tab: 'series', label: 'Profile Series', icon: 'lucide-layers', route: '/series-studio' },
+	{ tab: 'versions', label: 'Series Version', icon: 'lucide-git-branch', route: '/series-studio?tab=versions' },
+	{ tab: 'profiles', label: 'Fenestration Profile', icon: 'lucide-ruler', route: '/series-studio?tab=profiles' },
+	{ tab: 'glass', label: 'Fenestration Glass', icon: 'lucide-panels-top-left', route: '/series-studio?tab=glass' },
+]
+
+const isStudio = computed(() => route.path.startsWith('/series-studio'))
+const activeStudioTab = computed(() => {
+	if (route.path.startsWith('/series-studio/profiles')) return 'profiles'
+	if (route.path.startsWith('/series-studio/versions')) return 'versions'
+	if (route.path.startsWith('/series-studio/glass')) return 'glass'
+	if (route.path.startsWith('/series-studio/series')) return 'series'
+	const t = String(route.query.tab ?? '')
+	return ['series', 'versions', 'profiles', 'glass'].includes(t) ? t : 'series'
+})
 const isEngineer = computed(() => props.roles.some((r) => r === 'System Manager' || r === 'Fenestration Engineer'))
 const collapsed = ref(typeof window !== 'undefined' && window.innerWidth < 768)
 

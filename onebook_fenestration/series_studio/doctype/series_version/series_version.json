@@ -3,6 +3,7 @@
  "creation": "2026-10-29 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
+ "icon": "git-branch",
  "field_order": [
   "series",
   "version_note",

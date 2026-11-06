@@ -3,11 +3,15 @@
  "creation": "2026-10-29 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
+ "icon": "layers",
  "field_order": [
   "series_code",
   "series_title",
+  "column_break_series",
   "system_type",
-  "published_version"
+  "published_version",
+  "profiles_section",
+  "profiles_preview"
  ],
  "fields": [
   {
@@ -26,6 +30,10 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "column_break_series",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "system_type",
    "fieldtype": "Select",
    "label": "System Type",
@@ -39,9 +47,20 @@
    "label": "Published Version",
    "options": "Series Version",
    "read_only": 1
+  },
+  {
+   "fieldname": "profiles_section",
+   "fieldtype": "Section Break",
+   "label": "Series Profiles",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "profiles_preview",
+   "fieldtype": "HTML",
+   "label": "Profiles Preview"
   }
  ],
- "modified": "2026-10-29 00:00:00",
+ "modified": "2026-11-04 03:48:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Profile Series",
