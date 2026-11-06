@@ -72,12 +72,12 @@ class Box:
 def import_profile_sections(dxf_path: str, profile_codes: list[str] | None = None) -> dict:
 	"""Store the outline of each profile row (default: every row in the sheet) on its Fenestration Profile.
 
-	The outline is stored as drawn; `section_rotation` (guessed from the profile name, see `guess_rotation`) turns
-	it for display, and width_mm / depth_mm are the turned extents. Only frame / sash / mullion / transom profiles are
-guessed; a rotation already set (non-zero) is kept.
-	Profiles with their own `dxf_file` keep the outline computed from it. Returns updated codes, skipped ones with a
-	reason, profiles whose rotation was not guessed with a reason (`rotation_unknown`) and codes whose set rotation
-	was kept (`rotation_kept`).
+		The outline is stored as drawn; `section_rotation` (guessed from the profile name, see `guess_rotation`) turns
+		it for display, and width_mm / depth_mm are the turned extents. Only frame / sash / mullion / transom profiles are
+	guessed; a rotation already set (non-zero) is kept.
+		Profiles with their own `dxf_file` keep the outline computed from it. Returns updated codes, skipped ones with a
+		reason, profiles whose rotation was not guessed with a reason (`rotation_unknown`) and codes whose set rotation
+		was kept (`rotation_kept`).
 	"""
 	frappe.only_for("System Manager")
 	try:
@@ -100,13 +100,20 @@ guessed; a rotation already set (non-zero) is kept.
 		else:
 			guess = guess_rotation(profile.profile_name, outline.width_mm, outline.depth_mm)
 			if guess is None:
-				result["rotation_unknown"].append({"code": code, "reason": "name sizes do not match the drawing"})
+				result["rotation_unknown"].append(
+					{"code": code, "reason": "name sizes do not match the drawing"}
+				)
 			rotation = guess or 0
 		_svg, width, depth = rotate_path(outline.svg, rotation)
 		frappe.db.set_value(
 			"Fenestration Profile",
 			code,
-			{"section_svg": outline.svg, "section_rotation": str(rotation), "width_mm": width, "depth_mm": depth},
+			{
+				"section_svg": outline.svg,
+				"section_rotation": str(rotation),
+				"width_mm": width,
+				"depth_mm": depth,
+			},
 		)
 		result["updated"].append(code)
 	return result
@@ -136,7 +143,10 @@ def _near(a: float, b: float) -> bool:
 
 def _profile(code: str):
 	return frappe.db.get_value(
-		"Fenestration Profile", code, ["name", "profile_name", "role", "dxf_file", "section_rotation"], as_dict=True
+		"Fenestration Profile",
+		code,
+		["name", "profile_name", "role", "dxf_file", "section_rotation"],
+		as_dict=True,
 	)
 
 
@@ -159,7 +169,7 @@ def read_sections(dxf_path: str) -> dict[str, Outline]:
 	headers = [e for text, e in texts if text.casefold() == SECTION_HEADER]
 	if not headers:
 		raise SectionSheetError('no "Section Drawing" header')
-	shapes = [shape for shape in map(_shape, _geometry(msp)) if shape]
+	shapes = [shape for shape in (_shape(entity) for entity in _geometry(msp)) if shape]
 	outlines = {}
 	for header in headers:
 		for code, cell in _rows(header, texts):

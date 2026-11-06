@@ -1,5 +1,7 @@
 """Sales Order "Work Order" button: design lines use their own BOM (D6), everything else is ERPNext's."""
 
+import inspect
+
 import frappe
 from erpnext.manufacturing.doctype.work_order.work_order import qty_against_sales_order
 from erpnext.selling.doctype.sales_order import sales_order as erpnext_sales_order
@@ -24,7 +26,8 @@ def get_work_order_items(sales_order: str, for_raw_material_request: int = 0):
 
 	by_line = {row["sales_order_item"]: row for row in rows if row["sales_order_item"] not in design_lines}
 	overproduction = (
-		flt(frappe.get_single_value("Manufacturing Settings", "overproduction_percentage_for_sales_order")) / 100
+		flt(frappe.get_single_value("Manufacturing Settings", "overproduction_percentage_for_sales_order"))
+		/ 100
 	)
 	for name, line in design_lines.items():
 		pending_qty = _pending_qty(so.name, line, for_raw_material_request, overproduction)
@@ -44,9 +47,12 @@ def _pending_qty(sales_order: str, line, for_raw_material_request, overproductio
 		pending_qty = stock_qty
 	else:
 		wo = qb.DocType("Work Order")
+		plan_item = qb.DocType("Production Plan Item")
 		ordered = flt(
 			qb.from_(wo)
-			.select(Sum(qty_against_sales_order(wo, wo.qty - wo.process_loss_qty)))
+			.left_join(plan_item)
+			.on(plan_item.name == wo.production_plan_item)
+			.select(Sum(_ordered_qty(wo, plan_item)))
 			.where(
 				(wo.production_item == line.item_code)
 				& (wo.sales_order == sales_order)
@@ -59,6 +65,13 @@ def _pending_qty(sales_order: str, line, for_raw_material_request, overproductio
 	if not pending_qty:
 		pending_qty = stock_qty * overproduction
 	return pending_qty
+
+
+def _ordered_qty(wo, plan_item):
+	"""ERPNext version-16 changed qty_against_sales_order(wo, open_qty) to (wo, plan_item); call either form."""
+	if "plan_item" in inspect.signature(qty_against_sales_order).parameters:
+		return qty_against_sales_order(wo, plan_item)
+	return qty_against_sales_order(wo, wo.qty - wo.process_loss_qty)
 
 
 def _row(line, pending_qty: float, for_raw_material_request) -> dict:

@@ -10,10 +10,28 @@ REQUIRED_DEDUCTIONS = (
 	*(f"fixed_glass_side_{s}" for s in SIDES),
 	"glazing_gasket",
 )
-SNAPSHOT_SECTIONS = ("deductions", "profiles", "member_rules", "hardware_rules", "validation_rules", "glasses", "constants")
+SNAPSHOT_SECTIONS = (
+	"deductions",
+	"profiles",
+	"member_rules",
+	"hardware_rules",
+	"validation_rules",
+	"glasses",
+	"constants",
+)
 # Member roles cut per side of a glass pane; their rules need the constant glass_clearance.
 GLASS_MEMBER_ROLES = ("bead", "glass_adaptor")
-HARDWARE_PER = ("frame_member", "sash_member", "mullion", "transom_member", "sash", "glass", "window", "frame_side", "pane_side")
+HARDWARE_PER = (
+	"frame_member",
+	"sash_member",
+	"mullion",
+	"transom_member",
+	"sash",
+	"glass",
+	"window",
+	"frame_side",
+	"pane_side",
+)
 
 
 class EngineError(Exception):
@@ -107,7 +125,12 @@ class SeriesSnapshot:
 		for pcode, p in sections["profiles"].items():
 			spec = _row(ProfileSpec, {**p, "code": pcode}, f"profile {pcode}")
 			profiles[pcode] = ProfileSpec(
-				spec.code, spec.name, spec.kg_per_m, tuple(spec.bar_lengths), spec.visible_perimeter_mm, spec.total_perimeter_mm
+				spec.code,
+				spec.name,
+				spec.kg_per_m,
+				tuple(spec.bar_lengths),
+				spec.visible_perimeter_mm,
+				spec.total_perimeter_mm,
 			)
 		member_rules = []
 		for r in sections["member_rules"]:
@@ -120,9 +143,17 @@ class SeriesSnapshot:
 			deductions=dict(sections["deductions"]),
 			profiles=profiles,
 			member_rules=tuple(member_rules),
-			hardware_rules=tuple(_row(HardwareRule, r, f"hardware rule {r.get('id')}") for r in sections["hardware_rules"]),
-			validation_rules=tuple(_row(ValidationRule, r, f"validation rule {r.get('id')}") for r in sections["validation_rules"]),
-			glasses={gcode: _row(GlassSpec, {**g, "code": gcode}, f"glass {gcode}") for gcode, g in sections["glasses"].items()},
+			hardware_rules=tuple(
+				_row(HardwareRule, r, f"hardware rule {r.get('id')}") for r in sections["hardware_rules"]
+			),
+			validation_rules=tuple(
+				_row(ValidationRule, r, f"validation rule {r.get('id')}")
+				for r in sections["validation_rules"]
+			),
+			glasses={
+				gcode: _row(GlassSpec, {**g, "code": gcode}, f"glass {gcode}")
+				for gcode, g in sections["glasses"].items()
+			},
 			constants=dict(sections["constants"]),
 		)
 
@@ -130,7 +161,9 @@ class SeriesSnapshot:
 		"""Raise RuleError listing every missing deduction, profile, constant or bad hardware `per`."""
 		problems = [f"deduction {key!r} missing" for key in REQUIRED_DEDUCTIONS if key not in self.deductions]
 		problems += [
-			f"{rule.id}: profile {rule.profile!r} not in series" for rule in self.member_rules if rule.profile not in self.profiles
+			f"{rule.id}: profile {rule.profile!r} not in series"
+			for rule in self.member_rules
+			if rule.profile not in self.profiles
 		]
 		if "glass_density" not in self.constants:
 			problems.append("constant 'glass_density' missing")

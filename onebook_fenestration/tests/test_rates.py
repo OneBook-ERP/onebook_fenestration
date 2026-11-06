@@ -77,14 +77,28 @@ class TestRates(IntegrationTestCase):
 
 	def add_price(self, price_list, rate, **extra):
 		frappe.get_doc(
-			{"doctype": "Item Price", "price_list": price_list, "item_code": "H401", "uom": "Nos", "price_list_rate": rate, **extra}
+			{
+				"doctype": "Item Price",
+				"price_list": price_list,
+				"item_code": "H401",
+				"uom": "Nos",
+				"price_list_rate": rate,
+				**extra,
+			}
 		).insert(ignore_links=True)
 
 	def validity_list(self):
 		name = f"Fen Test {self._testMethodName}"
 		if not frappe.db.exists("Price List", name):
 			frappe.get_doc(
-				{"doctype": "Price List", "price_list_name": name, "currency": "INR", "buying": 1, "selling": 1, "enabled": 1}
+				{
+					"doctype": "Price List",
+					"price_list_name": name,
+					"currency": "INR",
+					"buying": 1,
+					"selling": 1,
+					"enabled": 1,
+				}
 			).insert()
 		return name
 
@@ -144,7 +158,9 @@ class TestRates(IntegrationTestCase):
 	def test_live_perimeters_override_zero_snapshot(self):
 		profile = replace(self.snapshot.profiles["E104156"], visible_perimeter_mm=0, total_perimeter_mm=0)
 		snapshot = replace(self.snapshot, profiles={**self.snapshot.profiles, "E104156": profile})
-		frappe.db.set_value("Fenestration Profile", "E104156", {"visible_perimeter_mm": 150, "total_perimeter_mm": 300})
+		frappe.db.set_value(
+			"Fenestration Profile", "E104156", {"visible_perimeter_mm": 150, "total_perimeter_mm": 300}
+		)
 		pricing = build_pricing_input(snapshot, self.result, "GREY", "Standard", PRICE_LIST)
 		self.assertEqual(pricing.profile_perimeters["E104156"], (150, 300))
 		breakdown = price(self.result, snapshot, pricing)

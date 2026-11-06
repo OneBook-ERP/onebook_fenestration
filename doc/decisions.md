@@ -186,3 +186,10 @@ Rejected: hard-coding bead and adaptor sizes in the engine (series numbers belon
 - Glass is drawn as thick as its glass spec's overall `thickness_mm`.
 - PROVISIONAL until checked visually: the mirror convention.
 
+
+## D14. Branch and PR workflow (DECIDED 2026-11-06)
+
+- `version-16` (and `main`) change only through pull requests. Rulesets block direct pushes, force pushes and deletion, and require the CI checks (Server, Frontend, Frappe Linter) to pass and review threads to be resolved.
+- CodeRabbit reviews every non-draft PR into `version-16` or `main` (config in `.coderabbit.yaml`); a human approval is not required while the team is one developer.
+- Work happens on short-lived branches (`feat/`, `fix/`, `ci/`, `docs/`), merged with a merge commit and deleted after merge.
+- CI installs Frappe, ERPNext and india_compliance on `version-16`. The `before_tests` hook runs the setup wizard (India, INR, the Hilux company) only on a site with no company, so CI gets the company the tests expect and dev sites are untouched.

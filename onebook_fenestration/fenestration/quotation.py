@@ -173,7 +173,14 @@ def _staleness(project: str, quotation: str) -> dict:
 	}
 
 
+def has_india_compliance() -> bool:
+	"""Quotations rely on india_compliance's GST fields and validation."""
+	return "india_compliance" in frappe.get_installed_apps()
+
+
 def check_quotable(project, designs: list[dict]) -> None:
+	if not has_india_compliance():
+		raise QuoteNotReady(_("Install India Compliance to set up GST before quoting"))
 	if not project.customer:
 		raise QuoteNotReady(_("Set a customer on the project"))
 	if not project.company:
@@ -207,7 +214,7 @@ def _ungasketed_glasses(design) -> list[str]:
 
 
 def _missing_items_suffix(design) -> str:
-	"""": G21, G23" from the design's no_rate pricing issues, or "" when none are recorded."""
+	""" ": G21, G23" from the design's no_rate pricing issues, or "" when none are recorded."""
 	pricing = json.loads(design.pricing_json or "{}")
 	codes = [
 		issue["message"].removesuffix(": no rate").split(" (")[0]  # "G21 (Price List): no rate"
@@ -234,7 +241,12 @@ class QuotationBuilder:
 		self.quotation.set("items", [])
 		for design in designs:
 			self.add_line(
-				WINDOW_ITEM, design.qty, design.unit_price, design_line_text(design), design.name, design_hash(design)
+				WINDOW_ITEM,
+				design.qty,
+				design.unit_price,
+				design_line_text(design),
+				design.name,
+				design_hash(design),
 			)
 		if flt(self.project.transport_charges) > 0:
 			self.add_line(TRANSPORT_ITEM, 1, self.project.transport_charges)
@@ -309,7 +321,7 @@ def design_line_text(design) -> tuple[str, str]:
 	glasses = [snapshot.glasses[code].name if code in snapshot.glasses else code for code in glass_codes]
 	finish = frappe.db.get_value("Profile Finish", design.finish, "finish_name") or design.finish
 	parts = [
-		f"{spec['width']:g} × {spec['height']:g} mm",  # noqa: RUF001
+		f"{spec['width']:g} × {spec['height']:g} mm",
 		frappe.db.get_value("Series Version", design.series_version, "series"),
 		finish,
 		", ".join(glasses),

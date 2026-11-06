@@ -1,6 +1,6 @@
 import json
-from unittest.mock import patch
 from collections import defaultdict
+from unittest.mock import patch
 
 import frappe
 from erpnext.selling.doctype.quotation.quotation import make_sales_order
@@ -15,7 +15,11 @@ from onebook_fenestration.pricing.rates import price_design
 from onebook_fenestration.production.bom import bom_rows
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.series_studio.snapshot import get_snapshot
-from onebook_fenestration.setup.install import open_window_deliveries, open_window_orders, setup_production_items
+from onebook_fenestration.setup.install import (
+	open_window_deliveries,
+	open_window_orders,
+	setup_production_items,
+)
 from onebook_fenestration.tests import test_quotation
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -24,7 +28,15 @@ STATIC_HELPERS = ("make_customer", "make_address")
 COMPANY = test_quotation.COMPANY
 WORK_ORDER_ITEMS = "erpnext.selling.doctype.sales_order.sales_order.get_work_order_items"
 ORIGINAL_ROW_KEYS = (
-	"name", "item_code", "item_name", "description", "bom", "warehouse", "pending_qty", "required_qty", "sales_order_item"
+	"name",
+	"item_code",
+	"item_name",
+	"description",
+	"bom",
+	"warehouse",
+	"pending_qty",
+	"required_qty",
+	"sales_order_item",
 )
 
 
@@ -39,7 +51,9 @@ class TestProductionBom(IntegrationTestCase):
 		for name in STATIC_HELPERS:
 			setattr(cls, name, staticmethod(getattr(test_quotation.TestQuotation, name)))
 		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
-		cls.project = frappe.get_doc({"doctype": "Fenestration Project", "project_title": "BOM Test"}).insert()
+		cls.project = frappe.get_doc(
+			{"doctype": "Fenestration Project", "project_title": "BOM Test"}
+		).insert()
 		cls.set_up_prices()
 		cls.set_up_parties()
 		setup_production_items()
@@ -99,7 +113,9 @@ class TestProductionBom(IntegrationTestCase):
 			bom = frappe.db.get_value(
 				"BOM", line.bom_no, ("item", "is_default", "docstatus", "fen_window_design"), as_dict=True
 			)
-			self.assertEqual(bom, {"item": "FEN-WINDOW", "is_default": 0, "docstatus": 1, "fen_window_design": design.name})
+			self.assertEqual(
+				bom, {"item": "FEN-WINDOW", "is_default": 0, "docstatus": 1, "fen_window_design": design.name}
+			)
 		self.assertNotEqual(order.items[0].bom_no, order.items[1].bom_no)
 		self.assertNoDesignDefault()
 
@@ -107,7 +123,11 @@ class TestProductionBom(IntegrationTestCase):
 		default = frappe.db.get_value("Item", "FEN-WINDOW", "default_bom")
 		if default:
 			self.assertFalse(frappe.db.get_value("BOM", default, "fen_window_design"))
-		self.assertFalse(frappe.db.exists("BOM", {"item": "FEN-WINDOW", "fen_window_design": ("is", "set"), "is_default": 1}))
+		self.assertFalse(
+			frappe.db.exists(
+				"BOM", {"item": "FEN-WINDOW", "fen_window_design": ("is", "set"), "is_default": 1}
+			)
+		)
 
 	def test_patch_takes_default_back_from_design_bom(self):
 		order, _designs = self.draft_order()
@@ -123,7 +143,9 @@ class TestProductionBom(IntegrationTestCase):
 		order.submit()
 		get_items = frappe.get_attr(frappe.override_whitelisted_method(WORK_ORDER_ITEMS))
 		rows = get_items(order.name)
-		self.assertEqual({r["sales_order_item"]: r["bom"] for r in rows}, {line.name: line.bom_no for line in order.items})
+		self.assertEqual(
+			{r["sales_order_item"]: r["bom"] for r in rows}, {line.name: line.bom_no for line in order.items}
+		)
 		self.assertEqual([r["pending_qty"] for r in rows], [line.stock_qty for line in order.items])
 		self.assertEqual(set(rows[0]), set(ORIGINAL_ROW_KEYS))
 
@@ -240,7 +262,7 @@ class TestProductionBom(IntegrationTestCase):
 			("is_stock_item", "has_batch_no", "create_new_batch", "include_item_in_manufacturing"),
 		)
 		self.assertEqual(tuple(flags), (1, 1, 1, 0))
-		for code, expected in (("FEN-T-FRESH", "Kg"), ("FEN-T-USED", "Nos")):
+		for code in ("FEN-T-FRESH", "FEN-T-USED"):
 			frappe.get_doc(
 				{
 					"doctype": "Item",
@@ -305,21 +327,30 @@ class TestProductionBom(IntegrationTestCase):
 		self.isolate()
 		glass = frappe.db.get_value("Fenestration Glass", "6CTG", "item")
 		items = ("E104156", "G23", glass)
-		frappe.db.delete("BOM Item", {"item_code": ("in", items)})  # BOMs from earlier tests would make them "used"
+		frappe.db.delete(
+			"BOM Item", {"item_code": ("in", items)}
+		)  # BOMs from earlier tests would make them "used"
 		for code in items:  # put them back in the legacy state: Nos stock unit, Nos row, Nos prices
 			frappe.db.set_value("Item", code, "stock_uom", "Nos")
 			frappe.db.sql("delete from `tabUOM Conversion Detail` where parent=%s", code)
 			frappe.get_doc(
-				{"doctype": "UOM Conversion Detail", "parent": code, "parenttype": "Item", "parentfield": "uoms",
-				 "uom": "Nos", "conversion_factor": 1}
+				{
+					"doctype": "UOM Conversion Detail",
+					"parent": code,
+					"parenttype": "Item",
+					"parentfield": "uoms",
+					"uom": "Nos",
+					"conversion_factor": 1,
+				}
 			).insert(ignore_permissions=True)
 			frappe.db.set_value("Item Price", {"item_code": code}, "uom", "Nos")
 		setup_production_items()
 		for code, uom in zip(items, ("Kg", "Meter", "Square Meter"), strict=True):
 			self.assertEqual(frappe.db.get_value("Item", code, "stock_uom"), uom)
-			self.assertEqual(
-				frappe.db.get_all("UOM Conversion Detail", {"parent": code, "uom": "Nos"}), []
-			)
+			self.assertEqual(frappe.db.get_all("UOM Conversion Detail", {"parent": code, "uom": "Nos"}), [])
 			for price_uom in frappe.get_all("Item Price", {"item_code": code}, pluck="uom"):
 				self.assertEqual(price_uom, uom)
-		self.assertEqual(price_design(load("w01.json"), self.version, design.finish, design.price_structure)[1].unit_price, before)
+		self.assertEqual(
+			price_design(load("w01.json"), self.version, design.finish, design.price_structure)[1].unit_price,
+			before,
+		)

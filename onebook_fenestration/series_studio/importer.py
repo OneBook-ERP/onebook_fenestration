@@ -1,6 +1,7 @@
 """Load a series from snapshot JSON (the engine fixture shape) into the Series Studio masters."""
 
 import frappe
+from frappe.utils.nestedset import get_root_of
 
 from onebook_fenestration.engine import SeriesSnapshot
 from onebook_fenestration.series_studio.legacy_gaskets import GASKETS
@@ -113,7 +114,7 @@ def _ensure_item_group() -> None:
 	_insert_if_missing(
 		"Item Group",
 		ITEM_GROUP,
-		{"item_group_name": ITEM_GROUP, "parent_item_group": "All Item Groups", "is_group": 0},
+		{"item_group_name": ITEM_GROUP, "parent_item_group": get_root_of("Item Group"), "is_group": 0},
 	)
 
 
@@ -123,7 +124,12 @@ def _ensure_glass(glass, hsn_codes: dict) -> None:
 		return
 	item = GLASS_ITEM_PREFIX + glass.code
 	_ensure_item(item, glass.name, "Square Meter", "Glass", hsn_codes)
-	values = {"glass_code": glass.code, "glass_name": glass.name, "thickness_mm": glass.thickness_mm, "glass_mm": glass.glass_mm}
+	values = {
+		"glass_code": glass.code,
+		"glass_name": glass.name,
+		"thickness_mm": glass.thickness_mm,
+		"glass_mm": glass.glass_mm,
+	}
 	frappe.get_doc({"doctype": "Fenestration Glass", **values, "item": item}).insert()
 
 

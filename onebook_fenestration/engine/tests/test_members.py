@@ -38,7 +38,9 @@ class TestMembers(unittest.TestCase):
 		self.assertEqual(len([m for m in members if m.panel == "F1"]), 4)
 		self.assertEqual([m for m in members if m.panel == "F1-S1"], [])
 		self.assertEqual(sash_sizes, {})
-		self.assertEqual([(i.severity, i.code, i.panel) for i in issues], [("error", "non_positive_size", "F1-S1")])
+		self.assertEqual(
+			[(i.severity, i.code, i.panel) for i in issues], [("error", "non_positive_size", "F1-S1")]
+		)
 
 	def test_partly_invalid_sash_gets_no_weight_or_hardware(self):
 		from onebook_fenestration.engine import compute
@@ -143,7 +145,9 @@ class TestMemberRuleWhen(unittest.TestCase):
 		def mutate(data):
 			frame = data["member_rules"][0]
 			when = "span > t_big_frame_min and bar_end_frame > 0"
-			data["member_rules"].insert(0, {**frame, "id": "mr_frame_big", "profile": "E104159", "when": when})
+			data["member_rules"].insert(
+				0, {**frame, "id": "mr_frame_big", "profile": "E104159", "when": when}
+			)
 			data["constants"]["t_big_frame_min"] = 900
 
 		members, _, _ = cut_members(FIXED_6, snapshot_with(mutate), *layout(FIXED_6))

@@ -1,174 +1,194 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
-import { layoutGeom } from '@/design/geometry'
-import { getNode } from '@/design/tree'
-import type { BarGeom, CellGeom, Design, SplitNode } from '@/design/types'
+import { computed, onUnmounted, ref } from "vue";
+import { layoutGeom } from "@/design/geometry";
+import { getNode } from "@/design/tree";
+import type { BarGeom, CellGeom, Design, SplitNode } from "@/design/types";
 
-const FRAME_FACE = 42
-const BAR_FACE = 40
-const SASH_FACE = 50
-const PAD = 60
-const FONT = 'Inter, sans-serif'
-const DEFAULT_FINISH = '#8A8F98'
+const FRAME_FACE = 42;
+const BAR_FACE = 40;
+const SASH_FACE = 50;
+const PAD = 60;
+const FONT = "Inter, sans-serif";
+const DEFAULT_FINISH = "#8A8F98";
 const C = {
-	glass: '#DCEBF7',
-	stroke: '#5B6470',
-	select: '#2563EB',
-	issue: '#D97706',
-	dim: '#404040',
-	cut: '#DC2626',
-}
+	glass: "#DCEBF7",
+	stroke: "#5B6470",
+	select: "#2563EB",
+	issue: "#D97706",
+	dim: "#404040",
+	cut: "#DC2626",
+};
 
 const props = withDefaults(
 	defineProps<{
-		design: Design
-		selectedPath: string | null
-		issuePaths: string[]
-		view: 'inside' | 'outside'
-		viewW?: number
-		viewH?: number
-		finishColor?: string
+		design: Design;
+		selectedPath: string | null;
+		issuePaths: string[];
+		view: "inside" | "outside";
+		viewW?: number;
+		viewH?: number;
+		finishColor?: string;
 		/** Section view on: cut positions in mm (h = height of the B–B cut, v = x of the A–A cut). */
-		section?: { axis: 'h' | 'v'; h: number; v: number } | null
+		section?: { axis: "h" | "v"; h: number; v: number } | null;
 	}>(),
-	{ viewW: 640, viewH: 760, finishColor: DEFAULT_FINISH, section: null },
-)
+	{ viewW: 640, viewH: 760, finishColor: DEFAULT_FINISH, section: null }
+);
 const emit = defineEmits<{
-	select: [path: string]
-	'move-split': [payload: { splitPath: string; index: number; pos: number }]
-	'drag-start': []
-	'drag-end': []
-	'update:cut': [payload: { axis: 'h' | 'v'; at: number }]
-}>()
+	select: [path: string];
+	"move-split": [payload: { splitPath: string; index: number; pos: number }];
+	"drag-start": [];
+	"drag-end": [];
+	"update:cut": [payload: { axis: "h" | "v"; at: number }];
+}>();
 
 /** Mix a #RRGGBB colour towards white by `amount` (0..1). */
 function lighten(hex: string, amount: number): string {
-	const n = parseInt(hex.slice(1), 16)
+	const n = parseInt(hex.slice(1), 16);
 	const mix = (shift: number) => {
-		const c = (n >> shift) & 255
-		return Math.round(c + (255 - c) * amount)
-	}
-	return '#' + [16, 8, 0].map((s) => mix(s).toString(16).padStart(2, '0')).join('').toUpperCase()
+		const c = (n >> shift) & 255;
+		return Math.round(c + (255 - c) * amount);
+	};
+	return (
+		"#" +
+		[16, 8, 0]
+			.map((s) => mix(s).toString(16).padStart(2, "0"))
+			.join("")
+			.toUpperCase()
+	);
 }
 /** Finish colours come from a free Color field; anything but #RRGGBB falls back to the default. */
-const finish = computed(() => (/^#[0-9a-f]{6}$/i.test(props.finishColor) ? props.finishColor : DEFAULT_FINISH))
-const frameFill = finish
-const sashFill = computed(() => lighten(finish.value, 0.1))
+const finish = computed(() =>
+	/^#[0-9a-f]{6}$/i.test(props.finishColor) ? props.finishColor : DEFAULT_FINISH
+);
+const frameFill = finish;
+const sashFill = computed(() => lighten(finish.value, 0.1));
 
-const svg = ref<SVGSVGElement | null>(null)
+const svg = ref<SVGSVGElement | null>(null);
 
 const scale = computed(() =>
-	Math.min((props.viewW - 2 * PAD) / props.design.width, (props.viewH - 2 * PAD) / props.design.height),
-)
-const originX = computed(() => (props.viewW - props.design.width * scale.value) / 2)
-const originY = computed(() => (props.viewH - props.design.height * scale.value) / 2)
-const geom = computed(() => layoutGeom(props.design))
+	Math.min(
+		(props.viewW - 2 * PAD) / props.design.width,
+		(props.viewH - 2 * PAD) / props.design.height
+	)
+);
+const originX = computed(() => (props.viewW - props.design.width * scale.value) / 2);
+const originY = computed(() => (props.viewH - props.design.height * scale.value) / 2);
+const geom = computed(() => layoutGeom(props.design));
 
-const px = (mm: number) => originX.value + mm * scale.value
-const py = (mm: number) => originY.value + (props.design.height - mm) * scale.value
-const fmt = (n: number) => String(Math.round(n * 100) / 100)
+const px = (mm: number) => originX.value + mm * scale.value;
+const py = (mm: number) => originY.value + (props.design.height - mm) * scale.value;
+const fmt = (n: number) => String(Math.round(n * 100) / 100);
 
 interface Box {
-	x: number
-	y: number
-	w: number
-	h: number
+	x: number;
+	y: number;
+	w: number;
+	h: number;
 }
 
 /** Pixel box of the visible opening of a cell: frame at the outside, half a bar at inner edges. */
 function cellBox(c: CellGeom): Box {
-	const { width, height } = props.design
-	const l = c.x === 0 ? FRAME_FACE : BAR_FACE / 2
-	const r = c.x + c.w === width ? FRAME_FACE : BAR_FACE / 2
-	const b = c.y === 0 ? FRAME_FACE : BAR_FACE / 2
-	const t = c.y + c.h === height ? FRAME_FACE : BAR_FACE / 2
+	const { width, height } = props.design;
+	const l = c.x === 0 ? FRAME_FACE : BAR_FACE / 2;
+	const r = c.x + c.w === width ? FRAME_FACE : BAR_FACE / 2;
+	const b = c.y === 0 ? FRAME_FACE : BAR_FACE / 2;
+	const t = c.y + c.h === height ? FRAME_FACE : BAR_FACE / 2;
 	return {
 		x: px(c.x + l),
 		y: py(c.y + c.h - t),
 		w: (c.w - l - r) * scale.value,
 		h: (c.h - t - b) * scale.value,
-	}
+	};
 }
 
 function inset(b: Box, mm: number): Box {
-	const d = mm * scale.value
-	return { x: b.x + d, y: b.y + d, w: Math.max(0, b.w - 2 * d), h: Math.max(0, b.h - 2 * d) }
+	const d = mm * scale.value;
+	return { x: b.x + d, y: b.y + d, w: Math.max(0, b.w - 2 * d), h: Math.max(0, b.h - 2 * d) };
 }
 
 interface CellView {
-	cell: CellGeom
-	box: Box
-	glass: Box
-	panelId: string
-	glassNo: number
-	stroke: string
-	strokeWidth: number
-	lines: string[]
+	cell: CellGeom;
+	box: Box;
+	glass: Box;
+	panelId: string;
+	glassNo: number;
+	stroke: string;
+	strokeWidth: number;
+	lines: string[];
 }
 
-type HingeSide = 'left' | 'right' | 'top'
+type HingeSide = "left" | "right" | "top";
 
 function hingeSide(c: CellGeom): HingeSide | null {
-	const node = c.node
-	if (node.type !== 'sash' || !node.hinge) return null
-	if (node.hinge === 'top') return 'top'
-	const h = node.hinge === 'right' ? 'right' : 'left'
-	if (props.view === 'inside') return h
-	return h === 'left' ? 'right' : 'left'
+	const node = c.node;
+	if (node.type !== "sash" || !node.hinge) return null;
+	if (node.hinge === "top") return "top";
+	const h = node.hinge === "right" ? "right" : "left";
+	if (props.view === "inside") return h;
+	return h === "left" ? "right" : "left";
 }
 
 /** Swing triangle: the apex sits on the hinged edge. */
 function openingLines(b: Box, side: HingeSide): string[] {
-	if (side === 'top') return [`${b.x},${b.y + b.h} ${b.x + b.w / 2},${b.y} ${b.x + b.w},${b.y + b.h}`]
-	const apexX = side === 'left' ? b.x : b.x + b.w
-	const farX = side === 'left' ? b.x + b.w : b.x
-	const midY = b.y + b.h / 2
-	return [
-		`${farX},${b.y} ${apexX},${midY} ${farX},${b.y + b.h}`,
-	]
+	if (side === "top")
+		return [`${b.x},${b.y + b.h} ${b.x + b.w / 2},${b.y} ${b.x + b.w},${b.y + b.h}`];
+	const apexX = side === "left" ? b.x : b.x + b.w;
+	const farX = side === "left" ? b.x + b.w : b.x;
+	const midY = b.y + b.h / 2;
+	return [`${farX},${b.y} ${apexX},${midY} ${farX},${b.y + b.h}`];
 }
 
 const cells = computed<CellView[]>(() => {
 	// Fixed panes show only their glass number; F<n> would clash with the frame id.
-	const counts: Record<string, number> = { S: 0, L: 0 }
+	const counts: Record<string, number> = { S: 0, L: 0 };
 	return geom.value.cells.map((cell, i) => {
-		const prefix = cell.node.type === 'sash' ? 'S' : cell.node.type === 'louver' ? 'L' : ''
-		const box = cellBox(cell)
-		const isSash = cell.node.type === 'sash'
-		const selected = cell.path === props.selectedPath
-		const issue = props.issuePaths.includes(cell.path)
-		const side = hingeSide(cell)
-		const glass = isSash ? inset(box, SASH_FACE) : box
+		const prefix = cell.node.type === "sash" ? "S" : cell.node.type === "louver" ? "L" : "";
+		const box = cellBox(cell);
+		const isSash = cell.node.type === "sash";
+		const selected = cell.path === props.selectedPath;
+		const issue = props.issuePaths.includes(cell.path);
+		const side = hingeSide(cell);
+		const glass = isSash ? inset(box, SASH_FACE) : box;
 		return {
 			cell,
 			box,
 			glass,
-			panelId: prefix ? `${prefix}${++counts[prefix]}` : '',
+			panelId: prefix ? `${prefix}${++counts[prefix]}` : "",
 			glassNo: i + 1,
 			stroke: selected ? C.select : issue ? C.issue : C.stroke,
 			strokeWidth: selected ? 3 : issue ? 2 : 1,
 			lines: side ? openingLines(glass, side) : [],
-		}
-	})
-})
+		};
+	});
+});
 
 function louverYs(v: CellView): number[] {
-	const node = v.cell.node
-	if (node.type !== 'louver' || node.blades < 1) return []
-	const step = v.box.h / node.blades
-	return Array.from({ length: node.blades - 1 }, (_, k) => v.box.y + step * (k + 1))
+	const node = v.cell.node;
+	if (node.type !== "louver" || node.blades < 1) return [];
+	const step = v.box.h / node.blades;
+	return Array.from({ length: node.blades - 1 }, (_, k) => v.box.y + step * (k + 1));
 }
 
 const ghh = computed(() => {
-	const sash = geom.value.cells.find((c) => c.node.type === 'sash' && c.node.ghh)
-	return sash && sash.node.type === 'sash' ? sash.node.ghh : null
-})
+	const sash = geom.value.cells.find((c) => c.node.type === "sash" && c.node.ghh);
+	return sash && sash.node.type === "sash" ? sash.node.ghh : null;
+});
 
 function barRect(bar: BarGeom): Box {
-	if (bar.dir === 'v') {
-		return { x: px(bar.x - BAR_FACE / 2), y: py(bar.y + bar.length), w: BAR_FACE * scale.value, h: bar.length * scale.value }
+	if (bar.dir === "v") {
+		return {
+			x: px(bar.x - BAR_FACE / 2),
+			y: py(bar.y + bar.length),
+			w: BAR_FACE * scale.value,
+			h: bar.length * scale.value,
+		};
 	}
-	return { x: px(bar.x), y: py(bar.y + BAR_FACE / 2), w: bar.length * scale.value, h: BAR_FACE * scale.value }
+	return {
+		x: px(bar.x),
+		y: py(bar.y + BAR_FACE / 2),
+		w: bar.length * scale.value,
+		h: BAR_FACE * scale.value,
+	};
 }
 
 const frameBox = computed<Box>(() => ({
@@ -176,119 +196,153 @@ const frameBox = computed<Box>(() => ({
 	y: py(props.design.height),
 	w: props.design.width * scale.value,
 	h: props.design.height * scale.value,
-}))
+}));
 
 interface Dim {
-	from: number
-	to: number
-	label: string
+	from: number;
+	to: number;
+	label: string;
 }
 
 function segments(total: number, at: number[]): Dim[] {
-	const bounds = [0, ...at, total]
-	return bounds.slice(1).map((b, i) => ({ from: bounds[i], to: b, label: fmt(b - bounds[i]) }))
+	const bounds = [0, ...at, total];
+	return bounds.slice(1).map((b, i) => ({ from: bounds[i], to: b, label: fmt(b - bounds[i]) }));
 }
 
-const root = computed(() => props.design.root)
+const root = computed(() => props.design.root);
 const cols = computed<Dim[]>(() => {
-	const r = root.value
-	return r.type === 'split' && r.dir === 'v' ? segments(props.design.width, r.at) : []
-})
+	const r = root.value;
+	return r.type === "split" && r.dir === "v" ? segments(props.design.width, r.at) : [];
+});
 const rows = computed<Dim[]>(() => {
-	const r = root.value
-	return r.type === 'split' && r.dir === 'h' ? segments(props.design.height, r.at) : []
-})
+	const r = root.value;
+	return r.type === "split" && r.dir === "h" ? segments(props.design.height, r.at) : [];
+});
 
 /** A–A is the vertical cut line, B–B the horizontal one; the badges sit on the frame member at each end. */
 const cuts = computed(() => {
-	const s = props.section
-	if (!s) return []
-	const f = frameBox.value
-	const face = (FRAME_FACE / 2) * scale.value
-	const ends = 10
-	const x = px(s.v)
-	const y = py(s.h)
+	const s = props.section;
+	if (!s) return [];
+	const f = frameBox.value;
+	const face = (FRAME_FACE / 2) * scale.value;
+	const ends = 10;
+	const x = px(s.v);
+	const y = py(s.h);
 	return [
-		{ axis: 'v' as const, letter: 'A', x1: x, x2: x, y1: f.y - ends, y2: f.y + f.h + ends, badges: [[x, f.y + face], [x, f.y + f.h - face]] },
-		{ axis: 'h' as const, letter: 'B', x1: f.x - ends, x2: f.x + f.w + ends, y1: y, y2: y, badges: [[f.x + face, y], [f.x + f.w - face, y]] },
-	].map((c) => ({ ...c, active: c.axis === s.axis }))
-})
+		{
+			axis: "v" as const,
+			letter: "A",
+			x1: x,
+			x2: x,
+			y1: f.y - ends,
+			y2: f.y + f.h + ends,
+			badges: [
+				[x, f.y + face],
+				[x, f.y + f.h - face],
+			],
+		},
+		{
+			axis: "h" as const,
+			letter: "B",
+			x1: f.x - ends,
+			x2: f.x + f.w + ends,
+			y1: y,
+			y2: y,
+			badges: [
+				[f.x + face, y],
+				[f.x + f.w - face, y],
+			],
+		},
+	].map((c) => ({ ...c, active: c.axis === s.axis }));
+});
 
 function onCellClick(c: CellGeom) {
-	emit('select', c.path)
-	const s = props.section
-	if (s) emit('update:cut', { axis: s.axis, at: s.axis === 'h' ? c.y + c.h / 2 : c.x + c.w / 2 })
+	emit("select", c.path);
+	const s = props.section;
+	if (s)
+		emit("update:cut", { axis: s.axis, at: s.axis === "h" ? c.y + c.h / 2 : c.x + c.w / 2 });
 }
 
 const ariaLabel = computed(
-	() => `Window ${fmt(props.design.width)} by ${fmt(props.design.height)} mm, ${geom.value.cells.length} panels`,
-)
+	() =>
+		`Window ${fmt(props.design.width)} by ${fmt(props.design.height)} mm, ${
+			geom.value.cells.length
+		} panels`
+);
 
 interface Drag {
-	bar: BarGeom
-	start: number
-	original: number
-	el: Element
-	pointerId: number
+	bar: BarGeom;
+	start: number;
+	original: number;
+	el: Element;
+	pointerId: number;
 }
-let drag: Drag | null = null
+let drag: Drag | null = null;
 
 function onPointerDown(e: PointerEvent, bar: BarGeom) {
-	if (e.button !== 0 && e.button !== undefined) return
-	e.preventDefault()
-	const split = getNode(props.design, bar.splitPath) as SplitNode
-	const el = e.currentTarget as Element
-	drag = { bar, start: bar.dir === 'v' ? e.clientX : e.clientY, original: split.at[bar.index], el, pointerId: e.pointerId }
-	if (el.setPointerCapture) el.setPointerCapture(e.pointerId)
+	if (e.button !== 0 && e.button !== undefined) return;
+	e.preventDefault();
+	const split = getNode(props.design, bar.splitPath) as SplitNode;
+	const el = e.currentTarget as Element;
+	drag = {
+		bar,
+		start: bar.dir === "v" ? e.clientX : e.clientY,
+		original: split.at[bar.index],
+		el,
+		pointerId: e.pointerId,
+	};
+	if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
 	// Belt and braces: the up event may miss the bar, so any of these ends the drag.
-	window.addEventListener('pointerup', endDrag)
-	window.addEventListener('pointercancel', endDrag)
-	emit('drag-start')
+	window.addEventListener("pointerup", endDrag);
+	window.addEventListener("pointercancel", endDrag);
+	emit("drag-start");
 }
 
 function onPointerMove(e: PointerEvent) {
-	if (!drag) return
-	const vertical = drag.bar.dir === 'v'
-	const r = svg.value?.getBoundingClientRect()
+	if (!drag) return;
+	const vertical = drag.bar.dir === "v";
+	const r = svg.value?.getBoundingClientRect();
 	// preserveAspectRatio "meet" scales both axes by the smaller ratio.
-	const meet = r && r.width && r.height ? Math.min(r.width / props.viewW, r.height / props.viewH) : 0
-	const k = meet ? 1 / meet : 1
-	const cur = vertical ? e.clientX : e.clientY
-	const delta = ((cur - drag.start) * k) / scale.value
-	const pos = drag.bar.dir === 'v' ? drag.original + delta : drag.original - delta
-	emit('move-split', { splitPath: drag.bar.splitPath, index: drag.bar.index, pos })
+	const meet =
+		r && r.width && r.height ? Math.min(r.width / props.viewW, r.height / props.viewH) : 0;
+	const k = meet ? 1 / meet : 1;
+	const cur = vertical ? e.clientX : e.clientY;
+	const delta = ((cur - drag.start) * k) / scale.value;
+	const pos = drag.bar.dir === "v" ? drag.original + delta : drag.original - delta;
+	emit("move-split", { splitPath: drag.bar.splitPath, index: drag.bar.index, pos });
 }
 
 function endDrag() {
-	if (!drag) return
-	const { el, pointerId } = drag
-	drag = null
-	window.removeEventListener('pointerup', endDrag)
-	window.removeEventListener('pointercancel', endDrag)
-	if (el.releasePointerCapture && el.hasPointerCapture?.(pointerId)) el.releasePointerCapture(pointerId)
-	emit('drag-end')
+	if (!drag) return;
+	const { el, pointerId } = drag;
+	drag = null;
+	window.removeEventListener("pointerup", endDrag);
+	window.removeEventListener("pointercancel", endDrag);
+	if (el.releasePointerCapture && el.hasPointerCapture?.(pointerId))
+		el.releasePointerCapture(pointerId);
+	emit("drag-end");
 }
-onUnmounted(endDrag)
+onUnmounted(endDrag);
 
 function getSvgMarkup(): string {
-	if (!svg.value) return ''
-	const clone = svg.value.cloneNode(true) as SVGSVGElement
-	clone.querySelectorAll('[data-cut]').forEach((el) => el.remove())
-	clone.setAttribute('width', String(props.viewW))
-	clone.setAttribute('height', String(props.viewH))
-	clone.querySelectorAll('*').forEach((el) => {
+	if (!svg.value) return "";
+	const clone = svg.value.cloneNode(true) as SVGSVGElement;
+	clone.querySelectorAll("[data-cut]").forEach((el) => el.remove());
+	clone.setAttribute("width", String(props.viewW));
+	clone.setAttribute("height", String(props.viewH));
+	clone.querySelectorAll("*").forEach((el) => {
 		for (const a of Array.from(el.attributes)) {
-			if (a.name.startsWith('data-') || a.name === 'style') el.removeAttribute(a.name)
+			if (a.name.startsWith("data-") || a.name === "style") el.removeAttribute(a.name);
 		}
-		if (el.classList.contains('hl')) {
-			el.setAttribute('stroke', C.stroke)
-			el.setAttribute('stroke-width', '1')
-			el.removeAttribute('class')
+		if (el.classList.contains("hl")) {
+			el.setAttribute("stroke", C.stroke);
+			el.setAttribute("stroke-width", "1");
+			el.removeAttribute("class");
 		}
-	})
-	return clone.outerHTML
+	});
+	return clone.outerHTML;
 }
-defineExpose({ getSvgMarkup })
+defineExpose({ getSvgMarkup });
 </script>
 
 <template>
@@ -357,8 +411,18 @@ defineExpose({ getSvgMarkup })
 				pointer-events="none"
 			/>
 			<g v-if="v.cell.node.type === 'fixed'" pointer-events="none" :stroke="C.stroke">
-				<line :x1="v.box.x + v.box.w / 2 - 8" :x2="v.box.x + v.box.w / 2 + 8" :y1="v.box.y + v.box.h / 2" :y2="v.box.y + v.box.h / 2" />
-				<line :x1="v.box.x + v.box.w / 2" :x2="v.box.x + v.box.w / 2" :y1="v.box.y + v.box.h / 2 - 8" :y2="v.box.y + v.box.h / 2 + 8" />
+				<line
+					:x1="v.box.x + v.box.w / 2 - 8"
+					:x2="v.box.x + v.box.w / 2 + 8"
+					:y1="v.box.y + v.box.h / 2"
+					:y2="v.box.y + v.box.h / 2"
+				/>
+				<line
+					:x1="v.box.x + v.box.w / 2"
+					:x2="v.box.x + v.box.w / 2"
+					:y1="v.box.y + v.box.h / 2 - 8"
+					:y2="v.box.y + v.box.h / 2 + 8"
+				/>
 			</g>
 			<text
 				v-if="v.panelId"
@@ -369,7 +433,9 @@ defineExpose({ getSvgMarkup })
 				font-weight="600"
 				:fill="C.dim"
 				pointer-events="none"
-			>{{ v.panelId }}</text>
+			>
+				{{ v.panelId }}
+			</text>
 			<g v-if="v.cell.node.type === 'sash' && v.cell.node.opening" pointer-events="none">
 				<rect
 					:x="v.glass.x + v.glass.w / 2 - 18"
@@ -385,7 +451,9 @@ defineExpose({ getSvgMarkup })
 					text-anchor="middle"
 					font-size="12"
 					:fill="C.dim"
-				>{{ v.cell.node.opening === 'out' ? 'OUT' : 'IN' }}</text>
+				>
+					{{ v.cell.node.opening === "out" ? "OUT" : "IN" }}
+				</text>
 			</g>
 			<text
 				:x="v.glass.x + v.glass.w / 2"
@@ -394,7 +462,9 @@ defineExpose({ getSvgMarkup })
 				font-size="14"
 				:fill="C.dim"
 				pointer-events="none"
-			>{{ v.glassNo }}</text>
+			>
+				{{ v.glassNo }}
+			</text>
 		</g>
 
 		<g v-for="bar in geom.bars" :key="bar.id">
@@ -406,7 +476,10 @@ defineExpose({ getSvgMarkup })
 				:height="barRect(bar).h"
 				:fill="frameFill"
 				:stroke="C.stroke"
-				:style="{ cursor: bar.dir === 'v' ? 'ew-resize' : 'ns-resize', touchAction: 'none' }"
+				:style="{
+					cursor: bar.dir === 'v' ? 'ew-resize' : 'ns-resize',
+					touchAction: 'none',
+				}"
 				@pointerdown="onPointerDown($event, bar)"
 				@pointermove="onPointerMove"
 				@pointerup="endDrag"
@@ -420,7 +493,9 @@ defineExpose({ getSvgMarkup })
 				font-size="12"
 				:fill="C.dim"
 				pointer-events="none"
-			>{{ bar.id }}</text>
+			>
+				{{ bar.id }}
+			</text>
 		</g>
 
 		<g
@@ -430,10 +505,27 @@ defineExpose({ getSvgMarkup })
 			:opacity="c.active ? 1 : 0.35"
 			pointer-events="none"
 		>
-			<line :x1="c.x1" :x2="c.x2" :y1="c.y1" :y2="c.y2" :stroke="C.cut" :stroke-width="c.active ? 2 : 1" stroke-dasharray="12 4 3 4" />
+			<line
+				:x1="c.x1"
+				:x2="c.x2"
+				:y1="c.y1"
+				:y2="c.y2"
+				:stroke="C.cut"
+				:stroke-width="c.active ? 2 : 1"
+				stroke-dasharray="12 4 3 4"
+			/>
 			<g v-for="([bx, by], i) in c.badges" :key="i">
 				<circle :cx="bx" :cy="by" r="9" fill="#FFFFFF" :stroke="C.cut" />
-				<text :x="bx" :y="by + 4" text-anchor="middle" font-size="12" font-weight="700" :fill="C.cut">{{ c.letter }}</text>
+				<text
+					:x="bx"
+					:y="by + 4"
+					text-anchor="middle"
+					font-size="12"
+					font-weight="700"
+					:fill="C.cut"
+				>
+					{{ c.letter }}
+				</text>
 			</g>
 		</g>
 
@@ -444,25 +536,77 @@ defineExpose({ getSvgMarkup })
 			text-anchor="end"
 			font-size="12"
 			:fill="C.dim"
-		>GHH = {{ fmt(ghh) }}</text>
+		>
+			GHH = {{ fmt(ghh) }}
+		</text>
 		<text :x="viewW / 2" :y="viewH - 8" text-anchor="middle" font-size="12" :fill="C.dim">
-			{{ view === 'inside' ? 'View from inside' : 'View from outside' }}
+			{{ view === "inside" ? "View from inside" : "View from outside" }}
 		</text>
 
 		<g :stroke="C.dim" :fill="C.dim" font-size="12">
 			<g v-for="(d, i) in cols" :key="`c${i}`">
-				<line :x1="px(d.from)" :x2="px(d.to)" :y1="frameBox.y + frameBox.h + 20" :y2="frameBox.y + frameBox.h + 20" />
-				<text :x="(px(d.from) + px(d.to)) / 2" :y="frameBox.y + frameBox.h + 16" text-anchor="middle" stroke="none">{{ d.label }}</text>
+				<line
+					:x1="px(d.from)"
+					:x2="px(d.to)"
+					:y1="frameBox.y + frameBox.h + 20"
+					:y2="frameBox.y + frameBox.h + 20"
+				/>
+				<text
+					:x="(px(d.from) + px(d.to)) / 2"
+					:y="frameBox.y + frameBox.h + 16"
+					text-anchor="middle"
+					stroke="none"
+				>
+					{{ d.label }}
+				</text>
 			</g>
-			<line :x1="frameBox.x" :x2="frameBox.x + frameBox.w" :y1="frameBox.y + frameBox.h + 44" :y2="frameBox.y + frameBox.h + 44" />
-			<text :x="frameBox.x + frameBox.w / 2" :y="frameBox.y + frameBox.h + 40" text-anchor="middle" stroke="none">{{ fmt(design.width) }}</text>
+			<line
+				:x1="frameBox.x"
+				:x2="frameBox.x + frameBox.w"
+				:y1="frameBox.y + frameBox.h + 44"
+				:y2="frameBox.y + frameBox.h + 44"
+			/>
+			<text
+				:x="frameBox.x + frameBox.w / 2"
+				:y="frameBox.y + frameBox.h + 40"
+				text-anchor="middle"
+				stroke="none"
+			>
+				{{ fmt(design.width) }}
+			</text>
 
 			<g v-for="(d, i) in rows" :key="`r${i}`">
-				<line :x1="frameBox.x - 20" :x2="frameBox.x - 20" :y1="py(d.from)" :y2="py(d.to)" />
-				<text :transform="`translate(${frameBox.x - 24} ${(py(d.from) + py(d.to)) / 2}) rotate(-90)`" text-anchor="middle" stroke="none">{{ d.label }}</text>
+				<line
+					:x1="frameBox.x - 20"
+					:x2="frameBox.x - 20"
+					:y1="py(d.from)"
+					:y2="py(d.to)"
+				/>
+				<text
+					:transform="`translate(${frameBox.x - 24} ${
+						(py(d.from) + py(d.to)) / 2
+					}) rotate(-90)`"
+					text-anchor="middle"
+					stroke="none"
+				>
+					{{ d.label }}
+				</text>
 			</g>
-			<line :x1="frameBox.x - 44" :x2="frameBox.x - 44" :y1="frameBox.y" :y2="frameBox.y + frameBox.h" />
-			<text :transform="`translate(${frameBox.x - 48} ${frameBox.y + frameBox.h / 2}) rotate(-90)`" text-anchor="middle" stroke="none">{{ fmt(design.height) }}</text>
+			<line
+				:x1="frameBox.x - 44"
+				:x2="frameBox.x - 44"
+				:y1="frameBox.y"
+				:y2="frameBox.y + frameBox.h"
+			/>
+			<text
+				:transform="`translate(${frameBox.x - 48} ${
+					frameBox.y + frameBox.h / 2
+				}) rotate(-90)`"
+				text-anchor="middle"
+				stroke="none"
+			>
+				{{ fmt(design.height) }}
+			</text>
 		</g>
 	</svg>
 </template>

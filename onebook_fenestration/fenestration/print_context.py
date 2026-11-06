@@ -46,7 +46,7 @@ POSITION_ORDER = "BTLRHW"
 def assembly_summary(doc) -> list[dict]:
 	"""Current designs of a project grouped by width x height, largest first, for the Assembly Summary format."""
 	groups: dict[tuple, dict] = {}
-	for row in map(_row, current_designs(doc.name, DESIGN_FIELDS)):
+	for row in (_row(design) for design in current_designs(doc.name, DESIGN_FIELDS)):
 		group = groups.setdefault(
 			(row["width"], row["height"]),
 			{

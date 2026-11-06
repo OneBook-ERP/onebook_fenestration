@@ -18,7 +18,14 @@ from dataclasses import dataclass, field
 from onebook_fenestration.engine.engine import compute
 from onebook_fenestration.engine.layout import Bar, Cell, is_real, layout
 from onebook_fenestration.engine.members import FRAME_PANEL
-from onebook_fenestration.engine.types import CutMember, DesignError, EngineResult, GlassPane, Issue, SeriesSnapshot
+from onebook_fenestration.engine.types import (
+	CutMember,
+	DesignError,
+	EngineResult,
+	GlassPane,
+	Issue,
+	SeriesSnapshot,
+)
 
 # axis -> (along coordinate, along size, low side, high side, bar kind crossed, perpendicular coordinate, size)
 AXES = {"h": ("x", "w", "L", "R", "mullion", "y", "h"), "v": ("y", "h", "B", "T", "transom", "x", "w")}
@@ -57,7 +64,11 @@ class CrossSection:
 
 
 def cross_section(
-	design: dict, snapshot: SeriesSnapshot, axis: str, at: float | None = None, widths: dict[str, float] | None = None
+	design: dict,
+	snapshot: SeriesSnapshot,
+	axis: str,
+	at: float | None = None,
+	widths: dict[str, float] | None = None,
 ) -> CrossSection:
 	if axis not in AXES:
 		raise DesignError(f"cut axis must be 'h' or 'v', got {axis!r}")
@@ -69,7 +80,9 @@ def cross_section(
 
 
 class _Cut:
-	def __init__(self, design, snapshot, axis, result: EngineResult, bars: list[Bar], widths: dict[str, float]):
+	def __init__(
+		self, design, snapshot, axis, result: EngineResult, bars: list[Bar], widths: dict[str, float]
+	):
 		self.snapshot, self.axis, self.bars, self.widths = snapshot, axis, bars, widths
 		self.along, self.size, self.low, self.high, self.bar_kind, self.perp, self.perp_size = AXES[axis]
 		self.length = design["width"] if axis == "h" else design["height"]
@@ -117,7 +130,9 @@ class _Cut:
 			self._place_profiles("sash", cell.path, self.high, sash_hi)
 		elif kind == "fixed":
 			self._place_glass(
-				cell, lo + self._deduction("fixed_glass_side", cell, self.low), hi - self._deduction("fixed_glass_side", cell, self.high)
+				cell,
+				lo + self._deduction("fixed_glass_side", cell, self.low),
+				hi - self._deduction("fixed_glass_side", cell, self.high),
 			)
 
 	def _place_glass(self, cell: Cell, lo: float, hi: float):
@@ -133,7 +148,9 @@ class _Cut:
 		spec = self.snapshot.glasses.get(pane.glass)
 		thickness = spec.thickness_mm if spec else 0.0
 		self.pieces.append(
-			SectionPiece("glass", pane.glass, "glass", pane.panel, _mm(start), _mm(start + size), thickness=thickness)
+			SectionPiece(
+				"glass", pane.glass, "glass", pane.panel, _mm(start), _mm(start + size), thickness=thickness
+			)
 		)
 		self.dims.append(Dim(_mm(start), _mm(start + size), _label(size), "glass"))
 		for role in GLASS_ROLES:
@@ -144,7 +161,9 @@ class _Cut:
 			(
 				b
 				for b in self.bars
-				if b.kind == self.bar_kind and abs(b.at - edge) < 1e-6 and b.start <= at < b.start + b.length_span
+				if b.kind == self.bar_kind
+				and abs(b.at - edge) < 1e-6
+				and b.start <= at < b.start + b.length_span
 			),
 			None,
 		)
@@ -188,7 +207,11 @@ class _Cut:
 
 	def _issues(self) -> list[Issue]:
 		return [
-			Issue("warn", "no_section_width", f"Profile {code} has no section width; drawn {_label(width)} mm wide from the series deductions")
+			Issue(
+				"warn",
+				"no_section_width",
+				f"Profile {code} has no section width; drawn {_label(width)} mm wide from the series deductions",
+			)
 			for code, width in sorted(self.missing.items())
 		]
 

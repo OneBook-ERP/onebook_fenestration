@@ -17,7 +17,8 @@ from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
 
 PRICE_LIST = "Fen Test Cost"
-COMPANY = "Hilux System Windows Pvt Ltd"
+from onebook_fenestration.tests.constants import COMPANY
+
 IN_STATE_CUSTOMER = "Fen Test Customer"
 OUT_STATE_CUSTOMER = "Fen Test Customer KA"
 SEZ_CUSTOMER = "Fen Test Customer SEZ"
@@ -82,7 +83,13 @@ class TestQuotation(IntegrationTestCase):
 		"""A company address (india_compliance needs one on every quotation) and test customers."""
 		if not company_address(COMPANY):
 			cls.make_address(
-				"Fen Test Office", "Tamil Nadu", "639001", "Company", COMPANY, gstin="33AAHCH3108G1Z0"
+				"Fen Test Office",
+				"Tamil Nadu",
+				"639001",
+				"Company",
+				COMPANY,
+				gstin="33AAHCH3108G1Z0",
+				city="Karur",
 			)
 		cls.make_customer(IN_STATE_CUSTOMER)
 		cls.make_customer(OUT_STATE_CUSTOMER)
@@ -233,7 +240,7 @@ class TestQuotation(IntegrationTestCase):
 		self.assertEqual(first.item_name, "W01 — 2 sash")
 		self.assertEqual(
 			first.description,
-			"915 × 1220 mm · CS400 · Grey · 6 MM CLEAR TOUGHNED GLASS · 12.013 sq.ft",  # noqa: RUF001
+			"915 × 1220 mm · CS400 · Grey · 6 MM CLEAR TOUGHNED GLASS · 12.013 sq.ft",
 		)
 		self.assertEqual(quotation.tc_name, "Hilux Standard Terms")
 		self.assertIn("90% advance", quotation.terms)
@@ -398,6 +405,14 @@ class TestQuotation(IntegrationTestCase):
 			out = api_make_quotation(project.name)
 		self.assertEqual(out, {"ok": False, "message": "Set a company on the project"})
 
+	def test_quoting_needs_india_compliance(self):
+		project, _designs = self.make_quote_project()
+		with patch("onebook_fenestration.fenestration.quotation.has_india_compliance", return_value=False):
+			out = api_make_quotation(project.name)
+		self.assertEqual(
+			out, {"ok": False, "message": "Install India Compliance to set up GST before quoting"}
+		)
+
 	def test_no_company_address_refused(self):
 		project, _designs = self.make_quote_project()
 		with patch("onebook_fenestration.fenestration.quotation.company_address", return_value=None):
@@ -408,7 +423,12 @@ class TestQuotation(IntegrationTestCase):
 
 	def test_gate_message_names_missing_items(self):
 		project, designs = self.make_quote_project()
-		pricing = {"issues": [{"code": "no_rate", "message": "G21 (Fen Test Cost): no rate"}, {"code": "no_rate", "message": "G23 (Fen Test Cost): no rate"}]}
+		pricing = {
+			"issues": [
+				{"code": "no_rate", "message": "G21 (Fen Test Cost): no rate"},
+				{"code": "no_rate", "message": "G23 (Fen Test Cost): no rate"},
+			]
+		}
 		frappe.db.set_value(
 			"Window Design",
 			designs[1].name,
@@ -420,9 +440,21 @@ class TestQuotation(IntegrationTestCase):
 	def test_gate_refuses_missing_glazing_gasket(self):
 		project, designs = self.make_quote_project()
 		issues = [
-			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-S1: no glazing gasket rule for glass 8LAM"},
-			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-S2: no glazing gasket rule for glass 8LAM"},
-			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-F3: no glazing gasket rule for glass 10TG"},
+			{
+				"severity": "warn",
+				"code": "no_glazing_gasket",
+				"message": "F1-S1: no glazing gasket rule for glass 8LAM",
+			},
+			{
+				"severity": "warn",
+				"code": "no_glazing_gasket",
+				"message": "F1-S2: no glazing gasket rule for glass 8LAM",
+			},
+			{
+				"severity": "warn",
+				"code": "no_glazing_gasket",
+				"message": "F1-F3: no glazing gasket rule for glass 10TG",
+			},
 		]
 		frappe.db.set_value("Window Design", designs[1].name, "result_json", json.dumps({"issues": issues}))
 		out = api_make_quotation(project.name)
@@ -437,7 +469,8 @@ class TestQuotation(IntegrationTestCase):
 	def test_status_reports_rounded_total(self):
 		quotation = self.quote()
 		self.assertEqual(
-			quote_status(quotation.fen_project)["rounded_total"], quotation.rounded_total or quotation.grand_total
+			quote_status(quotation.fen_project)["rounded_total"],
+			quotation.rounded_total or quotation.grand_total,
 		)
 		frappe.db.set_value("Quotation", quotation.name, "rounded_total", 4321)
 		self.assertEqual(quote_status(quotation.fen_project)["rounded_total"], 4321)
@@ -461,7 +494,9 @@ class TestQuotation(IntegrationTestCase):
 		self.assertEqual(quotation.currency, "INR")
 		self.assertEqual(quotation.conversion_rate, 1)
 		self.assertEqual(quotation.plc_conversion_rate, 1)
-		self.assertEqual(quotation.items[0].rate, frappe.db.get_value("Window Design", designs[0].name, "unit_price"))
+		self.assertEqual(
+			quotation.items[0].rate, frappe.db.get_value("Window Design", designs[0].name, "unit_price")
+		)
 		quotation.db_set({"currency": "USD", "conversion_rate": 83})
 		again = frappe.get_doc("Quotation", make_quotation(project.name))
 		self.assertEqual((again.currency, again.conversion_rate), ("INR", 1))
@@ -533,7 +568,11 @@ class TestQuotation(IntegrationTestCase):
 
 	def test_design_hash_is_stable_and_sensitive(self):
 		design = frappe._dict(
-			design_json=json.dumps({"a": 1, "b": 2}), series_version="V", finish="F", price_structure="P", unit_price=10
+			design_json=json.dumps({"a": 1, "b": 2}),
+			series_version="V",
+			finish="F",
+			price_structure="P",
+			unit_price=10,
 		)
 		same = frappe._dict(design, design_json=json.dumps({"b": 2, "a": 1}))
 		self.assertEqual(design_hash(design), design_hash(same))

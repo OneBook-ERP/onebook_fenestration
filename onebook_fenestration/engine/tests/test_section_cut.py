@@ -66,7 +66,7 @@ class TestSectionCut(unittest.TestCase):
 				("profile", "CS4801"),
 			],
 		)
-		frame_b, bead_b, glass, bead_t, frame_t = section.pieces
+		_frame_b, bead_b, glass, bead_t, frame_t = section.pieces
 		self.assertEqual((glass.start, glass.end), (29.5, 1470.5))
 		self.assertEqual(glass.end - glass.start, 1441)
 		self.assertEqual((bead_b.start, bead_b.end, bead_b.role, bead_b.panel), (25.5, 45.5, "bead", "F1"))
@@ -78,7 +78,19 @@ class TestSectionCut(unittest.TestCase):
 		roles = [p.role for p in section.pieces]
 		self.assertEqual(
 			roles,
-			["frame", "bead", "glass", "bead", "mullion", "sash", "glass_adaptor", "glass", "glass_adaptor", "sash", "frame"],
+			[
+				"frame",
+				"bead",
+				"glass",
+				"bead",
+				"mullion",
+				"sash",
+				"glass_adaptor",
+				"glass",
+				"glass_adaptor",
+				"sash",
+				"frame",
+			],
 		)
 		sash_glass = section.pieces[7]
 		self.assertEqual(sash_glass.end - sash_glass.start, 613)
@@ -114,7 +126,14 @@ class TestSectionCut(unittest.TestCase):
 
 	def test_cut_position_snaps_to_cell(self):
 		design, snap = load("w01.json"), snapshot()
-		cases = [("h", None, 610), ("h", 5000, 610), ("h", -10, 610), ("v", None, 228.75), ("v", 457.5, 686.25), ("v", 2000, 686.25)]
+		cases = [
+			("h", None, 610),
+			("h", 5000, 610),
+			("h", -10, 610),
+			("v", None, 228.75),
+			("v", 457.5, 686.25),
+			("v", 2000, 686.25),
+		]
 		for axis, at, expected in cases:
 			with self.subTest(axis=axis, at=at):
 				section = cross_section(design, snap, axis, at, CS400_WIDTHS)

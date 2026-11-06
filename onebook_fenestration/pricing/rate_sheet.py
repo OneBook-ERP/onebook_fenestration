@@ -11,7 +11,17 @@ from onebook_fenestration.pricing.rates import _item_prices
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 ROLES = ("System Manager", "Fenestration Engineer")
-COLUMNS = ["item_code", "item_name", "kind", "uom", "rate_basis", "current_rate", "series", "new_rate", "valid_from"]
+COLUMNS = [
+	"item_code",
+	"item_name",
+	"kind",
+	"uom",
+	"rate_basis",
+	"current_rate",
+	"series",
+	"new_rate",
+	"valid_from",
+]
 GLASS_BASIS = "per m2"
 PROFILE_BASIS = "per kg"
 
@@ -35,7 +45,9 @@ def series_items(series_versions: list[str] | None = None) -> list[dict]:
 			used.setdefault(item_code, (kind, set()))[1].add(series)
 	details = {
 		row.name: row
-		for row in frappe.get_all("Item", filters={"name": ["in", list(used)]}, fields=["name", "item_name", "stock_uom"])
+		for row in frappe.get_all(
+			"Item", filters={"name": ["in", list(used)]}, fields=["name", "item_name", "stock_uom"]
+		)
 	}
 	rows = []
 	for item_code, (kind, series) in sorted(used.items()):
@@ -149,7 +161,16 @@ def _parse_rate(value) -> float | None:
 def _upsert_price(price_list: str, item_code: str, uom: str, rate: float, valid_from) -> str:
 	name = frappe.db.get_value(
 		"Item Price",
-		{"price_list": price_list, "item_code": item_code, "valid_from": valid_from, "uom": uom, "customer": ["is", "not set"], "supplier": ["is", "not set"], "batch_no": ["is", "not set"], "packing_unit": 0},
+		{
+			"price_list": price_list,
+			"item_code": item_code,
+			"valid_from": valid_from,
+			"uom": uom,
+			"customer": ["is", "not set"],
+			"supplier": ["is", "not set"],
+			"batch_no": ["is", "not set"],
+			"packing_unit": 0,
+		},
 		"name",
 	)
 	if not name:
@@ -162,7 +183,9 @@ def _upsert_price(price_list: str, item_code: str, uom: str, rate: float, valid_
 				"price_list_rate": rate,
 				"valid_from": valid_from,
 			}
-		).insert(ignore_permissions=True)  # the endpoint is role-gated; Item Price create needs a Master Manager
+		).insert(
+			ignore_permissions=True
+		)  # the endpoint is role-gated; Item Price create needs a Master Manager
 		return "created"
 	price = frappe.get_doc("Item Price", name)
 	if flt(price.price_list_rate) == rate:
@@ -190,11 +213,16 @@ def _rate_basis(kind: str, uom: str) -> str:
 def _version_items(version: str) -> list[tuple[str, str]]:
 	"""(item code, kind) for every priced item a version uses."""
 	found = []
-	profiles = {r.profile for r in frappe.get_all("Series Member Rule", filters={"parent": version}, fields=["profile"])}
+	profiles = {
+		r.profile
+		for r in frappe.get_all("Series Member Rule", filters={"parent": version}, fields=["profile"])
+	}
 	found += [(item, "Profile") for item in _linked_items("Fenestration Profile", "profile_code", profiles)]
 	glasses = set(get_snapshot(version).glasses)
 	found += [(item, "Glass") for item in _linked_items("Fenestration Glass", "glass_code", glasses)]
-	for rule in frappe.get_all("Series Hardware Rule", filters={"parent": version}, fields=["item", "bom_group"]):
+	for rule in frappe.get_all(
+		"Series Hardware Rule", filters={"parent": version}, fields=["item", "bom_group"]
+	):
 		if rule.item:
 			found.append((rule.item, "Gasket" if rule.bom_group == "Gasket" else "Hardware"))
 	return found
@@ -203,4 +231,6 @@ def _version_items(version: str) -> list[tuple[str, str]]:
 def _linked_items(doctype: str, code_field: str, codes: set) -> list[str]:
 	if not codes:
 		return []
-	return frappe.get_all(doctype, filters={code_field: ["in", list(codes)], "item": ["is", "set"]}, pluck="item")
+	return frappe.get_all(
+		doctype, filters={code_field: ["in", list(codes)], "item": ["is", "set"]}, pluck="item"
+	)

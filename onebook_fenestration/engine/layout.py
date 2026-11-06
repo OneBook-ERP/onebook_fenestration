@@ -2,6 +2,7 @@
 
 import math
 from dataclasses import dataclass
+from itertools import pairwise
 
 from onebook_fenestration.engine.types import DesignError
 
@@ -84,9 +85,13 @@ def _walk(node, path, depth, x, y, w, h, sides, cells, bars, counters):
 		counters[bar_kind] += 1
 		prefix = "M" if bar_kind == "mullion" else "T"
 		if direction == "v":
-			bars.append(Bar(bar_kind, f"{prefix}{counters[bar_kind]}", h, (sides["B"], sides["T"]), x + bound, y))
+			bars.append(
+				Bar(bar_kind, f"{prefix}{counters[bar_kind]}", h, (sides["B"], sides["T"]), x + bound, y)
+			)
 		else:
-			bars.append(Bar(bar_kind, f"{prefix}{counters[bar_kind]}", w, (sides["L"], sides["R"]), y + bound, x))
+			bars.append(
+				Bar(bar_kind, f"{prefix}{counters[bar_kind]}", w, (sides["L"], sides["R"]), y + bound, x)
+			)
 
 	last = len(children) - 1
 	for i, child in enumerate(children):
@@ -108,6 +113,6 @@ def _split_bounds(path: str, at: list, span: float, child_count: int) -> list[fl
 	if child_count < 2 or len(at) != child_count - 1:
 		raise DesignError(f"{path}: split needs at least 2 children and len(at) == children - 1")
 	bounds = [0, *at, span]
-	if any(not (a < b) for a, b in zip(bounds, bounds[1:])):
+	if any(not (a < b) for a, b in pairwise(bounds)):
 		raise DesignError(f"{path}: split positions {at} must increase strictly inside (0, {span})")
 	return bounds

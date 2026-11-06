@@ -36,7 +36,11 @@ class TestSnapshotCheck(unittest.TestCase):
 		self.assertRuleError(lambda d: d["constants"].pop("glass_density"), "glass_density")
 
 	def test_unknown_hardware_per(self):
-		self.assertRuleError(lambda d: _rule(d, "hw_corner_cleat_frame").update(per="corner"), "hw_corner_cleat_frame", "corner")
+		self.assertRuleError(
+			lambda d: _rule(d, "hw_corner_cleat_frame").update(per="corner"),
+			"hw_corner_cleat_frame",
+			"corner",
+		)
 
 
 class TestSnapshotFromDict(unittest.TestCase):
@@ -92,7 +96,9 @@ class TestCompute(unittest.TestCase):
 			compute({"width": 915, "height": 1220}, snapshot())
 
 	def test_cut_lengths_are_floats(self):
-		self.assertTrue(all(isinstance(m.length, float) for m in compute(load("w01.json"), snapshot()).members))
+		self.assertTrue(
+			all(isinstance(m.length, float) for m in compute(load("w01.json"), snapshot()).members)
+		)
 
 
 class TestResultPaths(unittest.TestCase):
@@ -100,7 +106,12 @@ class TestResultPaths(unittest.TestCase):
 		r = compute(load("w01.json"), snapshot())
 		self.assertEqual(
 			sorted({(m.panel, m.role, m.path) for m in r.members}),
-			[("F1", "frame", "F1"), ("F1", "mullion", "M1"), ("F1-S1", "sash", "F1.0"), ("F1-S2", "sash", "F1.1")],
+			[
+				("F1", "frame", "F1"),
+				("F1", "mullion", "M1"),
+				("F1-S1", "sash", "F1.0"),
+				("F1-S2", "sash", "F1.1"),
+			],
 		)
 		self.assertEqual([(p.panel, p.path) for p in r.glass], [("F1-S1", "F1.0"), ("F1-S2", "F1.1")])
 
@@ -108,7 +119,12 @@ class TestResultPaths(unittest.TestCase):
 		design = {
 			"width": 915,
 			"height": 40,
-			"root": {"type": "split", "dir": "v", "at": [457.5], "children": [{"type": "fixed", "glass": "6CTG"}, {"type": "louver"}]},
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [457.5],
+				"children": [{"type": "fixed", "glass": "6CTG"}, {"type": "louver"}],
+			},
 		}
 		r = compute(design, snapshot())
 		self.assertEqual(

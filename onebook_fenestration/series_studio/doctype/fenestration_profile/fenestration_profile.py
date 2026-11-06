@@ -48,7 +48,9 @@ class FenestrationProfile(Document):
 		try:
 			_svg, self.width_mm, self.depth_mm = rotate_path(self.section_svg, self.section_rotation)
 		except ValueError as exc:
-			frappe.throw(_("Could not rotate the section outline: {0}").format(exc), title=_("Section outline"))
+			frappe.throw(
+				_("Could not rotate the section outline: {0}").format(str(exc)), title=_("Section outline")
+			)
 
 	def validate_bar_lengths(self):
 		"""Bar lengths are comma-separated positive numbers, e.g. "4880, 5800"."""
@@ -61,9 +63,9 @@ class FenestrationProfile(Document):
 				valid = False
 			if not valid:
 				frappe.throw(
-					_("Bar Lengths must be comma-separated positive numbers, e.g. 4880, 5800 (got {0})").format(
-						frappe.bold(part.strip())
-					),
+					_(
+						"Bar Lengths must be comma-separated positive numbers, e.g. 4880, 5800 (got {0})"
+					).format(frappe.bold(part.strip())),
 					title=_("Invalid Bar Lengths"),
 				)
 
@@ -76,7 +78,7 @@ class FenestrationProfile(Document):
 			file_doc = frappe.get_doc("File", {"file_url": self.dxf_file})
 			section = analyze_dxf(file_doc.get_full_path())
 		except (SectionError, frappe.DoesNotExistError, OSError) as exc:
-			frappe.throw(_("Could not read section from DXF: {0}").format(exc), title=_("DXF error"))
+			frappe.throw(_("Could not read section from DXF: {0}").format(str(exc)), title=_("DXF error"))
 
 		self.area_mm2 = round(section.area_mm2, 1)
 		self.width_mm = round(section.width_mm, 1)

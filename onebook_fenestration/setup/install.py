@@ -1,6 +1,7 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.utils import flt
+from frappe.utils.nestedset import get_root_of
 
 from onebook_fenestration.setup.custom_fields import CUSTOM_FIELDS
 
@@ -8,6 +9,12 @@ ENGINEER_ROLE = "Fenestration Engineer"
 
 
 def after_install():
+	_sync()
+	setup_production_items()
+
+
+def after_setup_wizard(wizard_args: dict | None = None):
+	"""A site installed before the ERPNext setup wizard gets the masters that need its Item Group root."""
 	_sync()
 	setup_production_items()
 
@@ -127,7 +134,9 @@ def _seed_settings():
 		stored = stored_value(fieldname)
 		if stored in (None, ""):
 			frappe.db.set_single_value(
-				"Fenestration Settings", fieldname, frappe.get_meta("Fenestration Settings").get_field(fieldname).default
+				"Fenestration Settings",
+				fieldname,
+				frappe.get_meta("Fenestration Settings").get_field(fieldname).default,
 			)
 
 
@@ -169,18 +178,19 @@ def seed_quote_masters():
 	has_hsn = frappe.db.exists("DocType", "GST HSN Code") and frappe.get_meta("Item").has_field(
 		"gst_hsn_code"
 	)
+	item_group = _quote_item_group()
 	for code, item_name, hsn, hsn_description in QUOTE_ITEMS:
 		if has_hsn and not frappe.db.exists("GST HSN Code", hsn):
 			frappe.get_doc(
 				{"doctype": "GST HSN Code", "hsn_code": hsn, "description": hsn_description}
 			).insert(ignore_permissions=True)
-		if not frappe.db.exists("Item", code):
+		if item_group and not frappe.db.exists("Item", code):
 			item = frappe.get_doc(
 				{
 					"doctype": "Item",
 					"item_code": code,
 					"item_name": item_name,
-					"item_group": _quote_item_group(),
+					"item_group": item_group,
 					"stock_uom": "Nos",
 					"is_stock_item": 0,
 					"is_sales_item": 1,
@@ -192,15 +202,16 @@ def seed_quote_masters():
 	_seed_terms()
 
 
-def _quote_item_group() -> str:
-	if not frappe.db.exists("Item Group", "Fenestration"):
-		frappe.get_doc(
-			{
-				"doctype": "Item Group",
-				"item_group_name": "Fenestration",
-				"parent_item_group": "All Item Groups",
-			}
-		).insert(ignore_permissions=True)
+def _quote_item_group() -> str | None:
+	"""The Fenestration Item Group, or None before the ERPNext setup wizard has created the root."""
+	if frappe.db.exists("Item Group", "Fenestration"):
+		return "Fenestration"
+	root = get_root_of("Item Group")
+	if not root:
+		return None
+	frappe.get_doc(
+		{"doctype": "Item Group", "item_group_name": "Fenestration", "parent_item_group": root}
+	).insert(ignore_permissions=True)
 	return "Fenestration"
 
 
@@ -324,7 +335,9 @@ def _restock(item_code: str, uom: str) -> None:
 	if not any(row.uom == uom for row in item.uoms):
 		item.append("uoms", {"uom": uom, "conversion_factor": 1})
 	item.save(ignore_permissions=True)
-	for price in frappe.get_all("Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"):
+	for price in frappe.get_all(
+		"Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"
+	):
 		frappe.db.set_value("Item Price", price, "uom", uom)
 
 

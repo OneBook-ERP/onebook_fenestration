@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+tone_instructions: "Be concise. Lead with correctness and security issues; skip style nits the linters already catch."
+early_access: false
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: true
+  poem: false
+  sequence_diagrams: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - version-16
+      - main
+  path_filters:
+    - "!**/yarn.lock"
+    - "!**/node_modules/**"
+    - "!onebook_fenestration/public/frontend/**"
+    - "!doc/*.pdf"
+    - "!doc/*.mp4"
+    - "!doc/*.dxf"
+  path_instructions:
+    - path: "onebook_fenestration/engine/**"
+      instructions: |
+        The engine is pure, deterministic Python. Flag any import of frappe.db, frappe.get_doc,
+        network or file I/O, randomness or wall-clock time inside calculations. The only frappe
+        API allowed is frappe.safe_eval (via engine/formula.py). Flag hardcoded series-specific
+        numbers (deductions, profile codes, weights): series rules must be doctype data.
+        Golden tests (W01, W02, 123) must keep reproducing the EvA outputs exactly.
+    - path: "onebook_fenestration/**/doctype/**/*.json"
+      instructions: |
+        Check field renames or removals for a matching patch in patches.txt, and permission
+        changes for least privilege.
+    - path: "onebook_fenestration/**/*.py"
+      instructions: |
+        Frappe v16 app. Whitelisted methods must check permissions (frappe.only_for or
+        doc.check_permission) before using ignore_permissions. No raw SQL built from user input;
+        use frappe.qb or parameters. Translated strings must wrap user-facing text in _().
+        Tests must not depend on or modify records that already exist on a developer site.
+    - path: "frontend/src/**"
+      instructions: |
+        Vue 3 + frappe-ui. Use frappe-ui components and the call wrapper in api.ts, not ad-hoc
+        fetch. Layouts must work at 390 px width with no horizontal page scroll.
+    - path: "doc/**"
+      instructions: |
+        Flag any customer personal data (names, phone numbers, addresses, GSTINs of real
+        customers) or geometry extracted from client DXF files. Those must never be committed.
+  tools:
+    ruff:
+      enabled: true
+    eslint:
+      enabled: true
+    semgrep:
+      enabled: true
+    yamllint:
+      enabled: true
+    actionlint:
+      enabled: true
+    gitleaks:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CLAUDE.md"
+      - "doc/decisions.md"

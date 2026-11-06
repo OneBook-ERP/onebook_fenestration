@@ -1,6 +1,6 @@
 import json
-from unittest.mock import patch
 from collections import defaultdict
+from unittest.mock import patch
 
 import frappe
 from erpnext.selling.doctype.quotation.quotation import make_sales_order
@@ -10,7 +10,12 @@ from frappe.utils import add_days, nowdate
 from onebook_fenestration.engine import compute
 from onebook_fenestration.engine.cutting import Piece, optimize, wastage
 from onebook_fenestration.fenestration.quotation import make_quotation
-from onebook_fenestration.production.cutting_plan import build_plan, collect_pieces, parse_bar_lengths, stored_value
+from onebook_fenestration.production.cutting_plan import (
+	build_plan,
+	collect_pieces,
+	parse_bar_lengths,
+	stored_value,
+)
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.setup.install import setup_production_items
@@ -87,7 +92,9 @@ class TestCuttingPlan(IntegrationTestCase):
 		by_design = {spec[0]: spec[3] for spec in specs}
 		for line in order.items:
 			if line.fen_window_design:
-				line.qty = by_design[frappe.db.get_value("Window Design", line.fen_window_design, "design_ref")]
+				line.qty = by_design[
+					frappe.db.get_value("Window Design", line.fen_window_design, "design_ref")
+				]
 		order.insert()
 		order.submit()
 		return order, designs
@@ -125,7 +132,9 @@ class TestCuttingPlan(IntegrationTestCase):
 		self.assertEqual(sum(label.endswith(" #2") for label in labels), per_profile[next(iter(groups))[0]])
 		self.assertTrue(any(label.startswith("W01 ") and label.endswith(" #2") for label in labels))
 		self.assertFalse(any(label.endswith(" #3") for label in labels))
-		self.assertTrue(any(label.startswith("W01 ") and not label.endswith(("#1", "#2")) for label in labels))
+		self.assertTrue(
+			any(label.startswith("W01 ") and not label.endswith(("#1", "#2")) for label in labels)
+		)
 
 	def test_non_design_lines_skipped(self):
 		order, _ = self.submitted_order([("W01", "GREY", 1, 1)], transport=500)
@@ -134,7 +143,9 @@ class TestCuttingPlan(IntegrationTestCase):
 		per_profile = defaultdict(int)
 		for member in self.members():
 			per_profile[member.profile] += 1
-		self.assertEqual({k: len(v) for k, v in groups.items()}, {(p, "GREY"): n for p, n in per_profile.items()})
+		self.assertEqual(
+			{k: len(v) for k, v in groups.items()}, {(p, "GREY"): n for p, n in per_profile.items()}
+		)
 
 	def test_summary_matches_engine_wastage(self):
 		order, _ = self.submitted_order([("W01", "GREY", 2, 2)])
@@ -144,11 +155,22 @@ class TestCuttingPlan(IntegrationTestCase):
 		pieces = collect_pieces([order.name])[(profile, finish)]
 		info = frappe.db.get_value("Fenestration Profile", profile, ("kg_per_m", "bar_lengths"), as_dict=True)
 		expected = wastage(
-			optimize(pieces, parse_bar_lengths(info.bar_lengths, profile), kerf=10, min_rest=500), info.kg_per_m
+			optimize(pieces, parse_bar_lengths(info.bar_lengths, profile), kerf=10, min_rest=500),
+			info.kg_per_m,
 		)
 		row = next(r for r in plan.summary if r.profile == profile and r.finish == finish)
-		for key in ("bar_count", "pieces", "cut_mm", "rest_mm", "waste_mm", "kg_bars", "kg_used",
-			"waste_pct_incl_rest", "waste_pct_excl_rest", "kg_per_m"):
+		for key in (
+			"bar_count",
+			"pieces",
+			"cut_mm",
+			"rest_mm",
+			"waste_mm",
+			"kg_bars",
+			"kg_used",
+			"waste_pct_incl_rest",
+			"waste_pct_excl_rest",
+			"kg_per_m",
+		):
 			self.assertAlmostEqual(row.get(key), expected[key], places=3, msg=key)
 		self.assertEqual(row.bars, ", ".join(f"{k:g} × {v}" for k, v in sorted(expected["bars"].items())))
 		self.assertEqual(plan.unplaced_count, 0)
@@ -212,7 +234,9 @@ class TestCuttingPlan(IntegrationTestCase):
 		self.assertEqual(plan.kerf_mm, 0)
 		for group in json.loads(plan.plan_json)["groups"]:
 			for bar in group["bars"]:
-				self.assertEqual(bar["bar_length"] - bar["remainder_mm"], sum(p["length"] for p in bar["pieces"]))
+				self.assertEqual(
+					bar["bar_length"] - bar["remainder_mm"], sum(p["length"] for p in bar["pieces"])
+				)
 
 	def test_zero_min_rest_survives_reload(self):
 		order, _ = self.submitted_order([("W01", "GREY", 1, 1)])
@@ -231,7 +255,9 @@ class TestCuttingPlan(IntegrationTestCase):
 		self.assertIn(f"Sales Order {order.name} is listed twice", str(ctx.exception))
 
 	def test_other_company_order_refused(self):
-		other = "Some Other Company"  # called on build_plan directly: Link validation would reject the name first
+		other = (
+			"Some Other Company"  # called on build_plan directly: Link validation would reject the name first
+		)
 		order, _ = self.submitted_order([("W01", "GREY", 1, 1)])
 		plan = self.new_plan([order.name])
 		plan.company, plan.kerf_mm, plan.min_rest_mm = other, 10, 500

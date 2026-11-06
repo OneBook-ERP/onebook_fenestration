@@ -44,7 +44,9 @@ def _clean(element: ET.Element, depth: int) -> None:
 		frappe.throw(_("SVG is not valid"))
 	element.tag = f"{{{SVG_NS}}}{_local(element.tag)}"
 	element.attrib = {
-		k: v for k, v in element.attrib.items() if not k.startswith("{") and k in ATTRIBUTES and _safe_value(v)
+		k: v
+		for k, v in element.attrib.items()
+		if not k.startswith("{") and k in ATTRIBUTES and _safe_value(v)
 	}
 	for child in list(element):
 		if _local(child.tag) in ELEMENTS and _in_svg_namespace(child.tag):

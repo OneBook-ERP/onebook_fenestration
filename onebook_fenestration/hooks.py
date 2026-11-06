@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["frappe/erpnext"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -105,6 +105,7 @@ jinja = {
 # before_install = "onebook_fenestration.install.before_install"
 after_install = "onebook_fenestration.setup.install.after_install"
 after_migrate = "onebook_fenestration.setup.install.after_migrate"
+setup_wizard_complete = "onebook_fenestration.setup.install.after_setup_wizard"
 
 # Uninstallation
 # ------------
@@ -206,7 +207,7 @@ doc_events = {
 # Testing
 # -------
 
-# before_tests = "onebook_fenestration.install.before_tests"
+before_tests = "onebook_fenestration.tests.setup_test_site.before_tests"
 
 # Extend DocType Class
 # ------------------------------

@@ -26,7 +26,9 @@ def compute(design: dict, snapshot: SeriesSnapshot) -> EngineResult:
 		"perimeter_m": 2 * (width + height) / 1000,
 		"window_kg": window_kg,
 	}
-	hardware, hardware_issues = hardware_bom(members, panes, sash_sizes, shutter_kg, window_vars, snapshot, sash_nodes(cells))
+	hardware, hardware_issues = hardware_bom(
+		members, panes, sash_sizes, shutter_kg, window_vars, snapshot, sash_nodes(cells)
+	)
 	sash_paths = {m.panel: m.path for m in members if m.role == "sash"}
 	issues = member_issues + glass_issues + glazing_issues + hardware_issues
 	issues += validate(snapshot, sash_sizes, shutter_kg, window_vars, sash_paths)

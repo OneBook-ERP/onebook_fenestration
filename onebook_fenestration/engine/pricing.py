@@ -93,7 +93,9 @@ def _perimeters(result: EngineResult, snapshot: SeriesSnapshot, pricing: Pricing
 	out = {}
 	for code in sorted({m.profile for m in result.members}):
 		spec = snapshot.profiles[code]
-		visible, total = pricing.profile_perimeters.get(code, (spec.visible_perimeter_mm, spec.total_perimeter_mm))
+		visible, total = pricing.profile_perimeters.get(
+			code, (spec.visible_perimeter_mm, spec.total_perimeter_mm)
+		)
 		out[code] = {"visible": visible or 0, "total": total or 0}
 	return out
 
@@ -105,16 +107,23 @@ def _perimeter_warnings(head: CostHead, perimeters: dict, warned: set) -> list[I
 		if values[kind] or (code, kind) in warned:
 			continue
 		warned.add((code, kind))
-		issues.append(Issue("warn", "no_perimeter", f"{code}: no {kind} perimeter — {head.label} under-priced"))
+		issues.append(
+			Issue("warn", "no_perimeter", f"{code}: no {kind} perimeter — {head.label} under-priced")
+		)
 	return issues
 
 
-def _variables(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingInput, perimeters: dict) -> dict:
+def _variables(
+	result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingInput, perimeters: dict
+) -> dict:
 	profile_cost = sum(
-		m.length / 1000 * snapshot.profiles[m.profile].kg_per_m * pricing.profile_rates.get(m.profile, 0) for m in result.members
+		m.length / 1000 * snapshot.profiles[m.profile].kg_per_m * pricing.profile_rates.get(m.profile, 0)
+		for m in result.members
 	)
 	hardware_cost = sum(b.qty * pricing.item_rates.get(b.item, 0) for b in result.bom if b.group != "Gasket")
-	gasket_cost = sum((b.length or 0) / 1000 * pricing.item_rates.get(b.item, 0) for b in result.bom if b.group == "Gasket")
+	gasket_cost = sum(
+		(b.length or 0) / 1000 * pricing.item_rates.get(b.item, 0) for b in result.bom if b.group == "Gasket"
+	)
 	glass_cost = sum(g.width * g.height / 1e6 * pricing.glass_rates.get(g.glass, 0) for g in result.glass)
 	return {
 		"profile_cost": profile_cost,
@@ -162,4 +171,3 @@ def _base(head: CostHead, variables: dict) -> float:
 			raise RuleError(f"{head.key}: base '{key}' is not an earlier cost head")
 		total += variables[key]
 	return total
-

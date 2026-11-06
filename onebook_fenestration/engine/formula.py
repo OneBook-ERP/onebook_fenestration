@@ -18,7 +18,8 @@ ALLOWED_FUNCTIONS = {
 
 def evaluate(expr: str, variables: dict, rule_id: str) -> float | bool:
 	try:
-		return safe_eval(expr, dict(ALLOWED_FUNCTIONS), dict(variables))
+		# frappe.safe_eval is the sandboxed evaluator; series rules are data by design (D3).
+		return safe_eval(expr, dict(ALLOWED_FUNCTIONS), dict(variables))  # nosemgrep
 	except Exception as exc:
 		raise RuleError(f"{rule_id}: {expr!r}: {exc}") from exc
 

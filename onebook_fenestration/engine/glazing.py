@@ -29,7 +29,15 @@ def glaze(
 		else:
 			panel = FRAME_PANEL
 			if kind == "louver":
-				issues.append(Issue("warn", "louver_placeholder", "Louver glazing is not computed yet", panel, path=cell.path))
+				issues.append(
+					Issue(
+						"warn",
+						"louver_placeholder",
+						"Louver glazing is not computed yet",
+						panel,
+						path=cell.path,
+					)
+				)
 				continue
 			side = {s: deductions[f"fixed_glass_side_{cell.sides[s]}"] for s in "LRBT"}
 			width = cell.w - side["L"] - side["R"]
@@ -37,7 +45,9 @@ def glaze(
 
 		code = cell.node.get("glass")
 		if code not in snapshot.glasses:
-			issues.append(Issue("error", "unknown_glass", f"{panel}: unknown glass {code!r}", panel, path=cell.path))
+			issues.append(
+				Issue("error", "unknown_glass", f"{panel}: unknown glass {code!r}", panel, path=cell.path)
+			)
 			continue
 		width, height = round(width, 1), round(height, 1)
 		if width <= 0 or height <= 0:

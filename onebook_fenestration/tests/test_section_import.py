@@ -168,7 +168,9 @@ def build_rotation_dxf(path):
 	msp = doc.modelspace()
 	msp.add_mtext("\\LSection  Drawing\\l", dxfattribs={"insert": (80, 1010), "char_height": TEXT_HEIGHT})
 	for text, x in (("Profile Description", 250), ("Profile Code", 320), ("Standard Bar", 380)):
-		msp.add_mtext(text, dxfattribs={"insert": (x, 1005), "char_height": TEXT_HEIGHT, "attachment_point": 5})
+		msp.add_mtext(
+			text, dxfattribs={"insert": (x, 1005), "char_height": TEXT_HEIGHT, "attachment_point": 5}
+		)
 	for i, (code, _name, width, height) in enumerate(ROTATION_ROWS):
 		y = 950 - 80 * i
 		msp.add_mtext(code, dxfattribs={"insert": (305, y), "char_height": TEXT_HEIGHT})
@@ -206,7 +208,10 @@ class TestSectionImportRotation(IntegrationTestCase):
 
 	def profile(self, code):
 		return frappe.db.get_value(
-			"Fenestration Profile", code, ["section_rotation", "width_mm", "depth_mm", "section_svg"], as_dict=True
+			"Fenestration Profile",
+			code,
+			["section_rotation", "width_mm", "depth_mm", "section_svg"],
+			as_dict=True,
 		)
 
 	def test_rotation_guess_from_name(self):

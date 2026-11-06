@@ -1,235 +1,288 @@
 <script setup lang="ts">
-import { Alert, Badge, Button, Tooltip, toast, useList } from 'frappe-ui'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type CutAxis, type SavedDesign } from '@/api'
-import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
-import ResultsBar from '@/components/ResultsBar.vue'
-import SectionView from '@/components/SectionView.vue'
-import WindowCanvas from '@/components/WindowCanvas.vue'
-import { layoutGeom } from '@/design/geometry'
-import { TEMPLATES } from '@/design/templates'
-import { typology } from '@/design/typology'
-import { getNode, moveSplit, newDesign, setLeaf, splitCell } from '@/design/tree'
-import type { LeafNode, SplitDir } from '@/design/types'
-import { useDesignerStore } from '@/stores/designer'
+import { Alert, Badge, Button, Tooltip, toast, useList } from "frappe-ui";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
+import {
+	copyDesign,
+	getDesign,
+	getFenestrationDefaults,
+	saveDesign,
+	type CutAxis,
+	type SavedDesign,
+} from "@/api";
+import PropertiesPanel, { type Meta } from "@/components/PropertiesPanel.vue";
+import ResultsBar from "@/components/ResultsBar.vue";
+import SectionView from "@/components/SectionView.vue";
+import WindowCanvas from "@/components/WindowCanvas.vue";
+import { layoutGeom } from "@/design/geometry";
+import { TEMPLATES } from "@/design/templates";
+import { typology } from "@/design/typology";
+import { getNode, moveSplit, newDesign, setLeaf, splitCell } from "@/design/tree";
+import type { LeafNode, SplitDir } from "@/design/types";
+import { useDesignerStore } from "@/stores/designer";
 
 interface FinishRow {
-	name: string
-	finish_name: string
-	color: string
+	name: string;
+	finish_name: string;
+	color: string;
 }
 
-const store = useDesignerStore()
-const route = useRoute()
-const router = useRouter()
-const project = computed(() => String(route.params.project))
-const savedName = computed(() => (route.params.name ? String(route.params.name) : null))
+const store = useDesignerStore();
+const route = useRoute();
+const router = useRouter();
+const project = computed(() => String(route.params.project));
+const savedName = computed(() => (route.params.name ? String(route.params.name) : null));
 
-const meta = ref<Meta>({ ref: '', qty: 1, location: '' })
-const refError = ref('')
+const meta = ref<Meta>({ ref: "", qty: 1, location: "" });
+const refError = ref("");
 const VIEWS = [
-	{ label: 'Inside', value: 'inside' },
-	{ label: 'Outside', value: 'outside' },
-] as const
-const view = ref<'inside' | 'outside'>('inside')
-const saving = ref(false)
-const loadError = ref('')
-const loading = ref(false)
-let loadedName: string | null = null
-const lockedBy = ref<{ doctype: string; name: string } | null>(null)
-const copying = ref(false)
-const blocked = computed(() => loading.value || !!loadError.value || saving.value || !!lockedBy.value)
+	{ label: "Inside", value: "inside" },
+	{ label: "Outside", value: "outside" },
+] as const;
+const view = ref<"inside" | "outside">("inside");
+const saving = ref(false);
+const loadError = ref("");
+const loading = ref(false);
+let loadedName: string | null = null;
+const lockedBy = ref<{ doctype: string; name: string } | null>(null);
+const copying = ref(false);
+const blocked = computed(
+	() => loading.value || !!loadError.value || saving.value || !!lockedBy.value
+);
 const lockMessage = computed(() =>
 	lockedBy.value
 		? `${meta.value.ref} is on ${lockedBy.value.doctype} ${lockedBy.value.name}. Copy the design to change it.`
-		: '',
-)
-const toolHint = 'Select a panel on the drawing to use these tools'
-const designType = computed(() => typology(store.design.root))
-const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
+		: ""
+);
+const toolHint = "Select a panel on the drawing to use these tools";
+const designType = computed(() => typology(store.design.root));
+const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null);
 
-const sectionOn = ref(false)
-const cutAxis = ref<CutAxis>('h')
+const sectionOn = ref(false);
+const cutAxis = ref<CutAxis>("h");
 /** The cut the user picked (cell centre, mm), sent to the engine; null lets the engine cut the first cell. */
-const cutAt = ref<Record<CutAxis, number | null>>({ h: null, v: null })
+const cutAt = ref<Record<CutAxis, number | null>>({ h: null, v: null });
 /** Where the engine actually cut. Only places the markers; never sent back, so it cannot trigger a fetch. */
-const cutSnapped = ref<Record<CutAxis, number | null>>({ h: null, v: null })
+const cutSnapped = ref<Record<CutAxis, number | null>>({ h: null, v: null });
 /** Marker positions: engine cut, else the picked cut, else the engine's default (centre of the first cell). */
 const cutPos = computed(() => {
-	const first = layoutGeom(store.design).cells[0]
-	const pos = (a: CutAxis, fallback: number) => cutSnapped.value[a] ?? cutAt.value[a] ?? fallback
-	return { axis: cutAxis.value, h: pos('h', first.y + first.h / 2), v: pos('v', first.x + first.w / 2) }
-})
+	const first = layoutGeom(store.design).cells[0];
+	const pos = (a: CutAxis, fallback: number) =>
+		cutSnapped.value[a] ?? cutAt.value[a] ?? fallback;
+	return {
+		axis: cutAxis.value,
+		h: pos("h", first.y + first.h / 2),
+		v: pos("v", first.x + first.w / 2),
+	};
+});
 function pickCut(axis: CutAxis, at: number) {
-	cutAt.value = { ...cutAt.value, [axis]: at }
-	cutSnapped.value = { ...cutSnapped.value, [axis]: null }
+	cutAt.value = { ...cutAt.value, [axis]: at };
+	cutSnapped.value = { ...cutSnapped.value, [axis]: null };
 }
 function onSnapped(at: number) {
-	cutSnapped.value = { ...cutSnapped.value, [cutAxis.value]: at }
+	cutSnapped.value = { ...cutSnapped.value, [cutAxis.value]: at };
 }
 
 const finishList = useList<FinishRow>({
-	doctype: 'Profile Finish',
-	fields: ['name', 'finish_name', 'color'],
-	orderBy: 'name asc',
+	doctype: "Profile Finish",
+	fields: ["name", "finish_name", "color"],
+	orderBy: "name asc",
 	limit: 100,
-})
-const finishes = computed(() => finishList.data ?? [])
-const finishColor = computed(() => finishes.value.find((f) => f.name === store.finish)?.color || undefined)
+});
+const finishes = computed(() => finishList.data ?? []);
+const finishColor = computed(
+	() => finishes.value.find((f) => f.name === store.finish)?.color || undefined
+);
 
-const issuePaths = computed(() => (store.result?.issues ?? []).map((i) => i.path))
+const issuePaths = computed(() => (store.result?.issues ?? []).map((i) => i.path));
 const selectedLeaf = computed(() => {
 	try {
-		const n = getNode(store.design, store.selectedPath)
-		return n.type === 'split' ? null : n
+		const n = getNode(store.design, store.selectedPath);
+		return n.type === "split" ? null : n;
 	} catch {
-		return null
+		return null;
 	}
-})
+});
 
 function parseJson<T>(v: T | string): T {
-	return typeof v === 'string' ? JSON.parse(v) : v
+	return typeof v === "string" ? JSON.parse(v) : v;
 }
 
 async function load(name: string | null) {
-	loadError.value = ''
+	loadError.value = "";
 	if (!name) {
-		loadedName = null
-		lockedBy.value = null
-		meta.value = { ref: '', qty: 1, location: '' }
-		let defaults = { default_finish: '', default_price_structure: '' }
+		loadedName = null;
+		lockedBy.value = null;
+		meta.value = { ref: "", qty: 1, location: "" };
+		let defaults = { default_finish: "", default_price_structure: "" };
 		try {
-			defaults = { ...defaults, ...(await getFenestrationDefaults()) }
+			defaults = { ...defaults, ...(await getFenestrationDefaults()) };
 		} catch {
 			// Prices fall back to the server-side defaults when none are sent.
 		}
-		if (savedName.value) return
+		if (savedName.value) return;
 		store.reset(
-			(TEMPLATES.find((t) => t.id === route.query.template) ?? TEMPLATES[TEMPLATES.length - 1]).build(1200, 1200),
-			String(route.query.series_version ?? ''),
-			defaults.default_finish ?? '',
-			defaults.default_price_structure ?? '',
-		)
-		return
+			(
+				TEMPLATES.find((t) => t.id === route.query.template) ??
+				TEMPLATES[TEMPLATES.length - 1]
+			).build(1200, 1200),
+			String(route.query.series_version ?? ""),
+			defaults.default_finish ?? "",
+			defaults.default_price_structure ?? ""
+		);
+		return;
 	}
-	if (name === loadedName) return
-	loading.value = true
+	if (name === loadedName) return;
+	loading.value = true;
 	try {
-		const doc: SavedDesign = await getDesign(name)
-		if (name !== savedName.value) return
-		meta.value = { ref: doc.design_ref, qty: doc.qty, location: doc.location ?? '' }
-		store.reset(parseJson(doc.design_json), doc.series_version, doc.finish ?? '', doc.price_structure ?? '')
-		lockedBy.value = doc.locked_by ?? null
-		loadedName = name
+		const doc: SavedDesign = await getDesign(name);
+		if (name !== savedName.value) return;
+		meta.value = { ref: doc.design_ref, qty: doc.qty, location: doc.location ?? "" };
+		store.reset(
+			parseJson(doc.design_json),
+			doc.series_version,
+			doc.finish ?? "",
+			doc.price_structure ?? ""
+		);
+		lockedBy.value = doc.locked_by ?? null;
+		loadedName = name;
 	} catch (e) {
-		if (name !== savedName.value) return
-		loadError.value = e instanceof Error ? e.message : 'Could not load design'
+		if (name !== savedName.value) return;
+		loadError.value = e instanceof Error ? e.message : "Could not load design";
 	} finally {
-		if (name === savedName.value) loading.value = false
+		if (name === savedName.value) loading.value = false;
 	}
 }
-watch(savedName, load, { immediate: true })
+watch(savedName, load, { immediate: true });
 // Sync so load's meta assignment lands before store.reset clears the flag.
-watch(meta, () => store.markDirty(), { deep: true, flush: 'sync' })
+watch(meta, () => store.markDirty(), { deep: true, flush: "sync" });
 
 function onBeforeUnload(e: BeforeUnloadEvent) {
-	if (!store.dirty) return
-	e.preventDefault()
-	e.returnValue = ''
+	if (!store.dirty) return;
+	e.preventDefault();
+	e.returnValue = "";
 }
-onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onMounted(() => window.addEventListener("beforeunload", onBeforeUnload));
 onUnmounted(() => {
-	window.removeEventListener('beforeunload', onBeforeUnload)
-	store.cancelCompute()
-})
-onBeforeRouteLeave(() => !store.dirty || window.confirm('Discard unsaved changes?'))
+	window.removeEventListener("beforeunload", onBeforeUnload);
+	store.cancelCompute();
+});
+onBeforeRouteLeave(() => !store.dirty || window.confirm("Discard unsaved changes?"));
 
 function split(dir: SplitDir) {
-	const path = store.selectedPath
-	store.apply((d) => splitCell(d, path, dir, 2))
-	store.select(`${path}.0`)
+	const path = store.selectedPath;
+	store.apply((d) => splitCell(d, path, dir, 2));
+	store.select(`${path}.0`);
 }
-function convert(kind: 'sash' | 'fixed' | 'louver') {
-	const cur = selectedLeaf.value
-	if (!cur) return
-	const glass = cur.glass
+function convert(kind: "sash" | "fixed" | "louver") {
+	const cur = selectedLeaf.value;
+	if (!cur) return;
+	const glass = cur.glass;
 	const leaf: LeafNode =
-		kind === 'sash'
-			? { type: 'sash', glass, opening: 'out', hinge: 'left' }
-			: kind === 'louver'
-				? { type: 'louver', glass, blades: 9 }
-				: { type: 'fixed', glass }
-	store.apply((d) => setLeaf(d, store.selectedPath, leaf))
+		kind === "sash"
+			? { type: "sash", glass, opening: "out", hinge: "left" }
+			: kind === "louver"
+			? { type: "louver", glass, blades: 9 }
+			: { type: "fixed", glass };
+	store.apply((d) => setLeaf(d, store.selectedPath, leaf));
 }
 function onMoveSplit(p: { splitPath: string; index: number; pos: number }) {
-	store.dragTo((d) => moveSplit(d, p.splitPath, p.index, p.pos))
+	store.dragTo((d) => moveSplit(d, p.splitPath, p.index, p.pos));
 }
 
 async function save() {
-	refError.value = ''
-	if (blocked.value) return
+	refError.value = "";
+	if (blocked.value) return;
 	if (!meta.value.ref.trim()) {
-		refError.value = 'Design ref is required'
-		return
+		refError.value = "Design ref is required";
+		return;
 	}
-	saving.value = true
+	saving.value = true;
 	try {
 		const res = await saveDesign({
 			project: project.value,
 			design_ref: meta.value.ref.trim(),
 			series_version: store.seriesVersion,
 			design: store.design,
-			svg: canvas.value?.getSvgMarkup() ?? '',
+			svg: canvas.value?.getSvgMarkup() ?? "",
 			qty: meta.value.qty,
 			location: meta.value.location,
 			name: savedName.value,
 			finish: store.finish || null,
 			price_structure: store.priceStructure || null,
-		})
+		});
 		if (res.ok) {
-			toast.success('Design saved')
-			store.markSaved()
-			loadedName = res.name
-			await router.replace({ name: 'Designer', params: { project: project.value, name: res.name } })
+			toast.success("Design saved");
+			store.markSaved();
+			loadedName = res.name;
+			await router.replace({
+				name: "Designer",
+				params: { project: project.value, name: res.name },
+			});
 		} else {
-			toast.error(res.message)
+			toast.error(res.message);
 		}
 	} catch (e) {
-		toast.error(e instanceof Error ? e.message : 'Save failed')
+		toast.error(e instanceof Error ? e.message : "Save failed");
 	} finally {
-		saving.value = false
+		saving.value = false;
 	}
 }
 
 async function copy() {
-	if (!savedName.value || copying.value) return
-	copying.value = true
+	if (!savedName.value || copying.value) return;
+	copying.value = true;
 	try {
-		const copyName = await copyDesign(savedName.value)
-		await router.push({ name: 'Designer', params: { project: project.value, name: copyName } })
+		const copyName = await copyDesign(savedName.value);
+		await router.push({
+			name: "Designer",
+			params: { project: project.value, name: copyName },
+		});
 	} catch (e) {
-		toast.error(e instanceof Error ? e.message : 'Copy failed')
+		toast.error(e instanceof Error ? e.message : "Copy failed");
 	} finally {
-		copying.value = false
+		copying.value = false;
 	}
 }
 </script>
 
 <template>
 	<div class="flex min-h-screen flex-col bg-gray-50 md:h-screen text-gray-900">
-		<header class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-2">
+		<header
+			class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-2"
+		>
 			<nav aria-label="Breadcrumb" class="flex items-center gap-1 text-sm">
-				<RouterLink :to="`/projects/${project}`" class="min-h-9 content-center text-gray-600 hover:text-gray-900">
+				<RouterLink
+					:to="`/projects/${project}`"
+					class="min-h-9 content-center text-gray-600 hover:text-gray-900"
+				>
 					Projects / {{ project }}
 				</RouterLink>
 			</nav>
-			<span class="text-sm font-semibold">{{ meta.ref || 'New design' }} · {{ designType }}</span>
+			<span class="text-sm font-semibold"
+				>{{ meta.ref || "New design" }} · {{ designType }}</span
+			>
 			<Badge v-if="store.seriesVersion" :label="store.seriesVersion" />
 			<div class="ml-auto flex items-center gap-2">
-				<Button icon="lucide-undo-2" aria-label="Undo" class="min-h-9 min-w-9" :disabled="!store.past.length" @click="store.undo()" />
-				<Button icon="lucide-redo-2" aria-label="Redo" class="min-h-9 min-w-9" :disabled="!store.future.length" @click="store.redo()" />
-				<div class="flex rounded-md border border-gray-200 p-0.5" role="group" aria-label="View">
+				<Button
+					icon="lucide-undo-2"
+					aria-label="Undo"
+					class="min-h-9 min-w-9"
+					:disabled="!store.past.length"
+					@click="store.undo()"
+				/>
+				<Button
+					icon="lucide-redo-2"
+					aria-label="Redo"
+					class="min-h-9 min-w-9"
+					:disabled="!store.future.length"
+					@click="store.redo()"
+				/>
+				<div
+					class="flex rounded-md border border-gray-200 p-0.5"
+					role="group"
+					aria-label="View"
+				>
 					<Button
 						v-for="v in VIEWS"
 						:key="v.value"
@@ -248,42 +301,99 @@ async function copy() {
 					class="min-h-9"
 					@click="sectionOn = !sectionOn"
 				/>
-				<Button label="Save" aria-label="Save" variant="solid" class="min-h-9" :disabled="blocked" @click="save" />
+				<Button
+					label="Save"
+					aria-label="Save"
+					variant="solid"
+					class="min-h-9"
+					:disabled="blocked"
+					@click="save"
+				/>
 			</div>
 		</header>
 		<Alert v-if="loadError" role="alert" theme="red" :title="loadError" />
 		<Alert v-if="lockedBy" role="status" theme="yellow" :title="lockMessage">
 			<template #actions>
-				<Button label="Copy design" aria-label="Copy design" :loading="copying" @click="copy" />
+				<Button
+					label="Copy design"
+					aria-label="Copy design"
+					:loading="copying"
+					@click="copy"
+				/>
 			</template>
 		</Alert>
 
 		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
-			<nav class="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 bg-white p-3 md:w-36 md:flex-col md:overflow-x-visible md:border-b-0 md:border-r" aria-label="Tools">
-				<p v-if="!selectedLeaf" class="shrink-0 self-center text-xs text-gray-500 md:self-auto">{{ toolHint }}</p>
+			<nav
+				class="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 bg-white p-3 md:w-36 md:flex-col md:overflow-x-visible md:border-b-0 md:border-r"
+				aria-label="Tools"
+			>
+				<p
+					v-if="!selectedLeaf"
+					class="shrink-0 self-center text-xs text-gray-500 md:self-auto"
+				>
+					{{ toolHint }}
+				</p>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Split vertical" aria-label="Split vertical" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="split('v')" />
+					<Button
+						label="Split vertical"
+						aria-label="Split vertical"
+						class="min-h-9 shrink-0 whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="split('v')"
+					/>
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Split horizontal" aria-label="Split horizontal" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="split('h')" />
+					<Button
+						label="Split horizontal"
+						aria-label="Split horizontal"
+						class="min-h-9 shrink-0 whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="split('h')"
+					/>
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Sash" aria-label="Sash" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('sash')" />
+					<Button
+						label="Sash"
+						aria-label="Sash"
+						class="min-h-9 shrink-0 whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="convert('sash')"
+					/>
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Fixed glass" aria-label="Fixed glass" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('fixed')" />
+					<Button
+						label="Fixed glass"
+						aria-label="Fixed glass"
+						class="min-h-9 shrink-0 whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="convert('fixed')"
+					/>
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Louver" aria-label="Louver" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('louver')" />
+					<Button
+						label="Louver"
+						aria-label="Louver"
+						class="min-h-9 shrink-0 whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="convert('louver')"
+					/>
 				</Tooltip>
 			</nav>
 			<main
 				class="flex min-h-[50vh] min-w-0 flex-1 flex-col md:min-h-0 items-center p-2"
-				:class="sectionOn ? 'justify-start overflow-y-auto overflow-x-hidden' : 'justify-center overflow-hidden'"
+				:class="
+					sectionOn
+						? 'justify-start overflow-y-auto overflow-x-hidden'
+						: 'justify-center overflow-hidden'
+				"
 			>
 				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
 				<template v-else-if="!loadError">
-					<div class="flex w-full flex-1 items-center justify-center" :class="sectionOn ? 'min-h-[45vh]' : 'min-h-0'">
+					<div
+						class="flex w-full flex-1 items-center justify-center"
+						:class="sectionOn ? 'min-h-[45vh]' : 'min-h-0'"
+					>
 						<WindowCanvas
 							ref="canvas"
 							:design="store.design"
@@ -310,7 +420,12 @@ async function copy() {
 					/>
 				</template>
 			</main>
-			<PropertiesPanel v-model:meta="meta" :finishes="finishes" :ref-error="refError" :ref-readonly="!!savedName" />
+			<PropertiesPanel
+				v-model:meta="meta"
+				:finishes="finishes"
+				:ref-error="refError"
+				:ref-readonly="!!savedName"
+			/>
 		</div>
 		<ResultsBar />
 	</div>

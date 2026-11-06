@@ -4,11 +4,11 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils.pdf import get_pdf
 
+from onebook_fenestration.fenestration import print_context
 from onebook_fenestration.fenestration.quotation import make_quotation
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests import test_quotation
 from onebook_fenestration.tests.test_snapshot import load
-from onebook_fenestration.fenestration import print_context
 from onebook_fenestration.utils.jinja import fen_svg_data_uri
 
 QUOTATION_FORMAT = "Fenestration Quotation"
@@ -158,7 +158,9 @@ class TestPrintFormats(IntegrationTestCase):
 	def test_quotation_skips_lines_of_deleted_designs(self):
 		line = next(row for row in self.quotation.items if row.fen_window_design)
 		frappe.db.set_value("Quotation Item", line.name, "fen_window_design", "NO-SUCH-DESIGN")
-		self.addCleanup(frappe.db.set_value, "Quotation Item", line.name, "fen_window_design", line.fen_window_design)
+		self.addCleanup(
+			frappe.db.set_value, "Quotation Item", line.name, "fen_window_design", line.fen_window_design
+		)
 		html = self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)
 		self.assertIn("Grand Total", html)
 
@@ -215,7 +217,9 @@ class TestAssemblyPrints(IntegrationTestCase):
 		self.assertEqual(first["refs"], "W01, W02")
 		self.assertEqual(first["qty"], 5)
 		rows = {r["ref"]: r for r in print_context.design_rows(self.project)}
-		self.assertAlmostEqual(first["area_sqft"], rows["W01"]["area_sqft"] * 2 + rows["W02"]["area_sqft"] * 3, 2)
+		self.assertAlmostEqual(
+			first["area_sqft"], rows["W01"]["area_sqft"] * 2 + rows["W02"]["area_sqft"] * 3, 2
+		)
 		self.assertEqual((second["width"], second["height"], second["refs"]), (600, 600, "W03"))
 		self.assertTrue(first["typology"])
 
@@ -230,7 +234,9 @@ class TestAssemblyPrints(IntegrationTestCase):
 		self.assertLess(frame.index("B"), frame.index("T"))
 		keys = [(p["panel"], POSITION_ORDER.index(p["position"])) for p in pieces]
 		self.assertEqual(keys, sorted(keys))
-		self.assertTrue(all("/" in p["angles"] and p["profile_name"] and p["qty_per_window"] >= 1 for p in pieces))
+		self.assertTrue(
+			all("/" in p["angles"] and p["profile_name"] and p["qty_per_window"] >= 1 for p in pieces)
+		)
 
 	def test_assembly_prints_skip_superseded(self):
 		w02 = frappe.db.get_value("Window Design", {"project": self.project.name, "design_ref": "W02"})
@@ -252,4 +258,3 @@ class TestAssemblyPrints(IntegrationTestCase):
 			if print_format.endswith("Detail"):
 				self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
 			self.assertTrue(get_pdf(html).startswith(b"%PDF"))
-
