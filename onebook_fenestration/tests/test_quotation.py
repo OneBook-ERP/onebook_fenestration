@@ -17,7 +17,8 @@ from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
 
 PRICE_LIST = "Fen Test Cost"
-COMPANY = "Hilux System Windows Pvt Ltd"
+from onebook_fenestration.tests.constants import COMPANY
+
 IN_STATE_CUSTOMER = "Fen Test Customer"
 OUT_STATE_CUSTOMER = "Fen Test Customer KA"
 SEZ_CUSTOMER = "Fen Test Customer SEZ"

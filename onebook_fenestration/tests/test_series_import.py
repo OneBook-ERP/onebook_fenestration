@@ -11,6 +11,8 @@ FIXTURES = Path(engine_tests.__file__).parent / "fixtures"
 DATA = Path(__file__).parent.parent / "series_studio" / "data"
 # Profiles belong to one series, so fixture imports must target the series that owns them.
 SERIES = "CS400"
+PERIMETER_SERIES = "TST-PERIMETER"
+TEST_GLASS = {"code": "TST-GLASS-8C", "name": "Test 8 mm clear", "thickness_mm": 8, "glass_mm": 7}
 
 
 def load_fixture(name: str) -> dict:
@@ -52,27 +54,21 @@ class TestGlassCatalogueValues(IntegrationTestCase):
 
 class TestImportMasters(IntegrationTestCase):
 	def test_import_creates_catalogue_glasses_with_items(self):
-		data = load_fixture("cs400_snapshot.json")
-		# Fixture glasses win on a code clash, so only catalogue-only codes carry catalogue values.
-		new_codes = [
-			g["code"]
-			for g in catalogue()
-			if g["code"] not in data["glasses"] and not frappe.db.exists("Fenestration Glass", g["code"])
-		]
-		import_test_series(with_catalogue(data))
+		data = with_catalogue(load_fixture("cs400_snapshot.json"))
+		# A test-owned glass code, absent by construction, so the new-glass path is always checked.
+		code = TEST_GLASS["code"]
+		self.assertFalse(frappe.db.exists("Fenestration Glass", code))
+		data["glasses"][code] = {k: v for k, v in TEST_GLASS.items() if k != "code"}
+		import_test_series(data)
 		for g in catalogue():
 			self.assertTrue(frappe.db.exists("Fenestration Glass", g["code"]), g["code"])
-		for code in new_codes:
-			row = frappe.db.get_value(
-				"Fenestration Glass", code, ["thickness_mm", "glass_mm", "item"], as_dict=True
-			)
-			expected = next(g for g in catalogue() if g["code"] == code)
-			self.assertEqual(
-				(row.thickness_mm, row.glass_mm), (expected["thickness_mm"], expected["glass_mm"]), code
-			)
-			self.assertEqual(row.item, f"FEN-GLASS-{code}")
-			item = frappe.db.get_value("Item", row.item, ["stock_uom", "fen_item_kind"], as_dict=True)
-			self.assertEqual((item.stock_uom, item.fen_item_kind), ("Square Meter", "Glass"), code)
+		row = frappe.db.get_value(
+			"Fenestration Glass", code, ["thickness_mm", "glass_mm", "item"], as_dict=True
+		)
+		self.assertEqual((row.thickness_mm, row.glass_mm), (8, 7))
+		self.assertEqual(row.item, f"FEN-GLASS-{code}")
+		item = frappe.db.get_value("Item", row.item, ["stock_uom", "fen_item_kind"], as_dict=True)
+		self.assertEqual((item.stock_uom, item.fen_item_kind), ("Square Meter", "Glass"))
 
 	def test_import_never_edits_existing_glass(self):
 		frappe.get_doc(
@@ -262,13 +258,13 @@ class TestMemberRuleWhen(IntegrationTestCase):
 
 class TestProfilePerimeters(IntegrationTestCase):
 	def make_profile(self, code: str, visible: float, total: float) -> None:
-		_ensure_series(SERIES, "CS400 Economical Casement", "Casement")
+		_ensure_series(PERIMETER_SERIES, "Perimeter test series", "Casement")
 		frappe.get_doc(
 			{
 				"doctype": "Fenestration Profile",
 				"profile_code": code,
 				"profile_name": code,
-				"series": SERIES,
+				"series": PERIMETER_SERIES,
 				"role": "accessory",
 				"kg_per_m": 1,
 				"bar_lengths": "5800",
