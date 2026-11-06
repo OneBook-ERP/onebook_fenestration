@@ -11,8 +11,14 @@ FIXTURES = Path(engine_tests.__file__).parent / "fixtures"
 DATA = Path(__file__).parent.parent / "series_studio" / "data"
 # Profiles belong to one series, so fixture imports must target the series that owns them.
 SERIES = "CS400"
-PERIMETER_SERIES = "TST-PERIMETER"
-TEST_GLASS = {"code": "TST-GLASS-8C", "name": "Test 8 mm clear", "thickness_mm": 8, "glass_mm": 7}
+# Test-owned codes, generated per run so they never match a record on a developer site.
+PERIMETER_SERIES = f"TST-PER-{frappe.generate_hash(length=8)}"
+TEST_GLASS = {
+	"code": f"TST-GLASS-{frappe.generate_hash(length=8)}",
+	"name": "Test 8 mm clear",
+	"thickness_mm": 8,
+	"glass_mm": 7,
+}
 
 
 def load_fixture(name: str) -> dict:
