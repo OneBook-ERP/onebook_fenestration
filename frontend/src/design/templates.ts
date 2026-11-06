@@ -9,7 +9,14 @@ export interface DesignTemplate {
 
 // Same glass as the blank default in newDesign.
 const GLASS = '6CTG'
-const sash = (): DesignNode => ({ type: 'sash', glass: GLASS })
+const sash = (hinge: 'left' | 'right' | 'top' = 'left'): DesignNode => ({
+	type: 'sash',
+	glass: GLASS,
+	opening: 'out',
+	hinge,
+	ghh: 732,
+	lock: 'multipoint',
+})
 const fixed = (): DesignNode => ({ type: 'fixed', glass: GLASS })
 const split = (dir: 'v' | 'h', at: number[], children: DesignNode[]): DesignNode => ({
 	type: 'split',
@@ -22,7 +29,7 @@ export const TEMPLATES: DesignTemplate[] = [
 	{
 		id: 'casement-2',
 		label: '2-sash casement',
-		build: (w, h) => newDesign(w, h, split('v', [w / 2], [sash(), sash()])),
+		build: (w, h) => newDesign(w, h, split('v', [w / 2], [sash('left'), sash('right')])),
 	},
 	{
 		id: 'ventilator',
@@ -33,12 +40,12 @@ export const TEMPLATES: DesignTemplate[] = [
 	{
 		id: 'sash-fixed-sash',
 		label: 'Sash · fixed · sash',
-		build: (w, h) => newDesign(w, h, split('v', [w / 3, (2 * w) / 3], [sash(), fixed(), sash()])),
+		build: (w, h) => newDesign(w, h, split('v', [w / 3, (2 * w) / 3], [sash('left'), fixed(), sash('right')])),
 	},
 	{
 		id: 'top-light',
 		label: 'Top light',
-		build: (w, h) => newDesign(w, h, split('h', [h * 0.25], [fixed(), sash()])),
+		build: (w, h) => newDesign(w, h, split('h', [h * 0.25], [fixed(), sash('top')])),
 	},
 	{ id: 'blank', label: 'Blank', build: (w, h) => newDesign(w, h) },
 ]

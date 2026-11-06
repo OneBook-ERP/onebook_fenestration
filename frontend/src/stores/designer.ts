@@ -90,6 +90,12 @@ export const useDesignerStore = defineStore('designer', {
 			this.dirty = true
 			this.scheduleCompute()
 		},
+		setSeriesVersion(seriesVersion: string) {
+			if (!seriesVersion || seriesVersion === this.seriesVersion) return
+			this.seriesVersion = seriesVersion
+			this.dirty = true
+			this.scheduleCompute()
+		},
 		reset(design: Design, seriesVersion: string, finish = '', priceStructure = '') {
 			this.$patch({ design, seriesVersion, finish, priceStructure, selectedPath: 'F1', past: [], future: [], result: null, error: null, dirty: false, dragOrigin: null })
 			this.scheduleCompute()

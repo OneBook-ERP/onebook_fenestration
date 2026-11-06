@@ -61,6 +61,7 @@ doc/*.dxf
 
 # Vue SPA build
 frontend/node_modules
+onebook_fenestration/public/node_modules
 onebook_fenestration/public/frontend
 onebook_fenestration/www/fenestration.html
 .worktrees/

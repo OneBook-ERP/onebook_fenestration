@@ -13,17 +13,21 @@ export interface SashNode {
 	opening?: string
 	hinge?: string
 	ghh?: number
+	lock?: string
+	fan?: boolean
 }
 
 export interface FixedNode {
 	type: 'fixed'
 	glass: string
+	fan?: boolean
 }
 
 export interface LouverNode {
 	type: 'louver'
 	glass: string
 	blades: number
+	fan?: boolean
 }
 
 export type LeafNode = SashNode | FixedNode | LouverNode
@@ -34,6 +38,8 @@ export interface Design {
 	height: number
 	series?: string
 	finish?: string
+	finishOutside?: string
+	sillHeight?: number
 	root: DesignNode
 }
 

@@ -5,10 +5,12 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type SavedDesign } from '@/api'
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
+import Window3DView from '@/components/Window3DView.vue'
 import WindowCanvas from '@/components/WindowCanvas.vue'
+import WindowSectionView from '@/components/WindowSectionView.vue'
 import { TEMPLATES } from '@/design/templates'
 import { typology } from '@/design/typology'
-import { getNode, moveSplit, newDesign, setLeaf, splitCell } from '@/design/tree'
+import { getNode, moveSplit, removeSplit, setLeaf, splitCell } from '@/design/tree'
 import type { LeafNode, SplitDir } from '@/design/types'
 import { useDesignerStore } from '@/stores/designer'
 
@@ -16,6 +18,13 @@ interface FinishRow {
 	name: string
 	finish_name: string
 	color: string
+}
+
+interface SeriesVersionRow {
+	name: string
+	series: string
+	version_note?: string
+	docstatus?: number
 }
 
 const store = useDesignerStore()
@@ -29,8 +38,10 @@ const refError = ref('')
 const VIEWS = [
 	{ label: 'Inside', value: 'inside' },
 	{ label: 'Outside', value: 'outside' },
+	{ label: 'Section', value: 'section' },
+	{ label: '3D', value: '3d' },
 ] as const
-const view = ref<'inside' | 'outside'>('inside')
+const view = ref<'inside' | 'outside' | 'section' | '3d'>('inside')
 const saving = ref(false)
 const loadError = ref('')
 const loading = ref(false)
@@ -55,6 +66,18 @@ const finishList = useList<FinishRow>({
 })
 const finishes = computed(() => finishList.data ?? [])
 const finishColor = computed(() => finishes.value.find((f) => f.name === store.finish)?.color || undefined)
+const outsideFinishColor = computed(
+	() => finishes.value.find((f) => f.name === (store.design.finishOutside || store.finish))?.color || finishColor.value,
+)
+
+const versionList = useList<SeriesVersionRow>({
+	doctype: 'Series Version',
+	fields: ['name', 'series', 'version_note', 'docstatus'],
+	filters: { docstatus: 1 },
+	orderBy: 'modified desc',
+	limit: 100,
+})
+const seriesVersions = computed(() => versionList.data ?? [])
 
 const issuePaths = computed(() => (store.result?.issues ?? []).map((i) => i.path))
 const selectedLeaf = computed(() => {
@@ -65,6 +88,18 @@ const selectedLeaf = computed(() => {
 		return null
 	}
 })
+const canRemoveSplit = computed(() => {
+	const p = store.selectedPath
+	if (!p) return false
+	try {
+		const n = getNode(store.design, p)
+		return n.type === 'split' || p.includes('.')
+	} catch {
+		return false
+	}
+})
+
+const sidebarTemplates = computed(() => TEMPLATES.filter((t) => t.id !== 'blank'))
 
 function parseJson<T>(v: T | string): T {
 	return typeof v === 'string' ? JSON.parse(v) : v
@@ -83,9 +118,10 @@ async function load(name: string | null) {
 			// Prices fall back to the server-side defaults when none are sent.
 		}
 		if (savedName.value) return
+		const initialSv = String(route.query.series_version || seriesVersions.value[0]?.name || '')
 		store.reset(
 			(TEMPLATES.find((t) => t.id === route.query.template) ?? TEMPLATES[TEMPLATES.length - 1]).build(1200, 1200),
-			String(route.query.series_version ?? ''),
+			initialSv,
 			defaults.default_finish ?? '',
 			defaults.default_price_structure ?? '',
 		)
@@ -134,11 +170,30 @@ function convert(kind: 'sash' | 'fixed' | 'louver') {
 	const glass = cur.glass
 	const leaf: LeafNode =
 		kind === 'sash'
-			? { type: 'sash', glass, opening: 'out', hinge: 'left' }
+			? { type: 'sash', glass, opening: 'out', hinge: 'left', ghh: 732, lock: 'multipoint', fan: cur.fan }
 			: kind === 'louver'
-				? { type: 'louver', glass, blades: 9 }
-				: { type: 'fixed', glass }
+				? { type: 'louver', glass, blades: 9, fan: cur.fan }
+				: { type: 'fixed', glass, fan: cur.fan }
 	store.apply((d) => setLeaf(d, store.selectedPath, leaf))
+}
+function toggleExhaustFan() {
+	const cur = selectedLeaf.value
+	if (!cur) return
+	store.apply((d) => setLeaf(d, store.selectedPath, { ...cur, fan: !cur.fan }))
+}
+function unsplitSelected() {
+	const p = store.selectedPath
+	const target = getNode(store.design, p).type === 'split' ? p : p.split('.').slice(0, -1).join('.')
+	if (!target) return
+	store.apply((d) => removeSplit(d, target))
+	store.select(target)
+}
+function applyTemplate(tplId: string) {
+	const tpl = TEMPLATES.find((t) => t.id === tplId)
+	if (!tpl) return
+	const { width, height } = store.design
+	store.apply(() => tpl.build(width, height))
+	store.select('F1.0')
 }
 function onMoveSplit(p: { splitPath: string; index: number; pos: number }) {
 	store.dragTo((d) => moveSplit(d, p.splitPath, p.index, p.pos))
@@ -195,7 +250,7 @@ async function copy() {
 </script>
 
 <template>
-	<div class="flex min-h-screen flex-col bg-gray-50 md:h-screen text-gray-900">
+	<div class="flex min-h-screen flex-col bg-gray-50 text-gray-900 md:h-screen">
 		<header class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-2">
 			<nav aria-label="Breadcrumb" class="flex items-center gap-1 text-sm">
 				<RouterLink :to="`/projects/${project}`" class="min-h-9 content-center text-gray-600 hover:text-gray-900">
@@ -229,41 +284,162 @@ async function copy() {
 		</Alert>
 
 		<div class="flex min-h-0 flex-1 flex-col md:flex-row">
-			<nav class="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 bg-white p-3 md:w-36 md:flex-col md:overflow-x-visible md:border-b-0 md:border-r" aria-label="Tools">
+			<nav
+				class="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 bg-white p-3 md:w-36 md:flex-col md:overflow-x-visible md:overflow-y-auto md:border-r md:border-b-0 lg:w-52"
+				aria-label="Tools"
+			>
+				<div class="hidden text-[11px] font-bold uppercase tracking-wider text-gray-400 md:block">Build</div>
 				<p v-if="!selectedLeaf" class="shrink-0 self-center text-xs text-gray-500 md:self-auto">{{ toolHint }}</p>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Split vertical" aria-label="Split vertical" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="split('v')" />
+					<Button
+						label="Split vertical"
+						aria-label="Split vertical"
+						icon-left="lucide-columns-2"
+						class="min-h-9 shrink-0 justify-start whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="split('v')"
+					/>
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Split horizontal" aria-label="Split horizontal" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="split('h')" />
+					<Button
+						label="Split horizontal"
+						aria-label="Split horizontal"
+						icon-left="lucide-rows-2"
+						class="min-h-9 shrink-0 justify-start whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="split('h')"
+					/>
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Sash" aria-label="Sash" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('sash')" />
+					<Button
+						label="Sash"
+						aria-label="Sash"
+						icon-left="lucide-panel-left-open"
+						class="min-h-9 shrink-0 justify-start whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="convert('sash')"
+					/>
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Fixed glass" aria-label="Fixed glass" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('fixed')" />
+					<Button
+						label="Fixed glass"
+						aria-label="Fixed glass"
+						icon-left="lucide-square"
+						class="min-h-9 shrink-0 justify-start whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="convert('fixed')"
+					/>
 				</Tooltip>
 				<Tooltip :text="selectedLeaf ? '' : toolHint">
-					<Button label="Louver" aria-label="Louver" class="min-h-9 shrink-0 whitespace-nowrap md:w-full" :disabled="!selectedLeaf" @click="convert('louver')" />
+					<Button
+						label="Louver"
+						aria-label="Louver"
+						icon-left="lucide-align-justify"
+						class="min-h-9 shrink-0 justify-start whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="convert('louver')"
+					/>
 				</Tooltip>
-			</nav>
-			<main class="flex min-h-[50vh] min-w-0 flex-1 md:min-h-0 items-center justify-center overflow-hidden p-2">
-				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
-				<WindowCanvas
-					v-else-if="!loadError"
-					ref="canvas"
-					:design="store.design"
-					:selected-path="store.selectedPath"
-					:issue-paths="issuePaths"
-					:view="view"
-					:finish-color="finishColor"
-					@select="store.select"
-					@move-split="onMoveSplit"
-					@drag-start="store.beginDrag()"
-					@drag-end="store.endDrag()"
+				<Tooltip :text="selectedLeaf ? '' : toolHint">
+					<Button
+						label="Exhaust fan cut"
+						aria-label="Exhaust fan cut"
+						icon-left="lucide-fan"
+						:variant="selectedLeaf?.fan ? 'subtle' : 'outline'"
+						class="min-h-9 shrink-0 justify-start whitespace-nowrap md:w-full"
+						:disabled="!selectedLeaf"
+						@click="toggleExhaustFan"
+					/>
+				</Tooltip>
+				<Button
+					v-if="canRemoveSplit"
+					label="Merge split"
+					aria-label="Merge split"
+					icon-left="lucide-combine"
+					variant="ghost"
+					class="min-h-9 shrink-0 justify-start whitespace-nowrap text-red-600 md:w-full"
+					@click="unsplitSelected"
 				/>
+
+				<!-- Templates Quick Switcher -->
+				<div class="mt-3 hidden border-t border-gray-100 pt-3 md:block">
+					<div class="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">Templates</div>
+					<div class="grid grid-cols-2 gap-2">
+						<button
+							v-for="t in sidebarTemplates"
+							:key="t.id"
+							type="button"
+							class="flex flex-col items-center gap-1.5 rounded-lg border border-gray-200 bg-white p-2 text-center text-[11px] font-medium text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
+							@click="applyTemplate(t.id)"
+						>
+							<div class="relative h-7 w-7 rounded border border-gray-400 bg-gray-50">
+								<div v-if="t.id === 'casement-2'" class="flex h-full w-full">
+									<div class="h-full w-1/2 border-r border-gray-400" />
+									<div class="h-full w-1/2" />
+								</div>
+								<div v-else-if="t.id === 'ventilator'" class="flex h-full w-full">
+									<div class="flex h-full w-2/3 flex-col border-r border-gray-400">
+										<div class="h-1/3 border-b border-gray-300" />
+										<div class="h-1/3 border-b border-gray-300" />
+										<div class="h-1/3" />
+									</div>
+									<div class="h-full w-1/3" />
+								</div>
+								<div v-else-if="t.id === 'sash-fixed-sash'" class="flex h-full w-full">
+									<div class="h-full w-1/3 border-r border-gray-400" />
+									<div class="h-full w-1/3 border-r border-gray-400" />
+									<div class="h-full w-1/3" />
+								</div>
+								<div v-else-if="t.id === 'top-light'" class="flex h-full w-full flex-col">
+									<div class="h-1/3 border-b border-gray-400" />
+									<div class="h-2/3" />
+								</div>
+							</div>
+							<span class="leading-tight">{{ t.label }}</span>
+						</button>
+					</div>
+				</div>
+			</nav>
+
+			<main class="flex min-h-[50vh] min-w-0 flex-1 items-center justify-center overflow-hidden p-2 md:min-h-0">
+				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
+				<template v-else-if="!loadError">
+					<WindowSectionView
+						v-if="view === 'section'"
+						:design="store.design"
+						:series-version="store.seriesVersion"
+						:finish-color="finishColor"
+					/>
+					<Window3DView
+						v-else-if="view === '3d'"
+						:design="store.design"
+						:selected-path="store.selectedPath"
+						:finish-color="finishColor"
+						:outside-finish-color="outsideFinishColor"
+						@select="store.select"
+					/>
+					<WindowCanvas
+						ref="canvas"
+						:class="{ 'sr-only pointer-events-none absolute h-0 w-0 overflow-hidden': view === 'section' || view === '3d' }"
+						:design="store.design"
+						:selected-path="store.selectedPath"
+						:issue-paths="issuePaths"
+						:view="view === 'outside' ? 'outside' : 'inside'"
+						:finish-color="view === 'outside' ? outsideFinishColor : finishColor"
+						@select="store.select"
+						@move-split="onMoveSplit"
+						@drag-start="store.beginDrag()"
+						@drag-end="store.endDrag()"
+					/>
+				</template>
 			</main>
-			<PropertiesPanel v-model:meta="meta" :finishes="finishes" :ref-error="refError" :ref-readonly="!!savedName" />
+			<PropertiesPanel
+				v-model:meta="meta"
+				:finishes="finishes"
+				:series-versions="seriesVersions"
+				:ref-error="refError"
+				:ref-readonly="!!savedName"
+			/>
 		</div>
 		<ResultsBar />
 	</div>

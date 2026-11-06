@@ -49,12 +49,25 @@ describe('AppShell', () => {
 		w.unmount()
 	})
 
-	it('shows Series Studio only to engineers', async () => {
+	it('shows Series Studio only to engineers and switches sidebar on /series-studio', async () => {
 		const a = await setup(['Sales User'])
 		expect(a.find('[aria-label^="Series Studio"]').exists()).toBe(false)
 		a.unmount()
-		const b = await setup(['Fenestration Engineer'])
+
+		const router = createRouter({ history: createMemoryHistory('/fenestration'), routes })
+		router.push('/series-studio')
+		await router.isReady()
+		const b = mount(AppShell, {
+			props: { user: 'a@b.c', roles: ['Fenestration Engineer'] },
+			slots: { default: '<p>studio content</p>' },
+			global: { plugins: [router] },
+			attachTo: document.body,
+		})
 		expect(b.find('[aria-label^="Series Studio"]').exists()).toBe(true)
+		expect(b.text()).toContain('Profile Series')
+		expect(b.text()).toContain('Series Version')
+		expect(b.text()).toContain('Fenestration Profile')
+		expect(b.text()).toContain('Fenestration Glass')
 		b.unmount()
 	})
 })

@@ -3,6 +3,7 @@ import { Alert, Badge, Button, TabButtons } from 'frappe-ui'
 import { computed, ref, watch } from 'vue'
 import type { BomRow, Member } from '@/api'
 import { useProfileNames } from '@/composables/profiles'
+import { panelLabel } from '@/design/typology'
 import { formatMoney } from '@/money'
 import { useDesignerStore } from '@/stores/designer'
 
@@ -91,6 +92,33 @@ const tabOptions = computed(() =>
 )
 
 const pricing = computed(() => result.value?.pricing)
+const selectedLabel = computed(() => panelLabel(store.selectedPath, store.result))
+
+function isPanelMatch(panel?: string, path?: string): boolean {
+	if (!store.selectedPath) return false
+	if (path && path === store.selectedPath) return true
+	if (!panel || !selectedLabel.value) return false
+	const tokens = panel.split(',').map((s) => s.trim().toLowerCase())
+	const target = selectedLabel.value.toLowerCase()
+	return tokens.includes(target) || panel.toLowerCase() === target
+}
+
+function onRowClick(path?: string, panel?: string) {
+	if (path) {
+		store.select(path)
+		return
+	}
+	if (!panel) return
+	const firstMember = store.result?.members.find((m) => m.panel === panel && m.path)
+	if (firstMember?.path) {
+		store.select(firstMember.path)
+		return
+	}
+	const firstGlass = store.result?.glass.find((g) => g.panel === panel && g.path)
+	if (firstGlass?.path) {
+		store.select(firstGlass.path)
+	}
+}
 
 const th = 'px-3 py-1.5 text-left text-xs font-semibold text-gray-500'
 const td = 'px-3 py-1.5 text-sm'
@@ -138,7 +166,12 @@ const td = 'px-3 py-1.5 text-sm'
 			<table v-if="tab === 'Cut list'" class="w-full">
 				<thead><tr><th :class="th">Profile</th><th :class="th">Code</th><th :class="th">Length (mm)</th><th :class="th">Angles</th><th :class="th">Qty</th><th :class="th">Position</th><th :class="th">Panel</th></tr></thead>
 				<tbody>
-					<tr v-for="r in cutList" :key="r.key">
+					<tr
+						v-for="r in cutList"
+						:key="r.key"
+						:class="{ 'bg-blue-50/70 font-medium text-blue-900': isPanelMatch(r.m.panel, r.m.path), 'cursor-pointer hover:bg-gray-50': !!r.m.path }"
+						@click="onRowClick(r.m.path, r.m.panel)"
+					>
 						<td :class="td">{{ dash(profileNames[r.m.profile]) }}</td><td :class="td">{{ r.m.profile }}</td><td :class="td">{{ Number(r.m.length).toFixed(1) }}</td><td :class="td">{{ formatAngles(r.m.angles) }}</td><td :class="td">{{ r.qty }}</td><td :class="td">{{ dash(r.m.position) }}</td><td :class="td">{{ dash(r.m.panel) }}</td>
 					</tr>
 				</tbody>
@@ -146,7 +179,12 @@ const td = 'px-3 py-1.5 text-sm'
 			<table v-else-if="tab === 'Hardware'" class="w-full">
 				<thead><tr><th :class="th">Item</th><th :class="th">Name</th><th :class="th">Qty</th><th :class="th">UOM</th><th :class="th">Panel</th></tr></thead>
 				<tbody>
-					<tr v-for="(b, i) in hardware" :key="i">
+					<tr
+						v-for="(b, i) in hardware"
+						:key="i"
+						:class="{ 'bg-blue-50/70 font-medium text-blue-900': isPanelMatch(b.panel), 'cursor-pointer hover:bg-gray-50': !!b.panel }"
+						@click="onRowClick(undefined, b.panel)"
+					>
 						<td :class="td">{{ b.item }}</td><td :class="td">{{ b.name }}</td><td :class="td">{{ b.qty }}</td><td :class="td">{{ b.uom }}</td><td :class="td">{{ b.panel }}</td>
 					</tr>
 				</tbody>
@@ -162,7 +200,12 @@ const td = 'px-3 py-1.5 text-sm'
 			<table v-else-if="tab === 'Glass'" class="w-full">
 				<thead><tr><th :class="th">Panel</th><th :class="th">No.</th><th :class="th">Glass</th><th :class="th">Width</th><th :class="th">Height</th></tr></thead>
 				<tbody>
-					<tr v-for="g in result?.glass ?? []" :key="g.path">
+					<tr
+						v-for="g in result?.glass ?? []"
+						:key="g.path"
+						:class="{ 'bg-blue-50/70 font-medium text-blue-900': isPanelMatch(g.panel, g.path), 'cursor-pointer hover:bg-gray-50': !!g.path }"
+						@click="onRowClick(g.path, g.panel)"
+					>
 						<td :class="td">{{ g.panel }}</td><td :class="td">{{ g.number }}</td><td :class="td">{{ g.glass }}</td><td :class="td">{{ g.width }}</td><td :class="td">{{ g.height }}</td>
 					</tr>
 				</tbody>

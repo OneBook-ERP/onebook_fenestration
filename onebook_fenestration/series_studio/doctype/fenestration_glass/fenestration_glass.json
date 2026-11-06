@@ -3,6 +3,7 @@
  "creation": "2026-10-29 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
+ "icon": "panels-top-left",
  "field_order": [
   "glass_code",
   "glass_name",
