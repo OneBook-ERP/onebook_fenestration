@@ -12,7 +12,12 @@ GASKET_GROUP = "Gasket"
 DEFAULT_CONSTANTS = ("default_butt_hinge", "default_single_point_handle", "default_limiter", "default_mesh")
 # Any panel other than the frame is a sash for pane_side rules (in_sash).
 PROBE_SASH = "S1"
-MEMBER_ROLES = {"frame_member": "frame", "sash_member": "sash", "mullion": "mullion", "transom_member": "transom"}
+MEMBER_ROLES = {
+	"frame_member": "frame",
+	"sash_member": "sash",
+	"mullion": "mullion",
+	"transom_member": "transom",
+}
 
 
 def hardware_bom(
@@ -32,7 +37,15 @@ def hardware_bom(
 
 	for rule in snapshot.hardware_rules:
 		for panel, position, variables in _contexts(
-			rule.per, members, panes, sash_sizes, shutter_kg, window_vars, snapshot, sash_nodes or {}, defaults
+			rule.per,
+			members,
+			panes,
+			sash_sizes,
+			shutter_kg,
+			window_vars,
+			snapshot,
+			sash_nodes or {},
+			defaults,
 		):
 			variables = {**base, **variables}
 			if not evaluate(rule.when, variables, rule.id):
@@ -78,7 +91,13 @@ def _any_rule_applies(rules, pane: GlassPane, base: dict, snapshot: SeriesSnapsh
 
 def _ungasketed_issues(panes: list[GlassPane], gasketed: set[int]) -> list[Issue]:
 	return [
-		Issue("warn", "no_glazing_gasket", f"{p.panel}: no glazing gasket rule for glass {p.glass}", p.panel, path=p.path)
+		Issue(
+			"warn",
+			"no_glazing_gasket",
+			f"{p.panel}: no glazing gasket rule for glass {p.glass}",
+			p.panel,
+			path=p.path,
+		)
 		for p in panes
 		if p.number not in gasketed
 	]
@@ -99,16 +118,36 @@ def _contexts(per, members, panes, sash_sizes, shutter_kg, window_vars, snapshot
 		for p in panes:
 			thickness = snapshot.glasses[p.glass].thickness_mm
 			for position, side_len in (("W", p.width), ("W", p.width), ("H", p.height), ("H", p.height)):
-				variables = {"side_len": side_len, "position": position, "panel": p.panel, "glass": p.glass, "in_sash": _in_sash(p)}
+				variables = {
+					"side_len": side_len,
+					"position": position,
+					"panel": p.panel,
+					"glass": p.glass,
+					"in_sash": _in_sash(p),
+				}
 				yield p.panel, position, {**variables, "glass_t": thickness, "pane_no": p.number}
 	elif per == "sash":
 		for panel, (sash_w, sash_h) in sash_sizes.items():
 			options = _sash_options(sash_nodes.get(panel, {}), defaults)
-			yield panel, "", {"sash_w": sash_w, "sash_h": sash_h, "shutter_kg": shutter_kg.get(panel, 0.0), "panel": panel, **options}
+			yield (
+				panel,
+				"",
+				{
+					"sash_w": sash_w,
+					"sash_h": sash_h,
+					"shutter_kg": shutter_kg.get(panel, 0.0),
+					"panel": panel,
+					**options,
+				},
+			)
 	elif per == "glass":
 		for p in panes:
 			thickness = snapshot.glasses[p.glass].thickness_mm
-			yield p.panel, "", {"glass_w": p.width, "glass_h": p.height, "glass_t": thickness, "in_sash": _in_sash(p)}
+			yield (
+				p.panel,
+				"",
+				{"glass_w": p.width, "glass_h": p.height, "glass_t": thickness, "in_sash": _in_sash(p)},
+			)
 	elif per == "window":
 		yield FRAME_PANEL, "", dict(window_vars)
 
@@ -124,7 +163,13 @@ def _sash_defaults(snapshot: SeriesSnapshot) -> tuple[dict[str, bool], list[Issu
 	for name in DEFAULT_CONSTANTS:
 		value = snapshot.constants.get(name, 0)
 		if value not in (0, 1):
-			issues.append(Issue("error", "invalid_series_constant", f"series constant {name} must be 0 or 1, got {value!r}"))
+			issues.append(
+				Issue(
+					"error",
+					"invalid_series_constant",
+					f"series constant {name} must be 0 or 1, got {value!r}",
+				)
+			)
 		defaults[name] = value == 1
 	return defaults, issues
 
@@ -135,7 +180,8 @@ def _sash_options(node: dict, defaults: dict[str, bool]) -> dict:
 	mesh = node.get("mesh")
 	return {
 		"hinge_type": node.get("hinge_type") or ("butt" if defaults["default_butt_hinge"] else "friction"),
-		"handle": node.get("handle") or ("single" if defaults["default_single_point_handle"] else "multipoint"),
+		"handle": node.get("handle")
+		or ("single" if defaults["default_single_point_handle"] else "multipoint"),
 		"limiter": defaults["default_limiter"] if limiter is None else bool(limiter),
 		"mesh": defaults["default_mesh"] if mesh is None else bool(mesh),
 	}

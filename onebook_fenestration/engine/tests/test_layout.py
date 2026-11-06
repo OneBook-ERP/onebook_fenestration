@@ -42,7 +42,12 @@ class TestLayout(unittest.TestCase):
 			d = {
 				"width": 915,
 				"height": 1220,
-				"root": {"type": "split", "dir": "v", "at": at, "children": [{"type": "fixed"}, {"type": "fixed"}]},
+				"root": {
+					"type": "split",
+					"dir": "v",
+					"at": at,
+					"children": [{"type": "fixed"}, {"type": "fixed"}],
+				},
 			}
 			with self.subTest(at=at), self.assertRaises(DesignError):
 				layout(d)
@@ -52,12 +57,23 @@ def nested(levels: int) -> dict:
 	"""A design whose tree is `levels` splits deep before the last leaf."""
 	node: dict = {"type": "fixed", "glass": "6CTG"}
 	for _ in range(levels):
-		node = {"type": "split", "dir": "v", "at": [1], "children": [{"type": "fixed", "glass": "6CTG"}, node]}
+		node = {
+			"type": "split",
+			"dir": "v",
+			"at": [1],
+			"children": [{"type": "fixed", "glass": "6CTG"}, node],
+		}
 	return {"width": 10000, "height": 1220, "root": node}
 
 
 def two_cells(**split) -> dict:
-	root = {"type": "split", "dir": "v", "at": [457.5], "children": [{"type": "fixed"}, {"type": "fixed"}], **split}
+	root = {
+		"type": "split",
+		"dir": "v",
+		"at": [457.5],
+		"children": [{"type": "fixed"}, {"type": "fixed"}],
+		**split,
+	}
 	return {"width": 915, "height": 1220, "root": root}
 
 
@@ -95,7 +111,9 @@ class TestDesignErrors(unittest.TestCase):
 				self.assertDesignError({"width": width, "height": height, "root": {"type": "fixed"}}, "F1")
 
 	def test_glass_must_be_string(self):
-		self.assertDesignError(two_cells(children=[{"type": "fixed", "glass": ["6CTG"]}, {"type": "fixed"}]), "F1.0")
+		self.assertDesignError(
+			two_cells(children=[{"type": "fixed", "glass": ["6CTG"]}, {"type": "fixed"}]), "F1.0"
+		)
 
 	def test_depth_is_capped_at_32(self):
 		self.assertEqual(len(layout(nested(31))[0]), 32)

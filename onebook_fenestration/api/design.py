@@ -4,19 +4,20 @@ import json
 import frappe
 from frappe import _
 
-from onebook_fenestration.engine import DesignError, RuleError, cross_section as cut_design
+from onebook_fenestration.engine import DesignError, RuleError
+from onebook_fenestration.engine import cross_section as cut_design
 from onebook_fenestration.fenestration.doctype.window_design.window_design import (
 	locking_document,
 	pricing_to_dict,
 	result_to_dict,
 )
-from onebook_fenestration.series_studio.outline import rotate_path
-from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.pricing.rates import (
 	missing_defaults_message,
 	price_design,
 	resolve_pricing_defaults,
 )
+from onebook_fenestration.series_studio.outline import rotate_path
+from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 
 @frappe.whitelist()
@@ -252,5 +253,7 @@ def get_fenestration_defaults() -> dict:
 		frappe.throw(_("Login required"), frappe.PermissionError)
 	return {
 		"default_finish": frappe.db.get_single_value("Fenestration Settings", "default_finish"),
-		"default_price_structure": frappe.db.get_single_value("Fenestration Settings", "default_price_structure"),
+		"default_price_structure": frappe.db.get_single_value(
+			"Fenestration Settings", "default_price_structure"
+		),
 	}

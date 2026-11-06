@@ -7,11 +7,21 @@ from onebook_fenestration.engine.types import REQUIRED_DEDUCTIONS
 def make_masters():
 	if not frappe.db.exists("Fenestration Glass", "TSTG6"):
 		frappe.get_doc(
-			{"doctype": "Fenestration Glass", "glass_code": "TSTG6", "glass_name": "Test 6mm", "thickness_mm": 6}
+			{
+				"doctype": "Fenestration Glass",
+				"glass_code": "TSTG6",
+				"glass_name": "Test 6mm",
+				"thickness_mm": 6,
+			}
 		).insert()
 	if not frappe.db.exists("Profile Series", "TST1"):
 		frappe.get_doc(
-			{"doctype": "Profile Series", "series_code": "TST1", "series_title": "Test Series", "system_type": "Casement"}
+			{
+				"doctype": "Profile Series",
+				"series_code": "TST1",
+				"series_title": "Test Series",
+				"system_type": "Casement",
+			}
 		).insert()
 	if not frappe.db.exists("Fenestration Profile", "TP1"):
 		frappe.get_doc(

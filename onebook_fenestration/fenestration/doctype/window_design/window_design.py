@@ -74,9 +74,7 @@ class WindowDesign(Document):
 			return
 		lock = locking_document(self.name)
 		if lock:
-			frappe.throw(
-				_("{0} is on {1} {2}. Copy the design to change it.").format(self.design_ref, *lock)
-			)
+			frappe.throw(_("{0} is on {1} {2}. Copy the design to change it.").format(self.design_ref, *lock))
 
 	def on_trash(self):
 		# A draft quotation line must not block deleting its design; the next make_quotation drops the line.

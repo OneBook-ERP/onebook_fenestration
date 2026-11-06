@@ -17,7 +17,9 @@ class TestPriceExistingWindowDesigns(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
-		cls.project = frappe.get_doc({"doctype": "Fenestration Project", "project_title": "Patch Project"}).insert()
+		cls.project = frappe.get_doc(
+			{"doctype": "Fenestration Project", "project_title": "Patch Project"}
+		).insert()
 
 	@classmethod
 	def tearDownClass(cls):
@@ -65,7 +67,9 @@ class TestPriceExistingWindowDesigns(IntegrationTestCase):
 		good = self.make_unpriced("PATCH-GOOD")
 		price_existing_window_designs.execute()
 		self.assertFalse(frappe.db.get_value("Window Design", bad, "price_structure"))
-		self.assertTrue(frappe.db.exists("Error Log", {"reference_doctype": "Window Design", "reference_name": bad}))
+		self.assertTrue(
+			frappe.db.exists("Error Log", {"reference_doctype": "Window Design", "reference_name": bad})
+		)
 		self.assertGreater(frappe.db.get_value("Window Design", good, "unit_price"), 0)
 
 
@@ -85,7 +89,9 @@ class TestCreateGasketItems(IntegrationTestCase):
 			frappe.delete_doc("Item", code, force=True)
 		import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
 		for code, name in GASKETS.items():
-			item = frappe.db.get_value("Item", code, ("item_name", "fen_item_kind", "stock_uom"), as_dict=True)
+			item = frappe.db.get_value(
+				"Item", code, ("item_name", "fen_item_kind", "stock_uom"), as_dict=True
+			)
 			self.assertEqual(item, {"item_name": name, "fen_item_kind": "Gasket", "stock_uom": "Meter"})
 		if frappe.get_meta("Item").has_field("gst_hsn_code"):
 			self.assertEqual(frappe.db.get_value("Item", "G21", "gst_hsn_code"), "400829")

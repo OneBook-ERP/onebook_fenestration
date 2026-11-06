@@ -127,7 +127,9 @@ def _seed_settings():
 		stored = stored_value(fieldname)
 		if stored in (None, ""):
 			frappe.db.set_single_value(
-				"Fenestration Settings", fieldname, frappe.get_meta("Fenestration Settings").get_field(fieldname).default
+				"Fenestration Settings",
+				fieldname,
+				frappe.get_meta("Fenestration Settings").get_field(fieldname).default,
 			)
 
 
@@ -324,7 +326,9 @@ def _restock(item_code: str, uom: str) -> None:
 	if not any(row.uom == uom for row in item.uoms):
 		item.append("uoms", {"uom": uom, "conversion_factor": 1})
 	item.save(ignore_permissions=True)
-	for price in frappe.get_all("Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"):
+	for price in frappe.get_all(
+		"Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"
+	):
 		frappe.db.set_value("Item Price", price, "uom", uom)
 
 

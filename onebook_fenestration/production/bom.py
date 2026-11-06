@@ -68,7 +68,9 @@ def collect_rows(design) -> tuple[list[dict], list[str]]:
 		problem = _unit_problem(item, uom)
 		if problem:
 			problems.append(problem)
-	rows = [{"item_code": item, "qty": round(qty, 3), "uom": uom} for (item, uom), qty in sorted(totals.items())]
+	rows = [
+		{"item_code": item, "qty": round(qty, 3), "uom": uom} for (item, uom), qty in sorted(totals.items())
+	]
 	return rows, problems
 
 
@@ -138,7 +140,11 @@ def set_order_boms(doc, method=None) -> None:
 			continue
 		design = frappe.get_doc("Window Design", item.fen_window_design)
 		if design_hash(design) != item.fen_design_hash:
-			frappe.throw(_("{0} changed since the quotation. Requote before ordering.").format(design.design_ref or design.name))
+			frappe.throw(
+				_("{0} changed since the quotation. Requote before ordering.").format(
+					design.design_ref or design.name
+				)
+			)
 		lines.append((item, design))
 
 	# Resolve every design's rows first so any problem refuses the submit before a BOM exists.

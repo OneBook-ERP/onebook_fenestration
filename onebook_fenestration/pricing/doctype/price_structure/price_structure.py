@@ -41,9 +41,7 @@ class PriceStructure(Document):
 		frappe.throw(_("Cost head {0}: {1}").format(key, reason))
 
 	def clear_other_defaults(self):
-		frappe.db.set_value(
-			"Price Structure", {"is_default": 1, "name": ("!=", self.name)}, "is_default", 0
-		)
+		frappe.db.set_value("Price Structure", {"is_default": 1, "name": ("!=", self.name)}, "is_default", 0)
 
 
 def to_cost_heads(name: str) -> tuple[CostHead, ...]:

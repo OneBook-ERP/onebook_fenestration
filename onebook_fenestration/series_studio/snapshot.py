@@ -29,7 +29,11 @@ def clear_snapshot(series_version: str) -> None:
 
 def build_snapshot_dict(series_version: str | Document) -> dict:
 	"""The plain dict `SeriesSnapshot.from_dict` expects, read from the version and its series masters."""
-	doc = series_version if isinstance(series_version, Document) else frappe.get_doc("Series Version", series_version)
+	doc = (
+		series_version
+		if isinstance(series_version, Document)
+		else frappe.get_doc("Series Version", series_version)
+	)
 	return {
 		"code": doc.series,
 		"version": doc.name,
@@ -48,7 +52,16 @@ def _profiles(series: str, rule_profiles: set[str]) -> dict:
 	rows = frappe.get_all(
 		"Fenestration Profile",
 		or_filters={"series": series, "name": ("in", sorted(rule_profiles) or [""])},
-		fields=["profile_code", "profile_name", "kg_per_m", "bar_lengths", "use_computed_weight", "computed_kg_per_m", "visible_perimeter_mm", "total_perimeter_mm"],
+		fields=[
+			"profile_code",
+			"profile_name",
+			"kg_per_m",
+			"bar_lengths",
+			"use_computed_weight",
+			"computed_kg_per_m",
+			"visible_perimeter_mm",
+			"total_perimeter_mm",
+		],
 	)
 	return {
 		p.profile_code: {
@@ -63,7 +76,9 @@ def _profiles(series: str, rule_profiles: set[str]) -> dict:
 
 
 def _glasses() -> dict:
-	rows = frappe.get_all("Fenestration Glass", fields=["glass_code", "glass_name", "thickness_mm", "glass_mm"])
+	rows = frappe.get_all(
+		"Fenestration Glass", fields=["glass_code", "glass_name", "thickness_mm", "glass_mm"]
+	)
 	return {
 		g.glass_code: {"name": g.glass_name, "thickness_mm": g.thickness_mm, "glass_mm": g.glass_mm or None}
 		for g in rows

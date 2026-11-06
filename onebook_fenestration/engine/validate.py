@@ -24,7 +24,16 @@ def validate(
 		}
 		for rule in snapshot.validation_rules:
 			if evaluate(rule.when, variables, rule.id):
-				issues.append(Issue(rule.severity, rule.id, _message(rule, variables), panel, rule.hint, sash_paths.get(panel, "")))
+				issues.append(
+					Issue(
+						rule.severity,
+						rule.id,
+						_message(rule, variables),
+						panel,
+						rule.hint,
+						sash_paths.get(panel, ""),
+					)
+				)
 	return issues
 
 

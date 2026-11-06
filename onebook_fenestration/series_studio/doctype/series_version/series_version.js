@@ -23,21 +23,25 @@ const CHECK_LABELS = {
 const STATUS_INDICATORS = { ok: "green", warn: "orange", block: "red" };
 
 function show_readiness(report) {
-	const rows = report.checks.map((c) => {
-		const items = c.items.map((item) => frappe.utils.escape_html(item)).join(", ");
-		return `<tr>
+	const rows = report.checks
+		.map((c) => {
+			const items = c.items.map((item) => frappe.utils.escape_html(item)).join(", ");
+			return `<tr>
 			<td><span class="indicator-pill ${STATUS_INDICATORS[c.status]}">${__(c.status)}</span></td>
 			<td>${CHECK_LABELS[c.check] || c.check}</td>
 			<td>${items || "–"}</td>
 		</tr>`;
-	}).join("");
+		})
+		.join("");
 	const dialog = new frappe.ui.Dialog({
 		title: report.ok ? __("Ready to price") : __("Not ready to price"),
 		size: "large",
 		fields: [{ fieldtype: "HTML", fieldname: "report" }],
 	});
 	dialog.fields_dict.report.$wrapper.html(
-		`<table class="table table-bordered"><thead><tr><th>${__("Status")}</th><th>${__("Check")}</th><th>${__("Needs attention")}</th></tr></thead><tbody>${rows}</tbody></table>`
+		`<table class="table table-bordered"><thead><tr><th>${__("Status")}</th><th>${__(
+			"Check"
+		)}</th><th>${__("Needs attention")}</th></tr></thead><tbody>${rows}</tbody></table>`
 	);
 	dialog.show();
 }

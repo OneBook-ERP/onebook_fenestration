@@ -36,7 +36,11 @@ def import_test_series(data: dict) -> str:
 class TestGlassCatalogueValues(IntegrationTestCase):
 	def test_catalogue_spot_checks(self):
 		rows = {g["code"]: g for g in catalogue()}
-		for code, thickness, glass in (("24DGU-6C12-6C", 24, 12), ("LAM-5C-5C-152", 11.52, 10), ("LAM-6C-5C-152", 12.52, 11)):
+		for code, thickness, glass in (
+			("24DGU-6C12-6C", 24, 12),
+			("LAM-5C-5C-152", 11.52, 10),
+			("LAM-6C-5C-152", 12.52, 11),
+		):
 			with self.subTest(code=code):
 				self.assertEqual((rows[code]["thickness_mm"], rows[code]["glass_mm"]), (thickness, glass))
 
@@ -53,29 +57,56 @@ class TestImportMasters(IntegrationTestCase):
 		for g in catalogue():
 			self.assertTrue(frappe.db.exists("Fenestration Glass", g["code"]), g["code"])
 		for code in new_codes:
-			row = frappe.db.get_value("Fenestration Glass", code, ["thickness_mm", "glass_mm", "item"], as_dict=True)
+			row = frappe.db.get_value(
+				"Fenestration Glass", code, ["thickness_mm", "glass_mm", "item"], as_dict=True
+			)
 			expected = next(g for g in catalogue() if g["code"] == code)
-			self.assertEqual((row.thickness_mm, row.glass_mm), (expected["thickness_mm"], expected["glass_mm"]), code)
+			self.assertEqual(
+				(row.thickness_mm, row.glass_mm), (expected["thickness_mm"], expected["glass_mm"]), code
+			)
 			self.assertEqual(row.item, f"FEN-GLASS-{code}")
 			item = frappe.db.get_value("Item", row.item, ["stock_uom", "fen_item_kind"], as_dict=True)
 			self.assertEqual((item.stock_uom, item.fen_item_kind), ("Square Meter", "Glass"), code)
 
 	def test_import_never_edits_existing_glass(self):
 		frappe.get_doc(
-			{"doctype": "Fenestration Glass", "glass_code": "TSTGX", "glass_name": "Old name", "thickness_mm": 4}
+			{
+				"doctype": "Fenestration Glass",
+				"glass_code": "TSTGX",
+				"glass_name": "Old name",
+				"thickness_mm": 4,
+			}
 		).insert()
 		data = load_fixture("cs400_snapshot.json")
 		data["glasses"]["TSTGX"] = {"name": "New name", "thickness_mm": 9, "glass_mm": 9}
 		import_test_series(data)
-		row = frappe.db.get_value("Fenestration Glass", "TSTGX", ["glass_name", "thickness_mm", "item"], as_dict=True)
+		row = frappe.db.get_value(
+			"Fenestration Glass", "TSTGX", ["glass_name", "thickness_mm", "item"], as_dict=True
+		)
 		self.assertEqual((row.glass_name, row.thickness_mm, row.item), ("Old name", 4, None))
 		self.assertFalse(frappe.db.exists("Item", "FEN-GLASS-TSTGX"))
 
 	def test_import_creates_missing_hardware_items(self):
 		data = load_fixture("cs400_snapshot.json")
 		data["hardware_rules"] += [
-			{"id": "t_hw", "item": "TSTHW1", "name": "TEST HINGE", "per": "sash", "qty": "1", "uom": "Pairs", "note": "n1"},
-			{"id": "t_gk", "item": "TSTGK1", "name": "TEST GASKET", "per": "frame_side", "qty": "1", "length": "side_len", "group": "Gasket"},
+			{
+				"id": "t_hw",
+				"item": "TSTHW1",
+				"name": "TEST HINGE",
+				"per": "sash",
+				"qty": "1",
+				"uom": "Pairs",
+				"note": "n1",
+			},
+			{
+				"id": "t_gk",
+				"item": "TSTGK1",
+				"name": "TEST GASKET",
+				"per": "frame_side",
+				"qty": "1",
+				"length": "side_len",
+				"group": "Gasket",
+			},
 		]
 		version = import_test_series(data)
 		hw = frappe.db.get_value("Item", "TSTHW1", ["stock_uom", "fen_item_kind", "item_name"], as_dict=True)
@@ -86,21 +117,37 @@ class TestImportMasters(IntegrationTestCase):
 		self.assertEqual(notes["t_hw"], "n1")
 
 	def test_import_never_edits_existing_items(self):
-		item = {"doctype": "Item", "item_code": "TSTHW2", "item_name": "Keep me", "item_group": "All Item Groups", "stock_uom": "Nos"}
+		item = {
+			"doctype": "Item",
+			"item_code": "TSTHW2",
+			"item_name": "Keep me",
+			"item_group": "All Item Groups",
+			"stock_uom": "Nos",
+		}
 		if frappe.get_meta("Item").has_field("gst_hsn_code"):
 			item["gst_hsn_code"] = "830241"
 		frappe.get_doc(item).insert()
 		data = load_fixture("cs400_snapshot.json")
-		data["hardware_rules"].append({"id": "t_hw2", "item": "TSTHW2", "name": "Renamed", "per": "sash", "qty": "1", "uom": "Pairs"})
+		data["hardware_rules"].append(
+			{"id": "t_hw2", "item": "TSTHW2", "name": "Renamed", "per": "sash", "qty": "1", "uom": "Pairs"}
+		)
 		import_test_series(data)
-		item = frappe.db.get_value("Item", "TSTHW2", ["item_name", "stock_uom", "fen_item_kind"], as_dict=True)
+		item = frappe.db.get_value(
+			"Item", "TSTHW2", ["item_name", "stock_uom", "fen_item_kind"], as_dict=True
+		)
 		self.assertEqual((item.item_name, item.stock_uom), ("Keep me", "Nos"))
 		self.assertFalse(item.fen_item_kind)
 
 	def test_reimport_creates_new_version(self):
 		data = load_fixture("cs400_snapshot.json")
 		first = import_test_series(data)
-		rows = lambda name: [r.as_dict(no_default_fields=True) for r in frappe.get_doc("Series Version", name).hardware_rules]
+
+		def rows(name):
+			return [
+				r.as_dict(no_default_fields=True)
+				for r in frappe.get_doc("Series Version", name).hardware_rules
+			]
+
 		before = rows(first)
 		changed = {**data, "hardware_rules": [{**r, "qty": "99"} for r in data["hardware_rules"]]}
 		second = import_test_series(changed)
@@ -151,7 +198,9 @@ class TestHiluxSeriesImport(IntegrationTestCase):
 			item = frappe.db.get_value("Fenestration Profile", code, "item")
 			self.assertEqual(frappe.db.get_value("Item", item, "fen_item_kind"), "Profile")
 		self.assertIn("PLACEHOLDER until DXF", frappe.db.get_value("Series Version", version, "version_note"))
-		door = frappe.get_all("Series Hardware Rule", {"parent": version, "item": "H418"}, ["when_expr", "note"])
+		door = frappe.get_all(
+			"Series Hardware Rule", {"parent": version, "item": "H418"}, ["when_expr", "note"]
+		)
 		self.assertEqual([(d.when_expr, d.note) for d in door], [("False", "door — no door typology yet")])
 
 
@@ -162,7 +211,10 @@ class TestImportHiluxSeries(IntegrationTestCase):
 		first = import_hilux_series()
 		self.addCleanup(lambda: [frappe.cache.hdel("fen_snapshot", v) for v in first.values()])
 		self.assertEqual(set(first), {"CS400", "CS4800"})
-		count = lambda: frappe.db.count("Series Version", {"series": ("in", ("CS400", "CS4800")), "docstatus": 1})
+
+		def count():
+			return frappe.db.count("Series Version", {"series": ("in", ("CS400", "CS4800")), "docstatus": 1})
+
 		before = count()
 		self.assertEqual(import_hilux_series(), {})
 		self.assertEqual(count(), before)

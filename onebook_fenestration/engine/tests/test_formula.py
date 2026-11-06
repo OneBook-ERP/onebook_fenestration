@@ -6,7 +6,9 @@ from onebook_fenestration.engine.types import RuleError, SeriesSnapshot
 
 class TestFormula(unittest.TestCase):
 	def test_arithmetic(self):
-		self.assertEqual(evaluate("span - d_start - d_end", {"span": 457.5, "d_start": 18, "d_end": 5.5}, "r1"), 434.0)
+		self.assertEqual(
+			evaluate("span - d_start - d_end", {"span": 457.5, "d_start": 18, "d_end": 5.5}, "r1"), 434.0
+		)
 
 	def test_math_funcs(self):
 		self.assertEqual(evaluate("ceil(len/500)", {"len": 1220}, "r2"), 3)

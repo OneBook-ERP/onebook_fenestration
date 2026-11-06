@@ -1,176 +1,264 @@
 <script setup lang="ts">
-import { FormControl, Select, useList } from 'frappe-ui'
-import { computed } from 'vue'
-import { getNode, moveSplit, setLeaf, setSize } from '@/design/tree'
-import { panelLabel } from '@/design/typology'
-import type { DesignNode, LeafNode, SplitNode } from '@/design/types'
-import { useDesignerStore } from '@/stores/designer'
+import { FormControl, Select, useList } from "frappe-ui";
+import { computed } from "vue";
+import { getNode, moveSplit, setLeaf, setSize } from "@/design/tree";
+import { panelLabel } from "@/design/typology";
+import type { DesignNode, LeafNode, SplitNode } from "@/design/types";
+import { useDesignerStore } from "@/stores/designer";
 
 export interface Meta {
-	ref: string
-	qty: number
-	location: string
+	ref: string;
+	qty: number;
+	location: string;
 }
-const meta = defineModel<Meta>('meta', { required: true })
-defineProps<{ refError?: string; refReadonly?: boolean; finishes?: { name: string; finish_name: string }[] }>()
-const store = useDesignerStore()
+const meta = defineModel<Meta>("meta", { required: true });
+defineProps<{
+	refError?: string;
+	refReadonly?: boolean;
+	finishes?: { name: string; finish_name: string }[];
+}>();
+const store = useDesignerStore();
 
 const glassList = useList<{ name: string; glass_name: string }>({
-	doctype: 'Fenestration Glass',
-	fields: ['name', 'glass_name'],
-	orderBy: 'name asc',
+	doctype: "Fenestration Glass",
+	fields: ["name", "glass_name"],
+	orderBy: "name asc",
 	limit: 100,
-})
+});
 const glassOptions = computed(() => {
-	const codes = store.seriesInfo?.glasses
-	const rows = (glassList.data ?? []).filter((g) => !codes || codes.includes(g.name))
-	const opts = rows.map((g) => ({ label: `${g.glass_name || g.name} (${g.name})`, value: g.name }))
-	const cur = leaf.value?.glass
+	const codes = store.seriesInfo?.glasses;
+	const rows = (glassList.data ?? []).filter((g) => !codes || codes.includes(g.name));
+	const opts = rows.map((g) => ({
+		label: `${g.glass_name || g.name} (${g.name})`,
+		value: g.name,
+	}));
+	const cur = leaf.value?.glass;
 	if (cur && !opts.some((o) => o.value === cur)) {
-		const loaded = glassList.data !== undefined && glassList.data !== null && !glassList.list?.loading
-		const note = codes && !codes.includes(cur) ? 'not in this series version' : 'unknown'
-		opts.push({ label: loaded ? `${cur} (${note})` : cur, value: cur })
+		const loaded =
+			glassList.data !== undefined && glassList.data !== null && !glassList.list?.loading;
+		const note = codes && !codes.includes(cur) ? "not in this series version" : "unknown";
+		opts.push({ label: loaded ? `${cur} (${note})` : cur, value: cur });
 	}
-	return opts
-})
-const selectedLabel = computed(() => panelLabel(store.selectedPath, store.result))
+	return opts;
+});
+const selectedLabel = computed(() => panelLabel(store.selectedPath, store.result));
 const glassCut = computed(() => {
-	const row = store.result?.glass.find((g) => g.path === store.selectedPath)
-	const mm = (v: number | undefined) => (typeof v === 'number' ? v.toFixed(1) : null)
-	const w = mm(row?.width)
-	const h = mm(row?.height)
-	return w && h ? `${w} × ${h} mm` : '—'
-})
+	const row = store.result?.glass.find((g) => g.path === store.selectedPath);
+	const mm = (v: number | undefined) => (typeof v === "number" ? v.toFixed(1) : null);
+	const w = mm(row?.width);
+	const h = mm(row?.height);
+	return w && h ? `${w} × ${h} mm` : "—";
+});
 
-const NONE = 'none'
+const NONE = "none";
 const finishOptions = (list: { name: string; finish_name: string }[] = []) =>
-	list.map((f) => ({ label: f.finish_name || f.name, value: f.name }))
-const OPENINGS = [{ label: 'None', value: NONE }, { label: 'In', value: 'in' }, { label: 'Out', value: 'out' }]
+	list.map((f) => ({ label: f.finish_name || f.name, value: f.name }));
+const OPENINGS = [
+	{ label: "None", value: NONE },
+	{ label: "In", value: "in" },
+	{ label: "Out", value: "out" },
+];
 const HINGES = [
-	{ label: 'None', value: NONE },
-	{ label: 'Left', value: 'left' },
-	{ label: 'Right', value: 'right' },
-	{ label: 'Top', value: 'top' },
-]
+	{ label: "None", value: NONE },
+	{ label: "Left", value: "left" },
+	{ label: "Right", value: "right" },
+	{ label: "Top", value: "top" },
+];
 
 const HINGE_TYPES = [
-	{ label: 'Series default', value: NONE },
-	{ label: 'Friction', value: 'friction' },
-	{ label: 'Butt', value: 'butt' },
-]
-const YES = 'yes'
-const NO = 'no'
-function flagOptions(key: 'limiter' | 'mesh') {
-	const def = store.seriesInfo?.defaults[key]
-	const label = def === undefined ? 'Series default' : `Series default (${def ? 'Yes' : 'No'})`
-	return [{ label, value: NONE }, { label: 'Yes', value: YES }, { label: 'No', value: NO }]
+	{ label: "Series default", value: NONE },
+	{ label: "Friction", value: "friction" },
+	{ label: "Butt", value: "butt" },
+];
+const YES = "yes";
+const NO = "no";
+function flagOptions(key: "limiter" | "mesh") {
+	const def = store.seriesInfo?.defaults[key];
+	const label = def === undefined ? "Series default" : `Series default (${def ? "Yes" : "No"})`;
+	return [
+		{ label, value: NONE },
+		{ label: "Yes", value: YES },
+		{ label: "No", value: NO },
+	];
 }
-const limiterOptions = computed(() => flagOptions('limiter'))
-const meshOptions = computed(() => flagOptions('mesh'))
-const flagValue = (v: boolean | undefined) => (v === undefined ? NONE : v ? YES : NO)
-const flagPatch = (v: string | number | null) => (v === YES ? true : v === NO ? false : undefined)
+const limiterOptions = computed(() => flagOptions("limiter"));
+const meshOptions = computed(() => flagOptions("mesh"));
+const flagValue = (v: boolean | undefined) => (v === undefined ? NONE : v ? YES : NO);
+const flagPatch = (v: string | number | null) => (v === YES ? true : v === NO ? false : undefined);
 const HANDLES = [
-	{ label: 'Series default', value: NONE },
-	{ label: 'Multipoint', value: 'multipoint' },
-	{ label: 'Single point', value: 'single' },
-]
+	{ label: "Series default", value: NONE },
+	{ label: "Multipoint", value: "multipoint" },
+	{ label: "Single point", value: "single" },
+];
 
 function nodeAt(path: string): DesignNode | null {
 	try {
-		return getNode(store.design, path)
+		return getNode(store.design, path);
 	} catch {
-		return null
+		return null;
 	}
 }
 const leaf = computed(() => {
-	const n = nodeAt(store.selectedPath)
-	return n && n.type !== 'split' ? n : null
-})
+	const n = nodeAt(store.selectedPath);
+	return n && n.type !== "split" ? n : null;
+});
 const splitPath = computed(() => {
-	const p = store.selectedPath
-	return nodeAt(p)?.type === 'split' ? p : p.split('.').slice(0, -1).join('.')
-})
+	const p = store.selectedPath;
+	return nodeAt(p)?.type === "split" ? p : p.split(".").slice(0, -1).join(".");
+});
 const split = computed<SplitNode | null>(() => {
-	const n = splitPath.value ? nodeAt(splitPath.value) : null
-	return n && n.type === 'split' ? n : null
-})
+	const n = splitPath.value ? nodeAt(splitPath.value) : null;
+	return n && n.type === "split" ? n : null;
+});
 
 function num(e: Event): number {
-	return Number((e.target as HTMLInputElement).value)
+	return Number((e.target as HTMLInputElement).value);
 }
 function resize(w: number, h: number) {
-	if (!(w > 0 && h > 0)) return
-	store.apply((d) => setSize(d, w, h))
+	if (!(w > 0 && h > 0)) return;
+	store.apply((d) => setSize(d, w, h));
 }
 function patchLeaf(patch: Partial<LeafNode>) {
-	if (!leaf.value) return
-	const next = Object.fromEntries(Object.entries({ ...leaf.value, ...patch }).filter(([, v]) => v !== undefined)) as unknown as LeafNode
-	store.apply((d) => setLeaf(d, store.selectedPath, next))
+	if (!leaf.value) return;
+	const next = Object.fromEntries(
+		Object.entries({ ...leaf.value, ...patch }).filter(([, v]) => v !== undefined)
+	) as unknown as LeafNode;
+	store.apply((d) => setLeaf(d, store.selectedPath, next));
 }
 function moveBar(i: number, e: Event) {
-	const pos = num(e)
-	store.apply((d) => moveSplit(d, splitPath.value, i, pos))
+	const pos = num(e);
+	store.apply((d) => moveSplit(d, splitPath.value, i, pos));
 }
-const optStr = <T extends string = string>(v: string | number | null) => (v && v !== NONE ? (String(v) as T) : undefined)
+const optStr = <T extends string = string>(v: string | number | null) =>
+	v && v !== NONE ? (String(v) as T) : undefined;
 function optNum(e: Event): number | undefined {
-	const v = (e.target as HTMLInputElement).value
-	return v === '' ? undefined : Number(v)
+	const v = (e.target as HTMLInputElement).value;
+	return v === "" ? undefined : Number(v);
 }
 </script>
 
 <template>
-	<aside class="flex w-full shrink-0 flex-col gap-4 border-t border-gray-200 md:w-72 md:overflow-y-auto md:border-l md:border-t-0 bg-white p-4">
+	<aside
+		class="flex w-full shrink-0 flex-col gap-4 border-t border-gray-200 md:w-72 md:overflow-y-auto md:border-l md:border-t-0 bg-white p-4"
+	>
 		<details open>
 			<summary class="cursor-pointer text-sm font-semibold">Basic info</summary>
 			<div class="mt-3 flex flex-col gap-3">
-				<FormControl v-model="meta.ref" label="Design ref" :readonly="refReadonly" :error="refError" />
+				<FormControl
+					v-model="meta.ref"
+					label="Design ref"
+					:readonly="refReadonly"
+					:error="refError"
+				/>
 				<FormControl v-model="meta.qty" type="number" label="Quantity" min="1" />
 				<div class="grid grid-cols-2 gap-2">
-					<FormControl :model-value="store.design.width" type="number" label="Width (mm)"
-						@change="resize(num($event), store.design.height)" />
-					<FormControl :model-value="store.design.height" type="number" label="Height (mm)"
-						@change="resize(store.design.width, num($event))" />
+					<FormControl
+						:model-value="store.design.width"
+						type="number"
+						label="Width (mm)"
+						@change="resize(num($event), store.design.height)"
+					/>
+					<FormControl
+						:model-value="store.design.height"
+						type="number"
+						label="Height (mm)"
+						@change="resize(store.design.width, num($event))"
+					/>
 				</div>
 				<FormControl v-model="meta.location" label="Location" />
-				<Select label="Finish" :options="finishOptions(finishes)" :model-value="store.finish"
-					@update:model-value="store.setFinish(String($event ?? ''))" />
+				<Select
+					label="Finish"
+					:options="finishOptions(finishes)"
+					:model-value="store.finish"
+					@update:model-value="store.setFinish(String($event ?? ''))"
+				/>
 			</div>
 		</details>
 
 		<details v-if="leaf" open>
-			<summary class="cursor-pointer text-sm font-semibold">Selected panel {{ selectedLabel }}</summary>
+			<summary class="cursor-pointer text-sm font-semibold">
+				Selected panel {{ selectedLabel }}
+			</summary>
 			<div class="mt-3 flex flex-col gap-3">
 				<p class="text-sm text-gray-700">Glass cut {{ glassCut }}</p>
 				<template v-if="leaf.type === 'sash'">
-					<Select label="Opening" :options="OPENINGS" :model-value="leaf.opening ?? NONE"
-						@update:model-value="patchLeaf({ opening: optStr($event) })" />
-					<Select label="Hinge" :options="HINGES" :model-value="leaf.hinge ?? NONE"
-						@update:model-value="patchLeaf({ hinge: optStr($event) })" />
-					<Select label="Hinge type" :options="HINGE_TYPES" :model-value="leaf.hinge_type ?? NONE"
-						@update:model-value="patchLeaf({ hinge_type: optStr<'friction' | 'butt'>($event) })" />
-					<Select label="Handle" :options="HANDLES" :model-value="leaf.handle ?? NONE"
-						@update:model-value="patchLeaf({ handle: optStr<'multipoint' | 'single'>($event) })" />
-					<Select label="Opening limiter" :options="limiterOptions" :model-value="flagValue(leaf.limiter)"
-						@update:model-value="patchLeaf({ limiter: flagPatch($event) })" />
-					<Select label="Fly mesh" :options="meshOptions" :model-value="flagValue(leaf.mesh)"
-						@update:model-value="patchLeaf({ mesh: flagPatch($event) })" />
-					<FormControl type="number" label="GHH (mm)" :model-value="leaf.ghh ?? ''"
-						@change="patchLeaf({ ghh: optNum($event) })" />
+					<Select
+						label="Opening"
+						:options="OPENINGS"
+						:model-value="leaf.opening ?? NONE"
+						@update:model-value="patchLeaf({ opening: optStr($event) })"
+					/>
+					<Select
+						label="Hinge"
+						:options="HINGES"
+						:model-value="leaf.hinge ?? NONE"
+						@update:model-value="patchLeaf({ hinge: optStr($event) })"
+					/>
+					<Select
+						label="Hinge type"
+						:options="HINGE_TYPES"
+						:model-value="leaf.hinge_type ?? NONE"
+						@update:model-value="
+							patchLeaf({ hinge_type: optStr<'friction' | 'butt'>($event) })
+						"
+					/>
+					<Select
+						label="Handle"
+						:options="HANDLES"
+						:model-value="leaf.handle ?? NONE"
+						@update:model-value="
+							patchLeaf({ handle: optStr<'multipoint' | 'single'>($event) })
+						"
+					/>
+					<Select
+						label="Opening limiter"
+						:options="limiterOptions"
+						:model-value="flagValue(leaf.limiter)"
+						@update:model-value="patchLeaf({ limiter: flagPatch($event) })"
+					/>
+					<Select
+						label="Fly mesh"
+						:options="meshOptions"
+						:model-value="flagValue(leaf.mesh)"
+						@update:model-value="patchLeaf({ mesh: flagPatch($event) })"
+					/>
+					<FormControl
+						type="number"
+						label="GHH (mm)"
+						:model-value="leaf.ghh ?? ''"
+						@change="patchLeaf({ ghh: optNum($event) })"
+					/>
 				</template>
-				<FormControl v-if="leaf.type === 'louver'" type="number" label="Blades" min="1"
-					:model-value="leaf.blades" @change="patchLeaf({ blades: num($event) })" />
-				<Select label="Glass" :options="glassOptions" :model-value="leaf.glass"
-					@update:model-value="patchLeaf({ glass: String($event ?? '') })" />
+				<FormControl
+					v-if="leaf.type === 'louver'"
+					type="number"
+					label="Blades"
+					min="1"
+					:model-value="leaf.blades"
+					@change="patchLeaf({ blades: num($event) })"
+				/>
+				<Select
+					label="Glass"
+					:options="glassOptions"
+					:model-value="leaf.glass"
+					@update:model-value="patchLeaf({ glass: String($event ?? '') })"
+				/>
 			</div>
 		</details>
 
 		<details v-if="split" open>
 			<summary class="cursor-pointer text-sm font-semibold">
-				Split ({{ split.dir === 'v' ? 'vertical' : 'horizontal' }})
+				Split ({{ split.dir === "v" ? "vertical" : "horizontal" }})
 			</summary>
 			<div class="mt-3 flex flex-col gap-3">
-				<FormControl v-for="(a, i) in split.at" :key="i" type="number" :label="`Bar ${i + 1} position (mm)`"
-					:model-value="a" @change="moveBar(i, $event)" />
+				<FormControl
+					v-for="(a, i) in split.at"
+					:key="i"
+					type="number"
+					:label="`Bar ${i + 1} position (mm)`"
+					:model-value="a"
+					@change="moveBar(i, $event)"
+				/>
 			</div>
 		</details>
 	</aside>

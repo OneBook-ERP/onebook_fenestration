@@ -105,8 +105,16 @@ class TestLegacyGaskets(IntegrationTestCase):
 		data["hardware_rules"] = [r for r in data["hardware_rules"] if r.get("group") != "Gasket"]
 		version = import_snapshot_json("CS400", data, "CS400 Economical Casement")
 		self.addCleanup(frappe.cache.hdel, "fen_snapshot", version)
-		legacy = [(b.item, b.panel, b.position, b.length) for b in compute(load("w01.json"), get_snapshot(version)).bom if b.group == "Gasket"]
-		current = [(b.item, b.panel, b.position, b.length) for b in compute(load("w01.json"), SeriesSnapshot.from_dict(self.fixture())).bom if b.group == "Gasket"]
+		legacy = [
+			(b.item, b.panel, b.position, b.length)
+			for b in compute(load("w01.json"), get_snapshot(version)).bom
+			if b.group == "Gasket"
+		]
+		current = [
+			(b.item, b.panel, b.position, b.length)
+			for b in compute(load("w01.json"), SeriesSnapshot.from_dict(self.fixture())).bom
+			if b.group == "Gasket"
+		]
 		self.assertEqual(legacy, current)
 		self.assertEqual(len(legacy), 20)
 
@@ -116,7 +124,9 @@ class TestLegacyGaskets(IntegrationTestCase):
 
 class TestGlassCatalogue(IntegrationTestCase):
 	def test_catalogue_is_complete(self):
-		rows = json.loads((Path(__file__).parent.parent / "series_studio" / "data" / "hilux_glasses.json").read_text())["glasses"]
+		rows = json.loads(
+			(Path(__file__).parent.parent / "series_studio" / "data" / "hilux_glasses.json").read_text()
+		)["glasses"]
 		self.assertEqual(len(rows), 23)
 		self.assertEqual(len({r["code"] for r in rows}), 23)
 		for r in rows:

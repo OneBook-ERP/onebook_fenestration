@@ -24,7 +24,8 @@ def get_work_order_items(sales_order: str, for_raw_material_request: int = 0):
 
 	by_line = {row["sales_order_item"]: row for row in rows if row["sales_order_item"] not in design_lines}
 	overproduction = (
-		flt(frappe.get_single_value("Manufacturing Settings", "overproduction_percentage_for_sales_order")) / 100
+		flt(frappe.get_single_value("Manufacturing Settings", "overproduction_percentage_for_sales_order"))
+		/ 100
 	)
 	for name, line in design_lines.items():
 		pending_qty = _pending_qty(so.name, line, for_raw_material_request, overproduction)

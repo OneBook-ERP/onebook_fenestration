@@ -123,7 +123,12 @@ def _ensure_glass(glass, hsn_codes: dict) -> None:
 		return
 	item = GLASS_ITEM_PREFIX + glass.code
 	_ensure_item(item, glass.name, "Square Meter", "Glass", hsn_codes)
-	values = {"glass_code": glass.code, "glass_name": glass.name, "thickness_mm": glass.thickness_mm, "glass_mm": glass.glass_mm}
+	values = {
+		"glass_code": glass.code,
+		"glass_name": glass.name,
+		"thickness_mm": glass.thickness_mm,
+		"glass_mm": glass.glass_mm,
+	}
 	frappe.get_doc({"doctype": "Fenestration Glass", **values, "item": item}).insert()
 
 
