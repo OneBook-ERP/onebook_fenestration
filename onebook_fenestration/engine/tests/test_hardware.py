@@ -126,3 +126,42 @@ class TestInSash(unittest.TestCase):
 		bom = compute(_opt_design({"type": "sash", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"}), snap).bom
 		self.assertEqual({(b.item, b.panel) for b in bom if b.item in ("TPANE", "TFIX")}, {("TPANE", "F1-S1"), ("TFIX", "F1")})
 		self.assertEqual(sum(1 for b in bom if b.item == "TPANE"), 4)
+
+
+class TestGlazingGasketGaps(unittest.TestCase):
+	def test_gaps_are_reported_per_glazing(self):
+		from onebook_fenestration.engine.hardware import glazing_gasket_gaps
+		from onebook_fenestration.engine.tests.helpers import snapshot_with
+
+		def mutate(data):
+			data["glasses"]["TSTG30"] = {"name": "Test 30mm", "thickness_mm": 30}
+			data["hardware_rules"] = [
+				r
+				for r in data["hardware_rules"]
+				if not (r.get("group") == "Gasket" and r["per"] == "pane_side")
+			]
+			data["hardware_rules"] += [
+				{
+					"id": "g_fixed",
+					"item": "G1",
+					"name": "G1",
+					"per": "pane_side",
+					"qty": "1",
+					"when": "not in_sash",
+					"group": "Gasket",
+				},
+				{
+					"id": "g_thin",
+					"item": "G2",
+					"name": "G2",
+					"per": "pane_side",
+					"qty": "1",
+					"when": "glass_t <= 8",
+					"group": "Gasket",
+				},
+			]
+
+		gaps = glazing_gasket_gaps(snapshot_with(mutate))
+		self.assertIn(("TSTG30", True), gaps)
+		self.assertNotIn(("TSTG30", False), gaps)
+		self.assertFalse([g for g in gaps if g[0] != "TSTG30"])

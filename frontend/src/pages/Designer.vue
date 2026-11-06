@@ -2,12 +2,13 @@
 import { Alert, Badge, Button, Tooltip, toast, useList } from 'frappe-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type SavedDesign } from '@/api'
+import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type CutAxis, type SavedDesign } from '@/api'
 import PropertiesPanel, { type Meta } from '@/components/PropertiesPanel.vue'
 import ResultsBar from '@/components/ResultsBar.vue'
 import Window3DView from '@/components/Window3DView.vue'
 import WindowCanvas from '@/components/WindowCanvas.vue'
-import WindowSectionView from '@/components/WindowSectionView.vue'
+import SectionView from '@/components/SectionView.vue'
+import { layoutGeom } from '@/design/geometry'
 import { TEMPLATES } from '@/design/templates'
 import { typology } from '@/design/typology'
 import { getNode, moveSplit, removeSplit, setLeaf, splitCell } from '@/design/tree'
@@ -38,10 +39,9 @@ const refError = ref('')
 const VIEWS = [
 	{ label: 'Inside', value: 'inside' },
 	{ label: 'Outside', value: 'outside' },
-	{ label: 'Section', value: 'section' },
 	{ label: '3D', value: '3d' },
 ] as const
-const view = ref<'inside' | 'outside' | 'section' | '3d'>('inside')
+const view = ref<'inside' | 'outside' | '3d'>('inside')
 const saving = ref(false)
 const loadError = ref('')
 const loading = ref(false)
@@ -57,6 +57,26 @@ const lockMessage = computed(() =>
 const toolHint = 'Select a panel on the drawing to use these tools'
 const designType = computed(() => typology(store.design.root))
 const canvas = ref<InstanceType<typeof WindowCanvas> | null>(null)
+
+const sectionOn = ref(false)
+const cutAxis = ref<CutAxis>('h')
+/** The cut the user picked (cell centre, mm), sent to the engine; null lets the engine cut the first cell. */
+const cutAt = ref<Record<CutAxis, number | null>>({ h: null, v: null })
+/** Where the engine actually cut. Only places the markers; never sent back, so it cannot trigger a fetch. */
+const cutSnapped = ref<Record<CutAxis, number | null>>({ h: null, v: null })
+/** Marker positions: engine cut, else the picked cut, else the engine's default (centre of the first cell). */
+const cutPos = computed(() => {
+	const first = layoutGeom(store.design).cells[0]
+	const pos = (a: CutAxis, fallback: number) => cutSnapped.value[a] ?? cutAt.value[a] ?? fallback
+	return { axis: cutAxis.value, h: pos('h', first.y + first.h / 2), v: pos('v', first.x + first.w / 2) }
+})
+function pickCut(axis: CutAxis, at: number) {
+	cutAt.value = { ...cutAt.value, [axis]: at }
+	cutSnapped.value = { ...cutSnapped.value, [axis]: null }
+}
+function onSnapped(at: number) {
+	cutSnapped.value = { ...cutSnapped.value, [cutAxis.value]: at }
+}
 
 const finishList = useList<FinishRow>({
 	doctype: 'Profile Finish',
@@ -273,6 +293,14 @@ async function copy() {
 						@click="view = v.value"
 					/>
 				</div>
+				<Button
+					label="Section"
+					aria-label="Section"
+					:variant="sectionOn ? 'subtle' : 'outline'"
+					:aria-pressed="sectionOn"
+					class="min-h-9"
+					@click="sectionOn = !sectionOn"
+				/>
 				<Button label="Save" aria-label="Save" variant="solid" class="min-h-9" :disabled="blocked" @click="save" />
 			</div>
 		</header>
@@ -401,35 +429,48 @@ async function copy() {
 				</div>
 			</nav>
 
-			<main class="flex min-h-[50vh] min-w-0 flex-1 items-center justify-center overflow-hidden p-2 md:min-h-0">
+			<main
+				class="flex min-h-[50vh] min-w-0 flex-1 flex-col items-center p-2 md:min-h-0"
+				:class="sectionOn ? 'justify-start overflow-y-auto overflow-x-hidden' : 'justify-center overflow-hidden'"
+			>
 				<p v-if="loading" class="text-sm text-gray-500">Loading design...</p>
 				<template v-else-if="!loadError">
-					<WindowSectionView
-						v-if="view === 'section'"
-						:design="store.design"
-						:series-version="store.seriesVersion"
-						:finish-color="finishColor"
-					/>
 					<Window3DView
-						v-else-if="view === '3d'"
+						v-if="view === '3d'"
 						:design="store.design"
 						:selected-path="store.selectedPath"
 						:finish-color="finishColor"
 						:outside-finish-color="outsideFinishColor"
 						@select="store.select"
 					/>
-					<WindowCanvas
-						ref="canvas"
-						:class="{ 'sr-only pointer-events-none absolute h-0 w-0 overflow-hidden': view === 'section' || view === '3d' }"
+					<div
+						v-else
+						class="flex w-full flex-1 items-center justify-center"
+						:class="sectionOn ? 'min-h-[45vh]' : 'min-h-0'"
+					>
+						<WindowCanvas
+							ref="canvas"
+							:design="store.design"
+							:selected-path="store.selectedPath"
+							:issue-paths="issuePaths"
+							:view="view === 'outside' ? 'outside' : 'inside'"
+							:finish-color="view === 'outside' ? outsideFinishColor : finishColor"
+							:section="sectionOn ? cutPos : null"
+							@select="store.select"
+							@move-split="onMoveSplit"
+							@drag-start="store.beginDrag()"
+							@drag-end="store.endDrag()"
+							@update:cut="(c) => pickCut(c.axis, c.at)"
+						/>
+					</div>
+					<SectionView
+						v-if="sectionOn && store.seriesVersion"
+						v-model:axis="cutAxis"
+						class="shrink-0"
 						:design="store.design"
-						:selected-path="store.selectedPath"
-						:issue-paths="issuePaths"
-						:view="view === 'outside' ? 'outside' : 'inside'"
-						:finish-color="view === 'outside' ? outsideFinishColor : finishColor"
-						@select="store.select"
-						@move-split="onMoveSplit"
-						@drag-start="store.beginDrag()"
-						@drag-end="store.endDrag()"
+						:series-version="store.seriesVersion"
+						:at="cutAt[cutAxis]"
+						@cut="onSnapped"
 					/>
 				</template>
 			</main>

@@ -1,9 +1,10 @@
+import dataclasses
 import json
 
 import frappe
 from frappe import _
 
-from onebook_fenestration.engine import DesignError, RuleError
+from onebook_fenestration.engine import DesignError, RuleError, cross_section as cut_design
 from onebook_fenestration.fenestration.doctype.window_design.window_design import (
 	locking_document,
 	pricing_to_dict,
@@ -22,17 +23,9 @@ def compute_design(
 	design: dict | str, series_version: str, finish: str | None = None, price_structure: str | None = None
 ) -> dict:
 	"""Compute cut list, weights, price and issues; bad designs return errors instead of raising."""
-	docstatus = frappe.db.get_value("Series Version", series_version, "docstatus")
-	if docstatus is None:
-		return {"ok": False, "error_type": "series", "message": _("Series Version not found")}
-	frappe.has_permission("Series Version", "read", series_version, throw=True)
-	if docstatus != 1:
-		return {"ok": False, "error_type": "series", "message": _("Series Version must be published")}
-	if isinstance(design, str):
-		try:
-			design = json.loads(design)
-		except json.JSONDecodeError:
-			return {"ok": False, "error_type": "design", "message": "design is not valid JSON"}
+	design, error = _checked_input(design, series_version)
+	if error:
+		return error
 	finish, price_structure = resolve_pricing_defaults(finish, price_structure)
 	if not (finish and price_structure):
 		return {"ok": False, "error_type": "series", "message": missing_defaults_message()}
@@ -47,6 +40,60 @@ def compute_design(
 	out["issues"] += pricing.pop("issues")
 	out["pricing"] = pricing
 	return {"ok": True, "result": out, "series": series_info(series_version)}
+
+
+@frappe.whitelist()
+def cross_section(design: dict | str, series_version: str, axis: str, at: float | str | None = None) -> dict:
+	"""Profiles and glass one cut line crosses (engine `cross_section`), plus the outline of every profile drawn."""
+	design, error = _checked_input(design, series_version)
+	if error:
+		return error
+	try:
+		at = None if at in (None, "") else float(at)
+	except (TypeError, ValueError):
+		return {"ok": False, "error_type": "design", "message": f"cut position must be a number, got {at!r}"}
+	try:
+		snapshot = get_snapshot(series_version)
+		profiles = _profile_sections(sorted(snapshot.profiles))
+		widths = {code: p.width_mm for code, p in profiles.items() if p.width_mm}
+		section = cut_design(design, snapshot, axis, at, widths)
+	except DesignError as exc:
+		return {"ok": False, "error_type": "design", "message": str(exc)}
+	except RuleError as exc:
+		return {"ok": False, "error_type": "series", "message": str(exc)}
+	codes = {piece.code for piece in section.pieces if piece.kind == "profile"}
+	outlines = {
+		code: {"svg": p.section_svg, "width": p.width_mm, "depth": p.depth_mm}
+		for code, p in sorted(profiles.items())
+		if code in codes and p.section_svg
+	}
+	return {"ok": True, "result": json.loads(json.dumps(dataclasses.asdict(section))), "outlines": outlines}
+
+
+def _profile_sections(codes: list[str]) -> dict:
+	"""Outline and face size of each profile; read without per-user permission, like the series snapshot itself."""
+	rows = frappe.get_all(
+		"Fenestration Profile",
+		filters={"name": ("in", codes or [""])},
+		fields=["name", "section_svg", "width_mm", "depth_mm"],
+	)
+	return {row.name: row for row in rows}
+
+
+def _checked_input(design: dict | str, series_version: str) -> tuple[dict | None, dict | None]:
+	"""(design dict, None) when the version is published and readable and the design parses; else (None, error)."""
+	docstatus = frappe.db.get_value("Series Version", series_version, "docstatus")
+	if docstatus is None:
+		return None, {"ok": False, "error_type": "series", "message": _("Series Version not found")}
+	frappe.has_permission("Series Version", "read", series_version, throw=True)
+	if docstatus != 1:
+		return None, {"ok": False, "error_type": "series", "message": _("Series Version must be published")}
+	if isinstance(design, str):
+		try:
+			design = json.loads(design)
+		except json.JSONDecodeError:
+			return None, {"ok": False, "error_type": "design", "message": "design is not valid JSON"}
+	return design, None
 
 
 def series_info(series_version: str) -> dict:

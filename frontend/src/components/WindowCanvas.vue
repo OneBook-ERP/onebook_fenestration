@@ -16,6 +16,7 @@ const C = {
 	select: '#2563EB',
 	issue: '#D97706',
 	dim: '#404040',
+	cut: '#DC2626',
 }
 
 const props = withDefaults(
@@ -27,14 +28,17 @@ const props = withDefaults(
 		viewW?: number
 		viewH?: number
 		finishColor?: string
+		/** Section view on: cut positions in mm (h = height of the B–B cut, v = x of the A–A cut). */
+		section?: { axis: 'h' | 'v'; h: number; v: number } | null
 	}>(),
-	{ viewW: 640, viewH: 760, finishColor: DEFAULT_FINISH },
+	{ viewW: 640, viewH: 760, finishColor: DEFAULT_FINISH, section: null },
 )
 const emit = defineEmits<{
 	select: [path: string]
 	'move-split': [payload: { splitPath: string; index: number; pos: number }]
 	'drag-start': []
 	'drag-end': []
+	'update:cut': [payload: { axis: 'h' | 'v'; at: number }]
 }>()
 
 /** Mix a #RRGGBB colour towards white by `amount` (0..1). */
@@ -246,6 +250,27 @@ const rows = computed<Dim[]>(() => {
 	return r.type === 'split' && r.dir === 'h' ? segments(props.design.height, r.at) : []
 })
 
+/** A–A is the vertical cut line, B–B the horizontal one; the badges sit on the frame member at each end. */
+const cuts = computed(() => {
+	const s = props.section
+	if (!s) return []
+	const f = frameBox.value
+	const face = (FRAME_FACE / 2) * scale.value
+	const ends = 10
+	const x = px(s.v)
+	const y = py(s.h)
+	return [
+		{ axis: 'v' as const, letter: 'A', x1: x, x2: x, y1: f.y - ends, y2: f.y + f.h + ends, badges: [[x, f.y + face], [x, f.y + f.h - face]] },
+		{ axis: 'h' as const, letter: 'B', x1: f.x - ends, x2: f.x + f.w + ends, y1: y, y2: y, badges: [[f.x + face, y], [f.x + f.w - face, y]] },
+	].map((c) => ({ ...c, active: c.axis === s.axis }))
+})
+
+function onCellClick(c: CellGeom) {
+	emit('select', c.path)
+	const s = props.section
+	if (s) emit('update:cut', { axis: s.axis, at: s.axis === 'h' ? c.y + c.h / 2 : c.x + c.w / 2 })
+}
+
 const ariaLabel = computed(
 	() => `Window ${fmt(props.design.width)} by ${fmt(props.design.height)} mm, ${geom.value.cells.length} panels`,
 )
@@ -299,6 +324,7 @@ onUnmounted(endDrag)
 function getSvgMarkup(): string {
 	if (!svg.value) return ''
 	const clone = svg.value.cloneNode(true) as SVGSVGElement
+	clone.querySelectorAll('[data-cut]').forEach((el) => el.remove())
 	clone.setAttribute('width', String(props.viewW))
 	clone.setAttribute('height', String(props.viewH))
 	clone.querySelectorAll('*').forEach((el) => {
@@ -362,7 +388,7 @@ defineExpose({ getSvgMarkup })
 				:stroke-width="v.strokeWidth"
 				:class="{ hl: v.stroke !== C.stroke }"
 				style="cursor: pointer"
-				@click="emit('select', v.cell.path)"
+				@click="onCellClick(v.cell)"
 			/>
 			<rect
 				v-if="v.cell.node.type === 'sash'"
@@ -518,6 +544,20 @@ defineExpose({ getSvgMarkup })
 				:fill="C.dim"
 				pointer-events="none"
 			>{{ bar.id }}</text>
+		</g>
+
+		<g
+			v-for="c in cuts"
+			:key="c.axis"
+			:data-cut="c.axis"
+			:opacity="c.active ? 1 : 0.35"
+			pointer-events="none"
+		>
+			<line :x1="c.x1" :x2="c.x2" :y1="c.y1" :y2="c.y2" :stroke="C.cut" :stroke-width="c.active ? 2 : 1" stroke-dasharray="12 4 3 4" />
+			<g v-for="([bx, by], i) in c.badges" :key="i">
+				<circle :cx="bx" :cy="by" r="9" fill="#FFFFFF" :stroke="C.cut" />
+				<text :x="bx" :y="by + 4" text-anchor="middle" font-size="12" font-weight="700" :fill="C.cut">{{ c.letter }}</text>
+			</g>
 		</g>
 
 		<text

@@ -4,7 +4,7 @@ import unittest.mock
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from onebook_fenestration.api.design import compute_design, get_fenestration_defaults
+from onebook_fenestration.api.design import compute_design, cross_section, get_fenestration_defaults
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -124,3 +124,61 @@ class TestComputeDesignApi(IntegrationTestCase):
 			out,
 			{"ok": False, "error_type": "series", "message": "Set a default price structure and finish in Fenestration Settings"},
 		)
+
+
+CUT_SERIES = "TSTCUT"
+# The CS400 fixture's profiles renamed so the test owns every Fenestration Profile it touches.
+CUT_PROFILES = {"E104156": "TSTCUT-F", "E104160": "TSTCUT-S", "E104159": "TSTCUT-M", "CS4807": "TSTCUT-B"}
+
+
+class TestCrossSectionApi(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		data = json.loads(json.dumps(load("cs400_snapshot.json")))
+		for old, new in CUT_PROFILES.items():
+			data["profiles"][new] = data["profiles"].pop(old)
+		for rule in data["member_rules"]:
+			rule["profile"] = CUT_PROFILES[rule["profile"]]
+		data["code"] = CUT_SERIES
+		cls.version = import_snapshot_json(CUT_SERIES, data, "Cross section test series")
+		frappe.db.set_value(
+			"Fenestration Profile", "TSTCUT-F", {"section_svg": "M 0 0 L 50 0 L 50 70 Z", "width_mm": 50, "depth_mm": 70}
+		)
+
+	@classmethod
+	def tearDownClass(cls):
+		frappe.cache.hdel("fen_snapshot", cls.version)
+		super().tearDownClass()
+
+	def tearDown(self):
+		frappe.set_user("Administrator")
+
+	def test_cross_section_api_returns_outlines(self):
+		out = cross_section(json.dumps(load("w01.json")), self.version, "h")
+		self.assertIs(out["ok"], True)
+		result = out["result"]
+		self.assertEqual((result["axis"], result["at"], result["length"]), ("h", 610, 915))
+		frame = result["pieces"][0]
+		self.assertEqual(
+			frame,
+			{"kind": "profile", "code": "TSTCUT-F", "role": "frame", "panel": "F1", "start": 0, "end": 50, "mirrored": False},
+		)
+		self.assertEqual(out["outlines"], {"TSTCUT-F": {"svg": "M 0 0 L 50 0 L 50 70 Z", "width": 50, "depth": 70}})
+		missing = sorted(i["message"].split()[1] for i in result["issues"] if i["code"] == "no_section_width")
+		self.assertEqual(missing, ["TSTCUT-M", "TSTCUT-S"])
+		self.assertIn({"start": 0, "end": 915, "label": "915", "chain": "overall"}, result["dims"])
+
+	def test_cross_section_api_errors(self):
+		self.assertEqual(cross_section(load("w01.json"), self.version, "x")["error_type"], "design")
+		self.assertEqual(cross_section("{", self.version, "h")["error_type"], "design")
+		self.assertEqual(cross_section(load("w01.json"), "NO-SUCH-VERSION", "h")["error_type"], "series")
+
+	def test_cross_section_api_accepts_string_at(self):
+		out = cross_section(load("w01.json"), self.version, "v", "457.5")
+		self.assertEqual(out["result"]["at"], 686.25)
+
+	def test_cross_section_api_requires_read_permission(self):
+		frappe.set_user("Guest")
+		with self.assertRaises(frappe.PermissionError):
+			cross_section(load("w01.json"), self.version, "h")

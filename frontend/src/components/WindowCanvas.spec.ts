@@ -229,4 +229,41 @@ describe('WindowCanvas', () => {
 		expect(markup).not.toContain('<script')
 		expect(markup).not.toMatch(/\son[a-z]+=/)
 	})
+	it('cut_marker_click_moves_cut', async () => {
+		const w = mountCanvas({ section: { axis: 'h', h: 610, v: 228.75 } })
+		expect(w.findAll('[data-cut]').map((g) => g.attributes('data-cut'))).toEqual(['v', 'h'])
+		const labels = w.findAll('[data-cut] text').map((t) => t.text())
+		expect(labels.filter((t) => t === 'A')).toHaveLength(2)
+		expect(labels.filter((t) => t === 'B')).toHaveLength(2)
+		await w.find('[data-path="F1.1"]').trigger('click')
+		expect(w.emitted('update:cut')![0]).toEqual([{ axis: 'h', at: 610 }])
+		expect(w.emitted('select')![0]).toEqual(['F1.1'])
+		await w.setProps({ section: { axis: 'v', h: 610, v: 228.75 } })
+		await w.find('[data-path="F1.1"]').trigger('click')
+		expect(w.emitted('update:cut')![1]).toEqual([{ axis: 'v', at: 686.25 }])
+	})
+
+	it('draws the active cut line at its position', () => {
+		const w = mountCanvas({ section: { axis: 'v', h: 610, v: 228.75 } })
+		const line = w.get('[data-cut="v"] line')
+		const x = (640 - 915 * SCALE_W01) / 2 + 228.75 * SCALE_W01
+		expect(Number(line.attributes('x1'))).toBeCloseTo(x, 6)
+		expect(line.attributes('x1')).toBe(line.attributes('x2'))
+		expect(w.get('[data-cut="v"]').attributes('opacity')).toBe('1')
+		expect(Number(w.get('[data-cut="h"]').attributes('opacity'))).toBeLessThan(1)
+	})
+
+	it('has no cut markers or cut events without a section', async () => {
+		const w = mountCanvas()
+		expect(w.findAll('[data-cut]')).toHaveLength(0)
+		await w.find('[data-path="F1.1"]').trigger('click')
+		expect(w.emitted('update:cut')).toBeUndefined()
+	})
+
+	it('leaves cut markers out of the exported drawing', () => {
+		const w = mountCanvas({ section: { axis: 'h', h: 610, v: 228.75 } })
+		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
+		expect(m).not.toContain('stroke-dasharray="12 4 3 4"')
+		expect(m).not.toContain('>A<')
+	})
 })

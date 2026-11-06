@@ -170,3 +170,17 @@ EvA cuts a glazing bead around every fixed pane and a glass adaptor around every
 - DXF profile perimeters live in `series_studio/data/hilux_profile_perimeters.json`, outside the series data and its `source_hash`. `import_hilux_series` copies them into `total_perimeter_mm` only where it is empty and never touches `visible_perimeter_mm`. The DXF value is taken as the total (coated) perimeter: the dev site's hand-entered visible perimeters (E104156 90, E104159 110, E104160 120, CS4807 40) are far below the DXF values (202, 269, 282, 140). Hilux to confirm and send visible perimeters (`doc/hilux-questions.md` 9.2).
 
 Rejected: hard-coding bead and adaptor sizes in the engine (series numbers belong in data, D3); one bead profile per series without a thickness condition (EvA and the DXF use three beads and two adaptors).
+
+## D12. Rate sheets and series readiness (DECIDED 2026-11-05)
+
+- The rate sheet lists every item a series version uses (profiles, glass, hardware, gaskets). Importing it writes Item Prices on `Fenestration Settings.cost_price_list`, keyed by item + price list + stock uom + `valid_from`, non-batch, no customer or supplier, `packing_unit` 0. A new `valid_from` is a new price row; the same key updates in place.
+- Import and download are gated to System Manager / Fenestration Engineer and bypass Item Price permissions on purpose (only the ERPNext master managers hold them). Import is POST only and reads only the user's own or readable files.
+- Rates are read per kg (profiles), per m2 (glass) and per stock uom (others) without conversion, per the earlier ruling.
+- The readiness report lists what still blocks pricing a version; a draft whose rules do not compile reports one blocking `rules` check.
+
+## D13. Cross-section view (DECIDED 2026-11-05)
+
+- The engine cuts the section from the layout and deductions; the API takes a design dict/JSON like `compute_design`.
+- Profile outlines come from the Hilux section DXFs and are stored in the DB only, never committed.
+- PROVISIONAL until checked visually: face width = outline x-extent, and the mirror convention.
+
