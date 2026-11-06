@@ -26,7 +26,7 @@ def before_tests():
 			"email": "test@example.com",
 			"password": "test",
 			"company_name": COMPANY,
-			"company_abbr": "HSW",
+			"company_abbr": "Hilux",
 			"chart_of_accounts": "Standard",
 			"fy_start_date": f"{year}-04-01",
 			"fy_end_date": f"{year + 1}-03-31",

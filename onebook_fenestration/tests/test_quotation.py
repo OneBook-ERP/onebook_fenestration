@@ -82,7 +82,13 @@ class TestQuotation(IntegrationTestCase):
 		"""A company address (india_compliance needs one on every quotation) and test customers."""
 		if not company_address(COMPANY):
 			cls.make_address(
-				"Fen Test Office", "Tamil Nadu", "639001", "Company", COMPANY, gstin="33AAHCH3108G1Z0"
+				"Fen Test Office",
+				"Tamil Nadu",
+				"639001",
+				"Company",
+				COMPANY,
+				gstin="33AAHCH3108G1Z0",
+				city="Karur",
 			)
 		cls.make_customer(IN_STATE_CUSTOMER)
 		cls.make_customer(OUT_STATE_CUSTOMER)

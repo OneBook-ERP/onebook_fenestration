@@ -5,7 +5,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 import onebook_fenestration.engine.tests as engine_tests
-from onebook_fenestration.series_studio.importer import import_snapshot_json
+from onebook_fenestration.series_studio.importer import _ensure_series, import_snapshot_json
 
 FIXTURES = Path(engine_tests.__file__).parent / "fixtures"
 DATA = Path(__file__).parent.parent / "series_studio" / "data"
@@ -52,8 +52,14 @@ class TestGlassCatalogueValues(IntegrationTestCase):
 
 class TestImportMasters(IntegrationTestCase):
 	def test_import_creates_catalogue_glasses_with_items(self):
-		new_codes = [g["code"] for g in catalogue() if not frappe.db.exists("Fenestration Glass", g["code"])]
-		import_test_series(with_catalogue(load_fixture("cs400_snapshot.json")))
+		data = load_fixture("cs400_snapshot.json")
+		# Fixture glasses win on a code clash, so only catalogue-only codes carry catalogue values.
+		new_codes = [
+			g["code"]
+			for g in catalogue()
+			if g["code"] not in data["glasses"] and not frappe.db.exists("Fenestration Glass", g["code"])
+		]
+		import_test_series(with_catalogue(data))
 		for g in catalogue():
 			self.assertTrue(frappe.db.exists("Fenestration Glass", g["code"]), g["code"])
 		for code in new_codes:
@@ -256,6 +262,7 @@ class TestMemberRuleWhen(IntegrationTestCase):
 
 class TestProfilePerimeters(IntegrationTestCase):
 	def make_profile(self, code: str, visible: float, total: float) -> None:
+		_ensure_series(SERIES, "CS400 Economical Casement", "Casement")
 		frappe.get_doc(
 			{
 				"doctype": "Fenestration Profile",

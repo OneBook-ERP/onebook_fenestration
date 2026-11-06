@@ -75,9 +75,16 @@ class TestDesignLock(IntegrationTestCase):
 			get_design(design.name)["locked_by"], {"doctype": "Quotation", "name": quotation.name}
 		)
 
+	@staticmethod
+	def lost_reason() -> str:
+		name = "Fen Test Lost"
+		if not frappe.db.exists("Quotation Lost Reason", name):
+			frappe.get_doc({"doctype": "Quotation Lost Reason", "order_lost_reason": name}).insert()
+		return name
+
 	def test_lost_quotation_does_not_lock(self):
 		_project, design, quotation = self.submitted_quotation()
-		quotation.declare_enquiry_lost([], [], "")
+		quotation.declare_enquiry_lost([{"lost_reason": self.lost_reason()}], [], "")
 		self.assertIsNone(locking_document(design.name))
 		self.change_json(design.name)
 		self.assertIsNone(get_design(design.name)["locked_by"])
