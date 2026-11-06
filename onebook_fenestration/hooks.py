@@ -105,6 +105,7 @@ jinja = {
 # before_install = "onebook_fenestration.install.before_install"
 after_install = "onebook_fenestration.setup.install.after_install"
 after_migrate = "onebook_fenestration.setup.install.after_migrate"
+setup_wizard_complete = "onebook_fenestration.setup.install.after_setup_wizard"
 
 # Uninstallation
 # ------------

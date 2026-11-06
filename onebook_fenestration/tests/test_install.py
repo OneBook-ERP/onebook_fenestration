@@ -3,7 +3,12 @@ from unittest.mock import patch
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from onebook_fenestration.setup.install import after_install, after_migrate
+from onebook_fenestration.setup.install import (
+	after_install,
+	after_migrate,
+	after_setup_wizard,
+	seed_quote_masters,
+)
 
 
 class TestInstall(IntegrationTestCase):
@@ -39,4 +44,23 @@ class TestInstall(IntegrationTestCase):
 	def test_after_install_runs_production_setup(self):
 		with patch("onebook_fenestration.setup.install.setup_production_items") as setup:
 			after_install()
+		setup.assert_called_once_with()
+
+	def test_quote_items_wait_for_the_item_group_root(self):
+		"""Before the ERPNext setup wizard there is no Item Group root; install must not fail on it."""
+		frappe.db.savepoint("fen_no_root")
+		self.addCleanup(frappe.db.rollback, save_point="fen_no_root")
+		frappe.db.delete("Item", {"name": ("in", ("FEN-WINDOW", "FEN-TRANSPORT"))})
+		frappe.db.delete("Item Group", {"name": "Fenestration"})
+		with patch("onebook_fenestration.setup.install.get_root_of", return_value=None):
+			seed_quote_masters()
+		self.assertFalse(frappe.db.exists("Item", "FEN-TRANSPORT"))
+
+	def test_setup_wizard_hook_seeds_and_sets_up_production(self):
+		with (
+			patch("onebook_fenestration.setup.install._sync") as sync,
+			patch("onebook_fenestration.setup.install.setup_production_items") as setup,
+		):
+			after_setup_wizard({"company_name": "Any"})
+		sync.assert_called_once_with()
 		setup.assert_called_once_with()
