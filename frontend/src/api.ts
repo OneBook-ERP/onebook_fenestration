@@ -64,6 +64,12 @@ export interface Pricing {
 export interface SeriesInfo {
 	/** Glass codes of the series version. */
 	glasses: string[]
+	/** Profile codes of the series version. */
+	profiles?: string[]
+	/** Default profile code per member role (`frame`, `sash`, `mullion`, `transom`, `bead`). */
+	role_defaults?: Record<string, string>
+	/** Face size along the cut: width_mm, or depth_mm when width_mm is missing. */
+	profile_widths?: Record<string, number>
 	/** Effective series defaults for the sash options a design can override. */
 	defaults: { limiter: boolean; mesh: boolean }
 }
@@ -180,6 +186,39 @@ export function crossSection(design: Design, seriesVersion: string, axis: CutAxi
 	})
 }
 
+export interface AssemblyMember {
+	id: string; panel: string; path: string; role: string; position: string; profile: string
+	x: number; y: number; width: number; height: number; axis: 'x' | 'y'; length: number
+	end_treatment: 'mitre' | 'butt'
+}
+export interface AssemblyPane { id: string; panel: string; path: string; glass: string; x: number; y: number; width: number; height: number; thickness: number }
+export interface WindowAssembly { width: number; height: number; members: AssemblyMember[]; panes: AssemblyPane[]; issues: Issue[] }
+export type AssemblyResponse = { ok: true; result: WindowAssembly; outlines: Record<string, SectionOutline> } | { ok: false; error_type?: string; message: string }
+/** Complete manufacturing-derived instance list used by the 3D renderer. */
+export function windowAssembly(design: Design, seriesVersion: string): Promise<AssemblyResponse> {
+	return call(`${API}.window_assembly`, { design: JSON.stringify(design), series_version: seriesVersion })
+}
+
+export interface CatalogProfile { code: string; name: string; profile_code?: string; profile_name?: string; series?: string; role?: string; width_mm?: number; depth_mm?: number; section_svg?: string; has_outline: boolean; current_series: boolean }
+export interface ProfileCatalogResponse { ok: boolean; items?: CatalogProfile[]; total?: number; next_start?: number | null; series?: string; message?: string }
+export function profileCatalog(seriesVersion: string, start = 0, pageLength = 200): Promise<ProfileCatalogResponse> {
+	return call(`${API}.profile_catalog`, { series_version: seriesVersion, start, page_length: pageLength })
+}
+
+export function setProfileOrientation(
+	profileName: string,
+	opts: number | string | { rotation?: number | string; delta?: number | string },
+): Promise<{ ok: boolean; profile_name: string; section_rotation: string; width_mm: number; depth_mm: number }> {
+	const params: Record<string, any> = { profile_name: profileName }
+	if (typeof opts === 'object' && opts !== null) {
+		if (opts.rotation !== undefined) params.rotation = String(opts.rotation)
+		if (opts.delta !== undefined) params.delta = String(opts.delta)
+	} else {
+		params.rotation = String(opts)
+	}
+	return call('onebook_fenestration.api.studio.set_profile_orientation', params)
+}
+
 export interface FenestrationDefaults {
 	default_finish: string | null
 	default_price_structure: string | null
@@ -199,6 +238,10 @@ export function getDesign(name: string): Promise<SavedDesign> {
 
 export function copyDesign(name: string): Promise<string> {
 	return call(`${API}.copy_design`, { name })
+}
+
+export function deleteDesign(name: string): Promise<unknown> {
+	return call('frappe.client.delete', { doctype: 'Window Design', name })
 }
 
 export interface Session {

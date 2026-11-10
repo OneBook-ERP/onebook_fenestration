@@ -54,7 +54,7 @@
 				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					<article v-for="d in shown" :key="d.name" data-testid="design-card" class="rounded border p-3">
 						<div class="mb-2 flex h-40 items-center justify-center rounded bg-surface-gray-1">
-							<img v-if="d.design_svg" :src="thumb(d.design_svg)" :alt="`Elevation of ${d.design_ref}`" class="max-h-full max-w-full" />
+							<img v-if="thumbSrc(d)" :src="thumbSrc(d)" :alt="`Elevation of ${d.design_ref}`" class="max-h-full max-w-full" />
 							<span v-else class="text-xs text-ink-gray-5">No preview</span>
 						</div>
 						<div class="flex items-center gap-2">
@@ -73,36 +73,76 @@
 						<p class="text-sm text-ink-gray-5">{{ money(d.unit_price) }} each</p>
 						<p class="text-sm font-medium">Line {{ money(d.line_total) }}</p>
 						<p v-if="pricedOn(d)" class="text-sm text-ink-gray-5">Priced {{ pricedOn(d) }}</p>
-						<Button
-							class="mt-2 min-h-9"
-							variant="subtle"
-							label="Edit design"
-							data-testid="edit-design"
-							:route="`/projects/${project}/designs/${d.name}`"
-						/>
-						<Button
-							class="ml-2 mt-2 min-h-9"
-							variant="subtle"
-							label="Duplicate"
-							data-testid="duplicate-design"
-							:disabled="duplicating"
-							@click="duplicate(d.name)"
-						/>
+						<div class="mt-2 flex flex-wrap items-center gap-2">
+							<Button
+								class="min-h-9"
+								variant="subtle"
+								label="Edit design"
+								data-testid="edit-design"
+								:route="`/projects/${project}/designs/${d.name}`"
+							/>
+							<Button
+								class="min-h-9"
+								variant="subtle"
+								label="Duplicate"
+								data-testid="duplicate-design"
+								:disabled="duplicating"
+								@click="duplicate(d.name)"
+							/>
+							<Button
+								class="min-h-9 text-red-600 hover:text-red-700 hover:bg-red-50"
+								variant="subtle"
+								label="Delete"
+								data-testid="delete-design"
+								:disabled="deleting"
+								@click="promptDelete(d)"
+							/>
+						</div>
 					</article>
 				</div>
 			</template>
 		</div>
+
+		<Dialog
+			v-model="showDeleteDialog"
+			title="Delete design"
+			:options="{ title: 'Delete design' }"
+		>
+			<div class="space-y-3">
+				<p class="text-sm text-ink-gray-7">
+					Are you sure you want to delete <strong class="text-ink-gray-9">{{ designToDelete?.design_ref || designToDelete?.name }}</strong>?
+					This design will be permanently removed from this project.
+				</p>
+			</div>
+			<template #actions>
+				<Button
+					variant="subtle"
+					label="Cancel"
+					@click="showDeleteDialog = false"
+				/>
+				<Button
+					class="ml-2"
+					variant="solid"
+					theme="red"
+					label="Delete"
+					data-testid="confirm-delete-design"
+					:loading="deleting"
+					@click="executeDelete"
+				/>
+			</template>
+		</Dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { Badge, Button, Dropdown, FormControl, toast, useList } from 'frappe-ui'
+import { Badge, Button, Dialog, Dropdown, FormControl, toast, useList } from 'frappe-ui'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { copyDesign, quoteStatus, type QuoteStatus } from '@/api'
+import { copyDesign, deleteDesign, quoteStatus, type QuoteStatus } from '@/api'
 import QuotePanel from '@/components/QuotePanel.vue'
 import type { Design, DesignNode } from '@/design/types'
 import { typology } from '@/design/typology'
+import { generateElevationSvg } from '@/design/elevationSvg'
 import { TEMPLATES } from '@/design/templates'
 import { formatMoney } from '@/money'
 
@@ -301,7 +341,23 @@ function thumb(svg: string) {
 	return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
 }
 
-const templateOptions = TEMPLATES.map((t) => ({ label: t.label, onClick: () => newDesign(t.id) }))
+function thumbSrc(d: DesignRow): string {
+	if (d.design_svg) return thumb(d.design_svg)
+	try {
+		const doc = typeof d.design_json === 'string' ? JSON.parse(d.design_json || 'null') : d.design_json
+		if (doc && doc.width && doc.height && doc.root) {
+			const svg = generateElevationSvg(doc, finishColor(d.finish))
+			return svg ? thumb(svg) : ''
+		}
+	} catch {
+		// ignore
+	}
+	return ''
+}
+
+// Only show the generic (non-series-specific) templates in the workspace new-design menu.
+// CS400 templates are accessed from the Designer sidebar after choosing a series.
+const templateOptions = TEMPLATES.filter((t) => !t.series).map((t) => ({ label: t.label, onClick: () => newDesign(t.id) }))
 
 function newDesign(template: string) {
 	router.push({
@@ -326,5 +382,32 @@ async function duplicate(name: string) {
 	await router.push(`/projects/${props.project}/designs/${copy}`).catch(() => {
 		toast.error(`Copied as ${copy}, but could not open it`)
 	})
+}
+
+const showDeleteDialog = ref(false)
+const designToDelete = ref<DesignRow | null>(null)
+const deleting = ref(false)
+
+function promptDelete(d: DesignRow) {
+	designToDelete.value = d
+	showDeleteDialog.value = true
+}
+
+async function executeDelete() {
+	if (!designToDelete.value || deleting.value) return
+	const target = designToDelete.value
+	deleting.value = true
+	try {
+		await deleteDesign(target.name)
+		toast.success(`Deleted ${target.design_ref || target.name}`)
+		showDeleteDialog.value = false
+		designToDelete.value = null
+		await designList.reload()
+		await loadQuote()
+	} catch (e) {
+		toast.error(e instanceof Error ? e.message : 'Delete failed')
+	} finally {
+		deleting.value = false
+	}
 }
 </script>

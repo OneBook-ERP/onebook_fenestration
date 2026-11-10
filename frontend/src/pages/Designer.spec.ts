@@ -220,6 +220,20 @@ describe('Designer page', () => {
 		expect(router.currentRoute.value.path).toBe('/projects/P1/designs/WD-1')
 	})
 
+	it('save while in 3d view still sends valid svg', async () => {
+		vi.mocked(saveDesign).mockResolvedValue({ ok: true, name: 'WD-1', results: {} } as never)
+		const { wrapper } = await setup()
+		await field(wrapper, 'Design ref').setValue('W02')
+		const btn3d = wrapper.findAll('button').find((b) => b.text() === '3D')
+		await btn3d?.trigger('click')
+		await flushPromises()
+		await button(wrapper, 'Save').trigger('click')
+		await flushPromises()
+		const args = vi.mocked(saveDesign).mock.calls[0][0]
+		expect(args.svg.startsWith('<svg')).toBe(true)
+		expect(args.svg).toContain('</svg>')
+	})
+
 	it('save ok:false toasts the message', async () => {
 		vi.mocked(saveDesign).mockResolvedValue({ ok: false, message: 'Nope' })
 		const { wrapper } = await setup()
@@ -464,6 +478,16 @@ describe('Designer page', () => {
 		await button(wrapper, 'Section').trigger('click')
 		await flushPromises()
 		expect(button(wrapper, 'Section').attributes('aria-pressed')).toBe('true')
+		expect(wrapper.get('main').classes()).toContain('md:flex-row')
+		expect(wrapper.find('[data-testid="section-split-pane"]').exists()).toBe(true)
+		const resizer = wrapper.find('[data-testid="workspace-resizer"]')
+		expect(resizer.exists()).toBe(true)
+		await resizer.trigger('pointerdown', { clientX: 500, button: 0, pointerId: 1 })
+		await resizer.trigger('pointermove', { clientX: 350, pointerId: 1 })
+		await resizer.trigger('pointerup', { pointerId: 1 })
+		expect(wrapper.get('[data-testid="designer-left-pane"]').attributes('style')).toContain('width: 35%')
+		await resizer.trigger('dblclick')
+		expect(wrapper.get('[data-testid="designer-left-pane"]').attributes('style')).toContain('width: 50%')
 		expect(seg('B–B horizontal')).toBeDefined()
 		expect(wrapper.findAll('[data-cut]')).toHaveLength(2)
 		expect(last().slice(1)).toEqual(['SV1', 'h', null])
@@ -510,4 +534,59 @@ describe('Designer page', () => {
 		expect(vi.mocked(crossSection).mock.calls.length).toBe(n)
 	})
 
+	it('edit group: delete enabled/disabled states and actions for sash, fan, and split', async () => {
+		const { wrapper } = await setup()
+		const store = useDesignerStore()
+
+		// Plain fixed glass panel
+		const editGroup = wrapper.find('[data-testid="edit-group-card"]')
+		expect(editGroup.exists()).toBe(true)
+		const delBtn = editGroup.find('button[aria-label="Delete"]')
+		expect(delBtn.attributes('aria-disabled')).toBe('true')
+		expect(delBtn.text()).toContain('Delete')
+
+		// Convert to sash
+		await button(wrapper, 'Sash').trigger('click')
+		await flushPromises()
+		expect(delBtn.attributes('aria-disabled')).toBe('false')
+		expect(delBtn.text()).toContain('Delete sash')
+
+		// Click delete -> becomes fixed glass, undo restores it
+		await delBtn.trigger('click')
+		await flushPromises()
+		expect(store.design.root.type).toBe('fixed')
+		store.undo()
+		await flushPromises()
+		expect(store.design.root.type).toBe('sash')
+
+		// Reset panel button returns to fixed
+		const resetBtn = editGroup.find('button[aria-label="Reset panel"]')
+		expect(resetBtn.attributes('aria-disabled')).toBe('false')
+		await resetBtn.trigger('click')
+		await flushPromises()
+		expect(store.design.root.type).toBe('fixed')
+	})
+
+	it('keyboard shortcut: Delete key deletes selected item on canvas but not inside an input', async () => {
+		const { wrapper } = await setup()
+		const store = useDesignerStore()
+
+		// Convert to sash
+		await button(wrapper, 'Sash').trigger('click')
+		await flushPromises()
+		expect(store.design.root.type).toBe('sash')
+
+		// Dispatch Delete while typing in an input
+		const input = document.createElement('input')
+		document.body.appendChild(input)
+		input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }))
+		await flushPromises()
+		expect(store.design.root.type).toBe('sash')
+		document.body.removeChild(input)
+
+		// Dispatch Delete on canvas / window
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }))
+		await flushPromises()
+		expect(store.design.root.type).toBe('fixed')
+	})
 })

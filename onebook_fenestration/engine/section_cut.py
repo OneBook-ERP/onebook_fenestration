@@ -70,6 +70,7 @@ def cross_section(
 
 class _Cut:
 	def __init__(self, design, snapshot, axis, result: EngineResult, bars: list[Bar], widths: dict[str, float]):
+		self.design = design
 		self.snapshot, self.axis, self.bars, self.widths = snapshot, axis, bars, widths
 		self.along, self.size, self.low, self.high, self.bar_kind, self.perp, self.perp_size = AXES[axis]
 		self.length = design["width"] if axis == "h" else design["height"]
@@ -127,9 +128,25 @@ class _Cut:
 			return
 		size = pane.width if self.axis == "h" else pane.height
 		start = (lo + hi - size) / 2
-		clearance = self.snapshot.constants.get("glass_clearance", 0)
+		clearance = self.snapshot.constants.get("glass_clearance")
+		if clearance is None or clearance == 0:
+			clearance_low = max(
+				0.0,
+				self._deduction("fixed_glass_side", cell, self.low) - self._deduction("bar_end", cell, self.low)
+				if cell.node.get("type") == "fixed"
+				else 0.0,
+			)
+			clearance_high = max(
+				0.0,
+				self._deduction("fixed_glass_side", cell, self.high) - self._deduction("bar_end", cell, self.high)
+				if cell.node.get("type") == "fixed"
+				else 0.0,
+			)
+		else:
+			clearance_low = clearance
+			clearance_high = clearance
 		for role in GLASS_ROLES:
-			self._place_profiles(role, cell.path, self.low, start - clearance)
+			self._place_profiles(role, cell.path, self.low, start - clearance_low, cell=cell)
 		spec = self.snapshot.glasses.get(pane.glass)
 		thickness = spec.thickness_mm if spec else 0.0
 		self.pieces.append(
@@ -137,7 +154,7 @@ class _Cut:
 		)
 		self.dims.append(Dim(_mm(start), _mm(start + size), _label(size), "glass"))
 		for role in GLASS_ROLES:
-			self._place_profiles(role, cell.path, self.high, start + size + clearance)
+			self._place_profiles(role, cell.path, self.high, start + size + clearance_high, cell=cell)
 
 	def _place_bar(self, edge: float, at: float):
 		bar = next(
@@ -154,9 +171,19 @@ class _Cut:
 			width = self._width(member)
 			self._add_profile(member, bar.id, edge - width / 2, edge + width / 2, False)
 
-	def _place_profiles(self, role: str, path: str, side: str, edge: float):
+	def _place_profiles(self, role: str, path: str, side: str, edge: float, cell: Cell | None = None):
 		"""Members of `role` on `side`, their outer face at `edge`: low side grows up the cut, high side down."""
-		for member in self.members.get((role, path, side), []):
+		members = self.members.get((role, path, side), [])
+		if not members and role == "bead" and cell and cell.node.get("type") == "fixed" and cell.node.get("bead", True) is not False:
+			bead_code = (
+				cell.node.get("beadProfileId")
+				or (self.design.get("beadProfileId") if isinstance(self.design, dict) else None)
+				or ((self.design.get("profiles") or {}).get("bead") if isinstance(self.design, dict) else None)
+				or (getattr(self.snapshot, "role_defaults", {}).get("bead"))
+			)
+			if bead_code:
+				members = [CutMember(cell.path, "bead", side, bead_code, 0.0, (90.0, 90.0), cell.path)]
+		for member in members:
 			width = self._width(member)
 			if side == self.low:
 				self._add_profile(member, member.panel, edge, edge + width, False)

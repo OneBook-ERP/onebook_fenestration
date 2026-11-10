@@ -163,15 +163,17 @@
 									xmlns="http://www.w3.org/2000/svg"
 								>
 									<g :transform="`translate(${svgOf(p).ox}, ${svgOf(p).oy}) scale(${svgOf(p).s})`">
-										<path
-											:d="p.section_svg"
-											fill="#94a3b8"
-											fill-opacity="0.85"
-											stroke="#334155"
-											:stroke-width="svgOf(p).pathStroke"
-											stroke-linejoin="round"
-											fill-rule="evenodd"
-										/>
+										<g :transform="profileRotationTransform(p)">
+											<path
+												:d="p.section_svg"
+												fill="#94a3b8"
+												fill-opacity="0.85"
+												stroke="#334155"
+												:stroke-width="svgOf(p).pathStroke"
+												stroke-linejoin="round"
+												fill-rule="evenodd"
+											/>
+										</g>
 									</g>
 									<text
 										:x="svgOf(p).ox + svgOf(p).dw / 2"
@@ -241,7 +243,12 @@ import {
 	saveProfileSeries,
 	type FenestrationProfileRow,
 } from '@/studio/api'
-import { computeCardSvgMetrics, displayProfileCode, effectiveWeight } from '@/studio/sectionSvg'
+import {
+	computeCardSvgMetrics,
+	displayProfileCode,
+	effectiveWeight,
+	profileRotationTransform,
+} from '@/studio/sectionSvg'
 
 const props = defineProps<{ name?: string }>()
 const router = useRouter()
@@ -290,6 +297,7 @@ const profileResource = useList<FenestrationProfileRow>({
 		'bar_lengths',
 		'dxf_file',
 		'section_svg',
+		'section_rotation',
 	],
 	orderBy: 'profile_code asc',
 	limit: 500,

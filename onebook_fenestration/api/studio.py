@@ -32,3 +32,34 @@ def preview_dxf(file_url: str) -> dict:
 		},
 	}
 
+
+@frappe.whitelist(methods=["POST"])
+def set_profile_orientation(profile_name: str, rotation: int | str | None = None, delta: int | str | None = None) -> dict:
+	"""Set the default section orientation (0, 90, 180, 270) on a Fenestration Profile.
+
+	Accepts either an absolute `rotation` or an incremental `delta` relative to the profile's current rotation.
+	"""
+	frappe.has_permission("Fenestration Profile", "write", throw=True)
+	if not frappe.db.exists("Fenestration Profile", profile_name):
+		actual_name = frappe.db.get_value("Fenestration Profile", {"profile_code": profile_name}, "name")
+		if actual_name:
+			profile_name = actual_name
+	doc = frappe.get_doc("Fenestration Profile", profile_name)
+	if delta is not None and str(delta).strip():
+		cur_rot = int(doc.section_rotation or 0)
+		rot_int = (cur_rot + int(delta)) % 360
+	else:
+		rot_int = int(rotation or 0) % 360
+	if rot_int not in (0, 90, 180, 270):
+		frappe.throw(_("Rotation must be 0, 90, 180, or 270 degrees."))
+	doc.section_rotation = str(rot_int)
+	doc.save()
+	return {
+		"ok": True,
+		"profile_name": doc.name,
+		"section_rotation": doc.section_rotation,
+		"width_mm": doc.width_mm,
+		"depth_mm": doc.depth_mm,
+	}
+
+

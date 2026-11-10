@@ -206,7 +206,53 @@
 						</p>
 					</div>
 
-					<div v-if="hasSvg" class="flex items-center gap-2">
+					<div v-if="hasSvg" class="flex flex-wrap items-center gap-2">
+						<!-- Profile Orientation Toolbar -->
+						<div class="inline-flex items-center overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1">
+							<button
+								type="button"
+								class="flex h-7 items-center justify-center px-2 text-xs font-semibold text-ink-gray-6 transition-colors hover:bg-surface-gray-3 hover:text-ink-gray-9"
+								title="Rotate Left 90° (counter-clockwise)"
+								aria-label="Rotate Left 90°"
+								@click="rotateProfile(-90)"
+							>
+								<svg viewBox="0 0 640 640" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+									<path d="M88 256L232 256C241.7 256 250.5 250.2 254.2 241.2C257.9 232.2 255.9 221.9 249 215L202.3 168.3C277.6 109.7 386.6 115 455.8 184.2C530.8 259.2 530.8 380.7 455.8 455.7C380.8 530.7 259.3 530.7 184.3 455.7C174.1 445.5 165.3 434.4 157.9 422.7C148.4 407.8 128.6 403.4 113.7 412.9C98.8 422.4 94.4 442.2 103.9 457.1C113.7 472.7 125.4 487.5 139 501C239 601 401 601 501 501C601 401 601 239 501 139C406.8 44.7 257.3 39.3 156.7 122.8L105 71C98.1 64.2 87.8 62.1 78.8 65.8C69.8 69.5 64 78.3 64 88L64 232C64 245.3 74.7 256 88 256z" />
+								</svg>
+							</button>
+							<span class="min-w-10 border-x border-outline-gray-2 px-2 py-1 text-center font-mono text-xs font-bold text-blue-600">
+								{{ form.section_rotation || '0' }}°
+							</span>
+							<button
+								type="button"
+								class="flex h-7 items-center justify-center px-2 text-xs font-semibold text-ink-gray-6 transition-colors hover:bg-surface-gray-3 hover:text-ink-gray-9"
+								title="Rotate Right 90° (clockwise)"
+								aria-label="Rotate Right 90°"
+								@click="rotateProfile(90)"
+							>
+								<svg viewBox="0 0 640 640" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+									<path d="M552 256L408 256C398.3 256 389.5 250.2 385.8 241.2C382.1 232.2 384.1 221.9 391 215L437.7 168.3C362.4 109.7 253.4 115 184.2 184.2C109.2 259.2 109.2 380.7 184.2 455.7C259.2 530.7 380.7 530.7 455.7 455.7C463.9 447.5 471.2 438.8 477.6 429.6C487.7 415.1 507.7 411.6 522.2 421.7C536.7 431.8 540.2 451.8 530.1 466.3C521.6 478.5 511.9 490.1 501 501C401 601 238.9 601 139 501C39.1 401 39 239 139 139C233.3 44.7 382.7 39.4 483.3 122.8L535 71C541.9 64.1 552.2 62.1 561.2 65.8C570.2 69.5 576 78.3 576 88L576 232C576 245.3 565.3 256 552 256z" />
+								</svg>
+							</button>
+						</div>
+
+						<Button
+							type="button"
+							size="sm"
+							variant="subtle"
+							:loading="savingOrientation"
+							title="Set current orientation as the default for this profile"
+							@click="saveDefaultOrientation"
+						>
+							<template #prefix>
+								<svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.6">
+									<path d="M3 3h10v10H3z" stroke-linecap="round" stroke-linejoin="round" />
+									<path d="M6 3v4h4V3" stroke-linecap="round" stroke-linejoin="round" />
+								</svg>
+							</template>
+							Set as Default Orientation
+						</Button>
+
 						<div class="inline-flex overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1">
 							<button
 								type="button"
@@ -288,15 +334,17 @@
 						/>
 
 						<g :transform="`translate(${metrics.ox}, ${metrics.oy}) scale(${metrics.s})`">
-							<path
-								:d="form.section_svg || ''"
-								fill="#94a3b8"
-								fill-opacity="0.86"
-								stroke="#1e293b"
-								:stroke-width="metrics.pathStroke"
-								stroke-linejoin="round"
-								fill-rule="evenodd"
-							/>
+							<g :transform="rotationTransform">
+								<path
+									:d="form.section_svg || ''"
+									fill="#94a3b8"
+									fill-opacity="0.86"
+									stroke="#1e293b"
+									:stroke-width="metrics.pathStroke"
+									stroke-linejoin="round"
+									fill-rule="evenodd"
+								/>
+							</g>
 						</g>
 
 						<g v-if="showDims" stroke="#475569" stroke-width="1.15" stroke-linecap="square">
@@ -501,6 +549,7 @@ import {
 	getFenestrationProfileDoc,
 	previewDxf,
 	saveFenestrationProfile,
+	setProfileOrientation,
 	type FenestrationProfileRow,
 	type ProfileSeriesRow,
 } from '@/studio/api'
@@ -524,6 +573,7 @@ const uploadingDxf = ref(false)
 const uploadProgress = ref(0)
 const parsingDxf = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
+const savingOrientation = ref(false)
 
 const form = reactive<{
 	name: string
@@ -539,6 +589,9 @@ const form = reactive<{
 	area_mm2: number | null
 	width_mm: number | null
 	depth_mm: number | null
+	raw_width_mm: number | null
+	raw_depth_mm: number | null
+	section_rotation: string
 	perimeter_mm: number | null
 	total_perimeter_mm: number | null
 	visible_perimeter_mm: number | null
@@ -561,6 +614,9 @@ const form = reactive<{
 	area_mm2: null,
 	width_mm: null,
 	depth_mm: null,
+	raw_width_mm: null,
+	raw_depth_mm: null,
+	section_rotation: '0',
 	perimeter_mm: null,
 	total_perimeter_mm: null,
 	visible_perimeter_mm: null,
@@ -636,6 +692,50 @@ const canSave = computed(() =>
 	),
 )
 
+const rotationTransform = computed(() => {
+	const rot = (((Number(form.section_rotation || 0) % 360) + 360) % 360)
+	const w0 = form.raw_width_mm ?? form.width_mm ?? 0
+	const h0 = form.raw_depth_mm ?? form.depth_mm ?? 0
+	if (rot === 90) return `translate(${h0}, 0) rotate(90)`
+	if (rot === 180) return `translate(${w0}, ${h0}) rotate(180)`
+	if (rot === 270) return `translate(0, ${w0}) rotate(270)`
+	return ''
+})
+
+function rotateProfile(deltaDeg: number) {
+	const cur = Number(form.section_rotation || 0)
+	const next = (((cur + deltaDeg) % 360) + 360) % 360
+	form.section_rotation = String(next)
+	updateRotatedDimensions()
+}
+
+function updateRotatedDimensions() {
+	if (form.raw_width_mm == null || form.raw_depth_mm == null) return
+	const rot = (((Number(form.section_rotation || 0) % 360) + 360) % 360)
+	const isTurned = rot === 90 || rot === 270
+	form.width_mm = isTurned ? form.raw_depth_mm : form.raw_width_mm
+	form.depth_mm = isTurned ? form.raw_width_mm : form.raw_depth_mm
+}
+
+async function saveDefaultOrientation() {
+	if (!props.name) {
+		toast.success(`Orientation set to ${form.section_rotation || '0'}° (will save with profile)`)
+		return
+	}
+	savingOrientation.value = true
+	try {
+		const res = await setProfileOrientation(props.name, form.section_rotation)
+		form.section_rotation = String(res.section_rotation)
+		form.width_mm = res.width_mm
+		form.depth_mm = res.depth_mm
+		toast.success(`Default orientation set to ${res.section_rotation}°`)
+	} catch (e) {
+		toast.error(e instanceof Error ? e.message : 'Could not set default orientation')
+	} finally {
+		savingOrientation.value = false
+	}
+}
+
 function formatMetric(val: number | null | undefined, dp: number): string {
 	if (val == null || Number.isNaN(Number(val))) return '—'
 	return Number(val).toFixed(dp)
@@ -666,6 +766,11 @@ function applyDoc(doc: FenestrationProfileRow) {
 	form.dxf_file = doc.dxf_file || ''
 	form.use_computed_weight = Boolean(doc.use_computed_weight)
 	form.area_mm2 = doc.area_mm2 ?? null
+	form.section_rotation = String(doc.section_rotation || '0')
+	const rot = (((Number(form.section_rotation || 0) % 360) + 360) % 360)
+	const isTurned = rot === 90 || rot === 270
+	form.raw_width_mm = isTurned ? (doc.depth_mm ?? null) : (doc.width_mm ?? null)
+	form.raw_depth_mm = isTurned ? (doc.width_mm ?? null) : (doc.depth_mm ?? null)
 	form.width_mm = doc.width_mm ?? null
 	form.depth_mm = doc.depth_mm ?? null
 	form.perimeter_mm = doc.perimeter_mm ?? null
@@ -718,6 +823,9 @@ async function handleDxfFile(file: File) {
 			form.area_mm2 = res.section.area_mm2
 			form.width_mm = res.section.width_mm
 			form.depth_mm = res.section.depth_mm
+			form.raw_width_mm = res.section.width_mm
+			form.raw_depth_mm = res.section.depth_mm
+			form.section_rotation = '0'
 			form.perimeter_mm = res.section.perimeter_mm
 			form.total_perimeter_mm = res.section.total_perimeter_mm
 			form.ix_mm4 = res.section.ix_mm4
@@ -744,6 +852,9 @@ function clearDxf() {
 	form.area_mm2 = null
 	form.width_mm = null
 	form.depth_mm = null
+	form.raw_width_mm = null
+	form.raw_depth_mm = null
+	form.section_rotation = '0'
 	form.perimeter_mm = null
 	form.total_perimeter_mm = null
 	form.ix_mm4 = null
@@ -780,6 +891,7 @@ async function save() {
 				dxf_file: form.dxf_file || null,
 				use_computed_weight: form.use_computed_weight,
 				visible_perimeter_mm: form.visible_perimeter_mm,
+				section_rotation: form.section_rotation || '0',
 			},
 			props.name || null,
 		)

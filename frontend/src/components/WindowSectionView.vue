@@ -218,14 +218,16 @@
 						class="h-full w-full"
 					>
 						<g :transform="`translate(${svgMetrics(item.profile).ox}, ${svgMetrics(item.profile).oy}) scale(${svgMetrics(item.profile).s})`">
-							<path
-								:d="item.profile.section_svg"
-								fill="#94a3b8"
-								fill-opacity="0.85"
-								stroke="#1e293b"
-								:stroke-width="svgMetrics(item.profile).pathStroke"
-								fill-rule="evenodd"
-							/>
+							<g :transform="profileRotationTransform(item.profile)">
+								<path
+									:d="item.profile.section_svg"
+									fill="#94a3b8"
+									fill-opacity="0.85"
+									stroke="#1e293b"
+									:stroke-width="svgMetrics(item.profile).pathStroke"
+									fill-rule="evenodd"
+								/>
+							</g>
 						</g>
 					</svg>
 					<span v-else class="text-[10px] font-medium text-gray-400">DXF</span>
@@ -253,7 +255,7 @@ import { computed, ref } from 'vue'
 import { layoutGeom } from '@/design/geometry'
 import type { Design } from '@/design/types'
 import type { FenestrationProfileRow } from '@/studio/api'
-import { computeCardSvgMetrics } from '@/studio/sectionSvg'
+import { computeCardSvgMetrics, profileRotationTransform } from '@/studio/sectionSvg'
 
 const props = withDefaults(
 	defineProps<{
@@ -292,6 +294,7 @@ const profileResource = useList<FenestrationProfileRow>({
 		'width_mm',
 		'depth_mm',
 		'section_svg',
+		'section_rotation',
 	],
 	limit: 200,
 })

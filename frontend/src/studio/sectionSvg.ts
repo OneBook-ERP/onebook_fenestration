@@ -48,6 +48,22 @@ export function displayProfileCode(p: FenestrationProfileRow): string {
 	return code.replace('-CS400', '')
 }
 
+export function profileRotationTransform(p: {
+	section_rotation?: string | number | null
+	width_mm?: number | null
+	depth_mm?: number | null
+}): string {
+	const rot = (((Number(p.section_rotation || 0) % 360) + 360) % 360)
+	if (!rot) return ''
+	const isTurned = rot === 90 || rot === 270
+	const w0 = Math.max(Number(isTurned ? p.depth_mm : p.width_mm) || 10, 1)
+	const h0 = Math.max(Number(isTurned ? p.width_mm : p.depth_mm) || 10, 1)
+	if (rot === 90) return `translate(${h0}, 0) rotate(90)`
+	if (rot === 180) return `translate(${w0}, ${h0}) rotate(180)`
+	if (rot === 270) return `translate(0, ${w0}) rotate(270)`
+	return ''
+}
+
 export function computeCardSvgMetrics(widthMm?: number | null, depthMm?: number | null): CardSvgMetrics {
 	const w = Math.max(Number(widthMm) || 10, 1)
 	const h = Math.max(Number(depthMm) || 10, 1)
@@ -132,9 +148,20 @@ export function computeBlueprintSvgMetrics(
 	const vTextX = dimX - 13
 	const vTextY = oy + dh / 2
 
-	const centroid = estimateSvgCentroid(p.section_svg || '', w, h)
-	const cx = ox + centroid.x * s
-	const cy = oy + centroid.y * s
+	const rot = (((Number(p.section_rotation || 0) % 360) + 360) % 360)
+	const isTurned = rot === 90 || rot === 270
+	const baseW = isTurned ? h : w
+	const baseH = isTurned ? w : h
+	let c = estimateSvgCentroid(p.section_svg || '', baseW, baseH)
+	if (rot === 90) {
+		c = { x: baseH - c.y, y: c.x }
+	} else if (rot === 180) {
+		c = { x: baseW - c.x, y: baseH - c.y }
+	} else if (rot === 270) {
+		c = { x: c.y, y: baseW - c.x }
+	}
+	const cx = ox + c.x * s
+	const cy = oy + c.y * s
 	const loops = countSvgLoops(p.section_svg || '')
 	const chambers = Math.max(0, loops - 1)
 

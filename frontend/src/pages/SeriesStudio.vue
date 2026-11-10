@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { useList } from 'frappe-ui'
-import { computed } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FenestrationGlassTab from '@/components/studio/FenestrationGlassTab.vue'
 import FenestrationProfileTab from '@/components/studio/FenestrationProfileTab.vue'
@@ -104,6 +104,7 @@ const profileResource = useList<FenestrationProfileRow>({
 		'bar_lengths',
 		'dxf_file',
 		'section_svg',
+		'section_rotation',
 		'section_warnings',
 	],
 	orderBy: 'series asc, profile_code asc',
@@ -170,5 +171,18 @@ function reloadAll() {
 	profileResource.reload()
 	glassResource.reload()
 }
+
+onMounted(() => {
+	reloadAll()
+})
+
+watch(
+	() => route.fullPath,
+	() => {
+		if (activeTab.value === 'profiles') {
+			profileResource.reload()
+		}
+	},
+)
 </script>
 

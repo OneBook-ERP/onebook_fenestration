@@ -3,13 +3,14 @@ import { toast } from 'frappe-ui'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '@/router'
-import { copyDesign, quoteStatus } from '@/api'
+import { copyDesign, deleteDesign, quoteStatus } from '@/api'
 import ProjectWorkspace from './ProjectWorkspace.vue'
 
 vi.mock('@/api', async (orig) => ({
 	...(await orig<object>()),
 	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
 	copyDesign: vi.fn(),
+	deleteDesign: vi.fn().mockResolvedValue({}),
 }))
 const svg = vi.hoisted(() => '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>')
 vi.mock('frappe-ui', async (orig) => ({
@@ -118,6 +119,37 @@ describe('ProjectWorkspace', () => {
 		await flushPromises()
 		expect(toast.error).toHaveBeenCalledWith('boom')
 		expect(btn.attributes('disabled')).toBeUndefined()
+	})
+	it('clicking Delete prompts confirmation and deletes design on confirm', async () => {
+		vi.mocked(deleteDesign).mockResolvedValue({})
+		vi.mocked(toast.success).mockClear()
+		const { w } = await setup()
+		const deleteBtns = w.findAll('[data-testid="delete-design"]')
+		expect(deleteBtns.length).toBeGreaterThan(0)
+		await deleteBtns[0].trigger('click')
+		await flushPromises()
+
+		const confirmBtn = document.body.querySelector('[data-testid="confirm-delete-design"]') as HTMLButtonElement
+		expect(confirmBtn).toBeTruthy()
+		confirmBtn.click()
+		await flushPromises()
+
+		expect(deleteDesign).toHaveBeenCalledWith('WD-1')
+		expect(toast.success).toHaveBeenCalledWith('Deleted W01')
+	})
+	it('Delete shows toast error when deletion fails', async () => {
+		vi.mocked(deleteDesign).mockRejectedValue(new Error('Cannot delete'))
+		vi.mocked(toast.error).mockClear()
+		const { w } = await setup()
+		await w.findAll('[data-testid="delete-design"]')[0].trigger('click')
+		await flushPromises()
+
+		const confirmBtn = document.body.querySelector('[data-testid="confirm-delete-design"]') as HTMLButtonElement
+		expect(confirmBtn).toBeTruthy()
+		confirmBtn.click()
+		await flushPromises()
+
+		expect(toast.error).toHaveBeenCalledWith('Cannot delete')
 	})
 	it('search filters cards case-insensitively', async () => {
 		const { w } = await setup()

@@ -204,4 +204,89 @@ describe('PropertiesPanel', () => {
 		expect(w.text()).not.toContain('Selected mullion')
 		expect(w.text()).not.toContain('Split (vertical)')
 	})
+
+	it('allows selecting outer frame, glass, sash, and mullion individually and choosing Fenestration Profiles', async () => {
+		const w = mountPanel([sash, sash], 'FRAME', [{ panel: 'F1-S1', path: 'F1.0', width: 475.5, height: 1063 }])
+		const store = useDesignerStore()
+		store.seriesInfo = {
+			glasses: ['6CTG', '5CLR'],
+			profiles: ['E104156', 'E104160', 'E104159'],
+			role_defaults: { frame: 'E104156', sash: 'E104160', mullion: 'E104159' },
+			defaults: { limiter: false, mesh: false },
+		}
+		await w.vm.$nextTick()
+
+		// 1. Outer frame selected ('FRAME')
+		expect(w.find('[data-testid="selected-frame-card"]').exists()).toBe(true)
+		expect(w.text()).toContain('Selected outer frame F1')
+		const frameSelect = w.findAllComponents(Select).find((c) => c.props('label') === 'Frame profile')!
+		expect(frameSelect).toBeDefined()
+		frameSelect.vm.$emit('update:modelValue', 'E104160')
+		await w.vm.$nextTick()
+		expect(store.design.profiles?.frame).toBe('E104160')
+
+		// 2. Glass selected ('GLASS:F1.0')
+		store.select('GLASS:F1.0')
+		await w.vm.$nextTick()
+		expect(w.find('[data-testid="selected-glass-card"]').exists()).toBe(true)
+		expect(w.text()).toContain('Selected glass F1-S1')
+
+		// 3. Sash selected ('F1.0') -> change Sash profile
+		store.select('F1.0')
+		await w.vm.$nextTick()
+		const sashSelect = w.findAllComponents(Select).find((c) => c.props('label') === 'Sash profile')!
+		expect(sashSelect).toBeDefined()
+		sashSelect.vm.$emit('update:modelValue', 'E104156')
+		await w.vm.$nextTick()
+		expect((store.design.root as never as { children: { profile?: string }[] }).children[0].profile).toBe('E104156')
+
+		// 4. Mullion selected ('M1') -> change Mullion profile
+		store.select('M1')
+		await w.vm.$nextTick()
+		const mullionSelect = w.findAllComponents(Select).find((c) => c.props('label') === 'Mullion profile')!
+		expect(mullionSelect).toBeDefined()
+		mullionSelect.vm.$emit('update:modelValue', 'E104159')
+		await w.vm.$nextTick()
+		expect(store.design.profiles?.M1).toBe('E104159')
+	})
+
+	it('design card is collapsed by default and expands on chevron click', async () => {
+		const w = mountPanel([fixed], 'F1', [])
+		const expandBtn = w.find('button[aria-label="Expand design details"]')
+		expect(expandBtn.exists()).toBe(true)
+		const inputsContainer = w.find('input#pp-ref').element.closest('div[style*="display"]')
+		// Initially hidden via v-show
+		expect(w.find('input#pp-ref').isVisible()).toBe(false)
+		await expandBtn.trigger('click')
+		expect(w.find('input#pp-ref').isVisible()).toBe(true)
+	})
+
+	it('no bead offset or depth fields appear anywhere', () => {
+		const w = mountPanel([fixed], 'F1', [])
+		expect(w.text()).not.toContain('Bead offset (along, depth)')
+		expect(w.find('input[placeholder="0"]').exists()).toBe(false)
+	})
+
+	it('selecting a bead shows the "Bead" card with sync and corners, and clears panel card', async () => {
+		const w = mountPanel([fixed], 'BEAD:F1', [])
+		await w.vm.$nextTick()
+		expect(w.find('[data-testid="selected-bead-card"]').exists()).toBe(true)
+		expect(w.text()).toContain('Bead')
+		expect(w.text()).toContain('Mitre 45°')
+		expect(w.text()).toContain('Square')
+		expect(w.text()).toContain('Mirror to opposite side')
+		expect(w.text()).toContain('Set as default')
+		expect(w.text()).toContain('Reset bead')
+		// Bead identifier tags are internal only
+		expect(w.text()).not.toContain('OBL')
+		expect(w.text()).not.toContain('MBR')
+	})
+
+	it('selecting nothing shows the empty hint card', async () => {
+		const w = mountPanel([fixed], '', [])
+		await w.vm.$nextTick()
+		expect(w.find('[data-testid="nothing-selected-card"]').exists()).toBe(true)
+		expect(w.text()).toContain('Nothing selected')
+		expect(w.text()).toContain('Click a panel on the canvas or a profile in the section view')
+	})
 })

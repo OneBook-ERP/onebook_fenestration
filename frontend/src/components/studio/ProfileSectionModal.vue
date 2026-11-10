@@ -107,15 +107,17 @@
 					/>
 
 					<g :transform="`translate(${metrics.ox}, ${metrics.oy}) scale(${metrics.s})`">
-						<path
-							:d="profile.section_svg || ''"
-							fill="#94a3b8"
-							fill-opacity="0.86"
-							stroke="#1e293b"
-							:stroke-width="metrics.pathStroke"
-							stroke-linejoin="round"
-							fill-rule="evenodd"
-						/>
+						<g :transform="profileRotationTransform(profile)">
+							<path
+								:d="profile.section_svg || ''"
+								fill="#94a3b8"
+								fill-opacity="0.86"
+								stroke="#1e293b"
+								:stroke-width="metrics.pathStroke"
+								stroke-linejoin="round"
+								fill-rule="evenodd"
+							/>
+						</g>
 					</g>
 
 					<g v-if="showDims" stroke="#475569" stroke-width="1.15" stroke-linecap="square">
@@ -222,6 +224,7 @@ import {
 	computeBlueprintSvgMetrics,
 	displayProfileCode,
 	effectiveWeight,
+	profileRotationTransform,
 } from '@/studio/sectionSvg'
 
 const props = defineProps<{

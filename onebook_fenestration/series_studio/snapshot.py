@@ -15,12 +15,37 @@ CACHE_KEY = "fen_snapshot"
 def get_snapshot(series_version: str) -> SeriesSnapshot:
 	"""Snapshot for `series_version`; submitted versions use the frozen snapshot_json, drafts always rebuild."""
 	if frappe.db.get_value("Series Version", series_version, "docstatus") != 1:
-		return SeriesSnapshot.from_dict(build_snapshot_dict(series_version))
+		return SeriesSnapshot.from_dict(_with_all_profiles(build_snapshot_dict(series_version)))
 	data = frappe.cache.hget(CACHE_KEY, series_version)
 	if data is None:
 		data = frappe.parse_json(frappe.db.get_value("Series Version", series_version, "snapshot_json"))
 		frappe.cache.hset(CACHE_KEY, series_version, data)
-	return SeriesSnapshot.from_dict(with_legacy_gaskets(data))
+	return SeriesSnapshot.from_dict(_with_all_profiles(with_legacy_gaskets(data)))
+
+
+def _with_all_profiles(data: dict) -> dict:
+	"""Ensure any Fenestration Profile in the database is available when overridden by a design."""
+	out = {**data, "profiles": dict(data.get("profiles") or {})}
+	for code, spec in _all_profiles().items():
+		out["profiles"].setdefault(code, spec)
+	return out
+
+
+def _all_profiles() -> dict:
+	rows = frappe.get_all(
+		"Fenestration Profile",
+		fields=["profile_code", "profile_name", "kg_per_m", "bar_lengths", "use_computed_weight", "computed_kg_per_m", "visible_perimeter_mm", "total_perimeter_mm"],
+	)
+	return {
+		p.profile_code: {
+			"name": p.profile_name,
+			"kg_per_m": (p.computed_kg_per_m if p.use_computed_weight and p.computed_kg_per_m else p.kg_per_m) or 0.0,
+			"bar_lengths": [float(part) for part in (p.bar_lengths or "").split(",") if part.strip()] or [6000.0],
+			"visible_perimeter_mm": p.visible_perimeter_mm or 0,
+			"total_perimeter_mm": p.total_perimeter_mm or 0,
+		}
+		for p in rows
+	}
 
 
 def clear_snapshot(series_version: str) -> None:

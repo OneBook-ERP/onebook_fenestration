@@ -78,6 +78,13 @@ vi.mock('@/studio/api', async (orig) => ({
 	publishSeriesVersion: vi.fn(),
 	saveFenestrationProfile: vi.fn(),
 	saveFenestrationGlass: vi.fn(),
+	setProfileOrientation: vi.fn().mockResolvedValue({
+		ok: true,
+		profile_name: 'LP101',
+		section_rotation: '90',
+		width_mm: 45.0,
+		depth_mm: 40.0,
+	}),
 }))
 
 vi.mock('frappe-ui', async (orig) => ({

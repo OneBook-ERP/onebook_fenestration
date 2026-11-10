@@ -73,15 +73,17 @@
 						xmlns="http://www.w3.org/2000/svg"
 					>
 						<g :transform="`translate(${svgOf(p).ox}, ${svgOf(p).oy}) scale(${svgOf(p).s})`">
-							<path
-								:d="p.section_svg || ''"
-								fill="#94a3b8"
-								fill-opacity="0.85"
-								stroke="#334155"
-								:stroke-width="svgOf(p).pathStroke"
-								stroke-linejoin="round"
-								fill-rule="evenodd"
-							/>
+							<g :transform="profileRotationTransform(p)">
+								<path
+									:d="p.section_svg || ''"
+									fill="#94a3b8"
+									fill-opacity="0.85"
+									stroke="#334155"
+									:stroke-width="svgOf(p).pathStroke"
+									stroke-linejoin="round"
+									fill-rule="evenodd"
+								/>
+							</g>
 						</g>
 						<g stroke="#64748b" stroke-width="1" stroke-linecap="square">
 							<line :x1="svgOf(p).ox" :y1="svgOf(p).dimY" :x2="svgOf(p).ox + svgOf(p).dw" :y2="svgOf(p).dimY" />
@@ -197,6 +199,7 @@ import {
 	computeCardSvgMetrics,
 	displayProfileCode,
 	effectiveWeight,
+	profileRotationTransform,
 } from '@/studio/sectionSvg'
 
 const props = defineProps<{

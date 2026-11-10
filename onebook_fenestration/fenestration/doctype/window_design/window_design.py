@@ -7,6 +7,7 @@ from frappe.model.document import Document
 from frappe.utils import cint, flt, now_datetime
 
 from onebook_fenestration.engine import DesignError, EngineResult, PriceBreakdown, RuleError
+from onebook_fenestration.engine.elevation_svg import generate_elevation_svg
 from onebook_fenestration.fenestration.svg import sanitize_svg
 from onebook_fenestration.pricing.rates import (
 	missing_defaults_message,
@@ -64,6 +65,13 @@ class WindowDesign(Document):
 			self.compute_results()
 		elif self.has_value_changed("qty"):
 			self.line_total = round(flt(self.unit_price) * cint(self.qty), 2)
+		if not self.design_svg and self.design_json:
+			try:
+				d_dict = json.loads(self.design_json) if isinstance(self.design_json, str) else self.design_json
+				f_color = frappe.db.get_value("Profile Finish", self.finish, "color") if self.finish else None
+				self.design_svg = generate_elevation_svg(d_dict, f_color or "#8A8F98")
+			except Exception:
+				pass
 		if self.design_svg and (self.is_new() or self.has_value_changed("design_svg")):
 			self.design_svg = sanitize_svg(self.design_svg)
 

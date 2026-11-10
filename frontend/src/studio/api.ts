@@ -88,6 +88,7 @@ export interface FenestrationProfileRow {
 	dxf_file?: string | null
 	section_svg?: string | null
 	section_warnings?: string | null
+	section_rotation?: string | number | null
 }
 
 export interface FenestrationGlassRow {
@@ -213,6 +214,10 @@ export async function saveFenestrationProfile(
 				kg_per_m: values.kg_per_m,
 				dxf_file: values.dxf_file || null,
 				use_computed_weight: values.use_computed_weight ? 1 : 0,
+				section_rotation:
+					values.section_rotation !== undefined
+						? String(values.section_rotation ?? '0')
+						: String(existing.section_rotation || '0'),
 				visible_perimeter_mm:
 					values.visible_perimeter_mm !== undefined
 						? values.visible_perimeter_mm
@@ -224,9 +229,24 @@ export async function saveFenestrationProfile(
 		doc: {
 			doctype: 'Fenestration Profile',
 			...values,
+			section_rotation: String(values.section_rotation ?? '0'),
 			use_computed_weight: values.use_computed_weight ? 1 : 0,
 		},
 	})
+}
+
+export function setProfileOrientation(
+	profileName: string,
+	opts: number | string | { rotation?: number | string; delta?: number | string },
+): Promise<{ ok: boolean; profile_name: string; section_rotation: string; width_mm: number; depth_mm: number }> {
+	const params: Record<string, any> = { profile_name: profileName }
+	if (typeof opts === 'object' && opts !== null) {
+		if (opts.rotation !== undefined) params.rotation = String(opts.rotation)
+		if (opts.delta !== undefined) params.delta = String(opts.delta)
+	} else {
+		params.rotation = String(opts)
+	}
+	return call('onebook_fenestration.api.studio.set_profile_orientation', params)
 }
 
 export function getFenestrationGlassDoc(name: string): Promise<FenestrationGlassRow> {

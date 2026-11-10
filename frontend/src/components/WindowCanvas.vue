@@ -13,9 +13,9 @@ import { layoutGeom } from '@/design/geometry'
 import { getNode } from '@/design/tree'
 import type { BarGeom, CellGeom, Design, SplitNode } from '@/design/types'
 
-const FRAME_FACE = 42
-const BAR_FACE = 40
-const SASH_FACE = 50
+const FRAME_FACE_DEFAULT = 42
+const BAR_FACE_DEFAULT = 40
+const SASH_FACE_DEFAULT = 50
 const PAD = 60
 const FONT = 'Inter, sans-serif'
 const GRID_EXTENT = 2880
@@ -29,6 +29,39 @@ const C = {
 	issue: '#D97706',
 	dim: '#404040',
 	cut: '#DC2626',
+}
+
+const frameFace = computed(() => {
+	const widths = props.profileWidths
+	if (!widths) return FRAME_FACE_DEFAULT
+	const overrideCode = props.design.frameProfileId || props.design.profiles?.frame
+	if (overrideCode && widths[overrideCode]) return widths[overrideCode]
+	const memberCode = props.members?.find((m) => m.role === 'frame')?.profile
+	if (memberCode && widths[memberCode]) return widths[memberCode]
+	return FRAME_FACE_DEFAULT
+})
+
+function sashFaceFor(cell: CellGeom): number {
+	const widths = props.profileWidths
+	if (!widths) return SASH_FACE_DEFAULT
+	const node = cell.node
+	if (node.type !== 'sash') return SASH_FACE_DEFAULT
+	const overrideCode = node.profile || props.design.profiles?.[cell.path]
+	if (overrideCode && widths[overrideCode]) return widths[overrideCode]
+	const memberCode = props.members?.find((m) => m.role === 'sash' && m.path === cell.path)?.profile
+	if (memberCode && widths[memberCode]) return widths[memberCode]
+	return SASH_FACE_DEFAULT
+}
+
+function barFaceFor(bar: BarGeom): number {
+	const widths = props.profileWidths
+	if (!widths) return BAR_FACE_DEFAULT
+	const role = bar.dir === 'v' ? 'mullion' : 'transom'
+	const overrideCode = props.design.profiles?.[bar.id]
+	if (overrideCode && widths[overrideCode]) return widths[overrideCode]
+	const memberCode = props.members?.find((m) => (m.panel === bar.id || m.path === bar.id) && (m.role === role || m.role === 'mullion' || m.role === 'transom'))?.profile
+	if (memberCode && widths[memberCode]) return widths[memberCode]
+	return BAR_FACE_DEFAULT
 }
 
 const props = withDefaults(
@@ -54,8 +87,10 @@ const props = withDefaults(
 		}[]
 		/** Optional computed glass rows used to display exact glass cut width & height on selection. */
 		glass?: { path?: string; panel?: string; glass?: string; width?: number; height?: number }[]
+		/** Optional profile max width lookup (e.g. { E104156: 50, E104160: 60, E104159: 70 }) to dynamically size frame/sash/mullion face widths. */
+		profileWidths?: Record<string, number>
 	}>(),
-	{ viewW: 640, viewH: 760, finishColor: '#8A8F98', section: null, members: undefined, glass: undefined },
+	{ viewW: 640, viewH: 760, finishColor: '#8A8F98', section: null, members: undefined, glass: undefined, profileWidths: undefined },
 )
 const emit = defineEmits<{
 	select: [path: string]
@@ -140,10 +175,11 @@ interface Box {
 /** Pixel box of the visible opening of a cell: frame at the outside, half a bar at inner edges. */
 function cellBox(c: CellGeom): Box {
 	const { width, height } = props.design
-	const l = c.x === 0 ? FRAME_FACE : BAR_FACE / 2
-	const r = c.x + c.w === width ? FRAME_FACE : BAR_FACE / 2
-	const b = c.y === 0 ? FRAME_FACE : BAR_FACE / 2
-	const t = c.y + c.h === height ? FRAME_FACE : BAR_FACE / 2
+	const ff = frameFace.value
+	const l = c.x === 0 ? ff : BAR_FACE_DEFAULT / 2
+	const r = c.x + c.w === width ? ff : BAR_FACE_DEFAULT / 2
+	const b = c.y === 0 ? ff : BAR_FACE_DEFAULT / 2
+	const t = c.y + c.h === height ? ff : BAR_FACE_DEFAULT / 2
 	return {
 		x: px(c.x + l),
 		y: py(c.y + c.h - t),
@@ -181,6 +217,7 @@ interface CellView {
 	panelId: string
 	glassNo: number
 	selected: boolean
+	glassSelected: boolean
 	issue: boolean
 	stroke: string
 	strokeWidth: number
@@ -190,6 +227,8 @@ interface CellView {
 	corners: LineSeg[]
 	cutAngle: CutAngle
 	handle: HandlePos | null
+	hasBead: boolean
+	beadBox: Box
 	sashW: number | null
 	sashH: number | null
 	glassW: number
@@ -311,9 +350,11 @@ const cells = computed<CellView[]>(() => {
 		const box = cellBox(cell)
 		const isSash = cell.node.type === 'sash'
 		const selected = cell.path === props.selectedPath
+		const glassSelected = props.selectedPath === `GLASS:${cell.path}`
 		const issue = props.issuePaths.includes(cell.path)
 		const side = hingeSide(cell)
-		const glass = isSash ? inset(box, SASH_FACE) : box
+		const sf = sashFaceFor(cell)
+		const glass = isSash ? inset(box, sf) : box
 		const cutAngle = isSash ? roleCutAngle('sash', cell.path) : 45
 
 		const sashMembers = isSash ? memberList.filter((m) => m.role === 'sash' && m.path === cell.path) : []
@@ -329,6 +370,9 @@ const cells = computed<CellView[]>(() => {
 		const geomGlassH = round1(glass.h / scale.value)
 		const glassW = gRow?.width !== undefined ? round1(Number(gRow.width)) : geomGlassW
 		const glassH = gRow?.height !== undefined ? round1(Number(gRow.height)) : geomGlassH
+		const hasBead = (cell.node.type === 'fixed' || cell.node.type === 'sash') && cell.node.bead !== false
+		const beadInsetMm = Math.min(14, Math.max(4, openW * 0.08), Math.max(4, openH * 0.08))
+		const beadBox = inset(glass, beadInsetMm)
 
 		return {
 			cell,
@@ -337,6 +381,7 @@ const cells = computed<CellView[]>(() => {
 			panelId: prefix ? `${prefix}${++counts[prefix]}` : '',
 			glassNo: i + 1,
 			selected,
+			glassSelected,
 			issue,
 			stroke: selected ? C.select : issue ? C.issue : C.stroke,
 			strokeWidth: selected ? 3 : issue ? 2 : 1,
@@ -346,6 +391,8 @@ const cells = computed<CellView[]>(() => {
 			corners: isSash ? cornerLines(box, glass, cutAngle) : [],
 			cutAngle,
 			handle: computeHandlePos(cell, box, glass, side),
+			hasBead,
+			beadBox,
 			sashW,
 			sashH,
 			glassW,
@@ -368,23 +415,25 @@ const ghh = computed(() => {
 
 function barRect(bar: BarGeom): Box {
 	const { width, height } = props.design
+	const ff = frameFace.value
+	const bf = barFaceFor(bar)
 	if (bar.dir === 'v') {
-		const b = bar.y === 0 ? FRAME_FACE : BAR_FACE / 2
-		const t = bar.y + bar.length === height ? FRAME_FACE : BAR_FACE / 2
+		const b = bar.y === 0 ? ff : bf / 2
+		const t = bar.y + bar.length === height ? ff : bf / 2
 		return {
-			x: px(bar.x - BAR_FACE / 2),
+			x: px(bar.x - bf / 2),
 			y: py(bar.y + bar.length - t),
-			w: BAR_FACE * scale.value,
+			w: bf * scale.value,
 			h: Math.max(0, (bar.length - b - t) * scale.value),
 		}
 	}
-	const l = bar.x === 0 ? FRAME_FACE : BAR_FACE / 2
-	const r = bar.x + bar.length === width ? FRAME_FACE : BAR_FACE / 2
+	const l = bar.x === 0 ? ff : bf / 2
+	const r = bar.x + bar.length === width ? ff : bf / 2
 	return {
 		x: px(bar.x + l),
-		y: py(bar.y + BAR_FACE / 2),
+		y: py(bar.y + bf / 2),
 		w: Math.max(0, (bar.length - l - r) * scale.value),
-		h: BAR_FACE * scale.value,
+		h: bf * scale.value,
 	}
 }
 
@@ -396,13 +445,14 @@ const bars = computed<BarView[]>(() => {
 		const mRow = memberList.find((m) => m.panel === bar.id || m.path === bar.id)
 		const geomCut = round1((bar.dir === 'v' ? rect.h : rect.w) / scale.value)
 		const cutLength = mRow?.length !== undefined ? round1(Number(mRow.length)) : geomCut
+		const bf = barFaceFor(bar)
 		return {
 			bar,
 			rect,
 			selected,
 			cutLength,
 			spanLength: round1(bar.length),
-			faceWidth: BAR_FACE,
+			faceWidth: bf,
 			pos: round1(bar.dir === 'v' ? bar.x : bar.y),
 		}
 	})
@@ -415,7 +465,8 @@ const frameBox = computed<Box>(() => ({
 	h: props.design.height * scale.value,
 }))
 
-const frameInner = computed<Box>(() => inset(frameBox.value, FRAME_FACE))
+const frameInner = computed<Box>(() => inset(frameBox.value, frameFace.value))
+const frameSelected = computed(() => props.selectedPath === 'FRAME' || props.selectedPath === 'F1')
 const frameCutAngle = computed<CutAngle>(() => roleCutAngle('frame', 'F1'))
 const frameCorners = computed<LineSeg[]>(() => cornerLines(frameBox.value, frameInner.value, frameCutAngle.value))
 
@@ -479,7 +530,7 @@ const cuts = computed(() => {
 	const s = props.section
 	if (!s) return []
 	const f = frameBox.value
-	const face = (FRAME_FACE / 2) * scale.value
+	const face = (frameFace.value / 2) * scale.value
 	const ends = 10
 	const x = px(s.v)
 	const y = py(s.h)
@@ -488,6 +539,26 @@ const cuts = computed(() => {
 		{ axis: 'h' as const, letter: 'B', x1: f.x - ends, x2: f.x + f.w + ends, y1: y, y2: y, badges: [[f.x + face, y], [f.x + f.w - face, y]] },
 	].map((c) => ({ ...c, active: c.axis === s.axis }))
 })
+
+function onFrameClick(e?: MouseEvent) {
+	if (e && !e.shiftKey) shiftHeld.value = false
+	if (suppressNextClick || isPanning.value || e?.shiftKey) {
+		suppressNextClick = false
+		return
+	}
+	emit('select', 'FRAME')
+}
+
+function onGlassClick(c: CellGeom, e?: MouseEvent) {
+	if (e && !e.shiftKey) shiftHeld.value = false
+	if (suppressNextClick || isPanning.value || e?.shiftKey) {
+		suppressNextClick = false
+		return
+	}
+	emit('select', `GLASS:${c.path}`)
+	const s = props.section
+	if (s) emit('update:cut', { axis: s.axis, at: s.axis === 'h' ? c.y + c.h / 2 : c.x + c.w / 2 })
+}
 
 function onCellClick(c: CellGeom, e?: MouseEvent) {
 	if (e && !e.shiftKey) shiftHeld.value = false
@@ -785,33 +856,29 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 				<path :d="gridMajorPath" fill="none" stroke="#E2E8F0" stroke-width="1" vector-effect="non-scaling-stroke" />
 			</g>
 			<rect
+				data-frame="FRAME"
 				:x="frameBox.x"
 				:y="frameBox.y"
 				:width="frameBox.w"
 				:height="frameBox.h"
 				:fill="frameFill"
-				:stroke="C.stroke"
+				:stroke="frameSelected ? C.select : C.stroke"
+				:stroke-width="frameSelected ? 2.5 : 1"
+				:class="{ hl: frameSelected }"
+				style="cursor: pointer"
+				@click="onFrameClick($event)"
 			/>
-			<!-- Outer Frame Inner Border & Corner Cut Lines (45° miter or 90° butt) -->
-			<g pointer-events="none" :stroke="C.stroke" stroke-width="1">
-				<rect
-					:x="frameInner.x"
-					:y="frameInner.y"
-					:width="frameInner.w"
-					:height="frameInner.h"
-					fill="none"
-				/>
-				<line
-					v-for="(ln, ci) in frameCorners"
-					:key="`fc${ci}`"
-					data-corner-cut="frame"
-					:data-cut-angle="frameCutAngle"
-					:x1="ln.x1"
-					:y1="ln.y1"
-					:x2="ln.x2"
-					:y2="ln.y2"
-				/>
-			</g>
+			<rect
+				:x="frameInner.x"
+				:y="frameInner.y"
+				:width="frameInner.w"
+				:height="frameInner.h"
+				fill="none"
+				:stroke="frameSelected ? C.select : C.stroke"
+				:stroke-width="frameSelected ? 1.5 : 1"
+				vector-effect="non-scaling-stroke"
+				pointer-events="none"
+			/>
 
 			<g v-for="v in cells" :key="v.cell.path">
 				<rect
@@ -829,12 +896,31 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 				/>
 				<rect
 					v-if="v.cell.node.type === 'sash'"
+					:data-glass="v.cell.path"
 					:x="v.glass.x"
 					:y="v.glass.y"
 					:width="v.glass.w"
 					:height="v.glass.h"
 					:fill="C.glass"
-					:stroke="C.stroke"
+					:stroke="v.glassSelected ? C.select : C.stroke"
+					:stroke-width="v.glassSelected ? 2.5 : 1"
+					:class="{ hl: v.glassSelected }"
+					style="cursor: pointer"
+					@click.stop="onGlassClick(v.cell, $event)"
+				/>
+				<!-- Glazing Bead Inner Outline -->
+				<rect
+					v-if="v.hasBead"
+					data-bead="true"
+					:x="v.beadBox.x"
+					:y="v.beadBox.y"
+					:width="v.beadBox.w"
+					:height="v.beadBox.h"
+					fill="none"
+					stroke="#94A3B8"
+					stroke-width="0.9"
+					stroke-dasharray="4 3"
+					vector-effect="non-scaling-stroke"
 					pointer-events="none"
 				/>
 				<!-- Sash Corner Cut Lines (45° miter or 90° butt) -->
@@ -848,7 +934,9 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 					:x2="ln.x2"
 					:y2="ln.y2"
 					:stroke="C.stroke"
-					stroke-width="1"
+					stroke-width="1.5"
+					stroke-linecap="square"
+					vector-effect="non-scaling-stroke"
 					pointer-events="none"
 				/>
 				<polyline
@@ -899,7 +987,12 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 					<line :x1="v.box.x + v.box.w / 2" :x2="v.box.x + v.box.w / 2" :y1="v.box.y + v.box.h / 2 - 8" :y2="v.box.y + v.box.h / 2 + 8" />
 				</g>
 				<!-- Top-left Panel Tag Badge (S1 / S2 / L1) -->
-				<g v-if="v.panelId" pointer-events="none">
+				<g
+					v-if="v.panelId"
+					:data-panel-badge="v.cell.path"
+					style="cursor: pointer"
+					@click.stop="onCellClick(v.cell, $event)"
+				>
 					<rect
 						:x="v.glass.x + 8"
 						:y="v.glass.y + 8"
@@ -939,26 +1032,47 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 						:fill="C.dim"
 					>{{ v.cell.node.opening === 'out' ? 'OUT' : 'IN' }}</text>
 				</g>
-				<!-- Circled Pane Number -->
-				<circle
-					:cx="v.glass.x + v.glass.w / 2"
-					:cy="v.glass.y + v.glass.h / 2 - 14"
-					r="11"
-					fill="#FFFFFF"
-					fill-opacity="0.9"
-					:stroke="C.dim"
-					stroke-width="1.1"
-					pointer-events="none"
+				<!-- Circled Pane / Glass Number (Click to select Glass directly) -->
+				<g
+					:data-glass-badge="v.cell.path"
+					style="cursor: pointer"
+					@click.stop="onGlassClick(v.cell, $event)"
+				>
+					<circle
+						:cx="v.glass.x + v.glass.w / 2"
+						:cy="v.glass.y + v.glass.h / 2 - 14"
+						r="11"
+						:fill="v.glassSelected ? C.select : '#FFFFFF'"
+						fill-opacity="0.95"
+						:stroke="v.glassSelected ? C.select : C.dim"
+						stroke-width="1.2"
+						:class="{ 'hl-badge': v.glassSelected }"
+					/>
+					<text
+						:x="v.glass.x + v.glass.w / 2"
+						:y="v.glass.y + v.glass.h / 2 - 10"
+						text-anchor="middle"
+						font-size="12"
+						font-weight="600"
+						:fill="v.glassSelected ? '#FFFFFF' : C.dim"
+						:class="{ 'hl-badge-text': v.glassSelected }"
+					>{{ v.glassNo }}</text>
+				</g>
+			</g>
+
+			<!-- Mitres sit above the glass fill so the joint stays a true 45° line. -->
+			<g pointer-events="none" :stroke="frameSelected ? C.select : C.stroke" stroke-width="1.5" stroke-linecap="square">
+				<line
+					v-for="(ln, ci) in frameCorners"
+					:key="`fc${ci}`"
+					data-corner-cut="frame"
+					:data-cut-angle="frameCutAngle"
+					:x1="ln.x1"
+					:y1="ln.y1"
+					:x2="ln.x2"
+					:y2="ln.y2"
+					vector-effect="non-scaling-stroke"
 				/>
-				<text
-					:x="v.glass.x + v.glass.w / 2"
-					:y="v.glass.y + v.glass.h / 2 - 10"
-					text-anchor="middle"
-					font-size="12"
-					font-weight="600"
-					:fill="C.dim"
-					pointer-events="none"
-				>{{ v.glassNo }}</text>
 			</g>
 
 			<g v-for="b in bars" :key="b.bar.id">
@@ -1021,6 +1135,17 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 						:stroke="v.stroke"
 						:stroke-width="v.strokeWidth"
 					/>
+					<rect
+						v-if="v.glassSelected"
+						data-highlight="true"
+						:x="v.glass.x"
+						:y="v.glass.y"
+						:width="v.glass.w"
+						:height="v.glass.h"
+						fill="none"
+						:stroke="C.select"
+						stroke-width="2.5"
+					/>
 					<line
 						v-if="v.hingeLine"
 						data-hinge-line="true"
@@ -1032,9 +1157,9 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 						stroke-width="2.5"
 						stroke-linecap="round"
 					/>
-					<!-- Selected Cell / Sash Specific Dimensions Overlay -->
+					<!-- Selected Cell / Sash / Glass Specific Dimensions Overlay -->
 					<g
-						v-if="v.selected"
+						v-if="v.selected || v.glassSelected"
 						data-highlight="true"
 						:data-selected-dims="v.cell.path"
 					>
@@ -1054,7 +1179,7 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 						</g>
 						<!-- Summary Card inside Selected Pane -->
 						<g
-							v-if="v.cell.node.type === 'sash' && v.sashW !== null && v.sashH !== null"
+							v-if="v.selected && v.cell.node.type === 'sash' && v.sashW !== null && v.sashH !== null"
 							:transform="`translate(${v.glass.x + v.glass.w / 2}, ${v.glass.y + v.glass.h - 28})`"
 						>
 							<rect x="-78" y="-17" width="156" height="34" rx="4" fill="#FFFFFF" fill-opacity="0.95" :stroke="C.select" stroke-width="1.2" />
@@ -1076,6 +1201,38 @@ defineExpose({ getSvgMarkup, zoom, pan, zoomIn, zoomOut, resetView, panBy })
 						</g>
 					</g>
 				</template>
+
+				<!-- Selected Outer Frame Outline & Specific Dimensions Overlay -->
+				<g
+					v-if="frameSelected"
+					data-highlight="true"
+					data-frame-dims="FRAME"
+				>
+					<rect
+						:x="frameBox.x"
+						:y="frameBox.y"
+						:width="frameBox.w"
+						:height="frameBox.h"
+						fill="none"
+						:stroke="C.select"
+						stroke-width="2.5"
+					/>
+					<rect
+						:x="frameInner.x"
+						:y="frameInner.y"
+						:width="frameInner.w"
+						:height="frameInner.h"
+						fill="none"
+						:stroke="C.select"
+						stroke-width="2"
+					/>
+					<g :transform="`translate(${frameBox.x + frameBox.w / 2}, ${frameBox.y + 14})`">
+						<rect x="-92" y="-10" width="184" height="20" rx="4" fill="#FFFFFF" fill-opacity="0.96" :stroke="C.select" stroke-width="1.2" />
+						<text x="0" y="3.5" text-anchor="middle" font-size="9.5" font-weight="700" :fill="C.select">
+							Outer Frame: {{ fmt(design.width) }} × {{ fmt(design.height) }} mm
+						</text>
+					</g>
+				</g>
 
 				<!-- Selected Mullion / Transom Outline & Specific Dimensions Overlay -->
 				<template v-for="b in bars" :key="`bov-${b.bar.id}`">

@@ -456,4 +456,24 @@ describe('WindowCanvas', () => {
 		await w.find('rect[data-workspace-bg="true"]').trigger('click')
 		expect(w.emitted('select')![0]).toEqual([''])
 	})
+
+	it('allows selecting outer frame (FRAME), sash (F1.1), and glass (GLASS:F1.1) individually', async () => {
+		const w = mountCanvas()
+		// Click outer frame
+		await w.find('rect[data-frame="FRAME"]').trigger('click')
+		expect(w.emitted('select')![0]).toEqual(['FRAME'])
+
+		// Click glass pane inside sash F1.1
+		await w.find('rect[data-glass="F1.1"]').trigger('click')
+		expect(w.emitted('select')![1]).toEqual(['GLASS:F1.1'])
+
+		// Click sash badge S1 (F1.1)
+		await w.find('[data-panel-badge="F1.1"]').trigger('click')
+		expect(w.emitted('select')![2]).toEqual(['F1.1'])
+
+		// Render selected outer frame dimensions when selectedPath === 'FRAME'
+		await w.setProps({ selectedPath: 'FRAME' })
+		expect(w.find('[data-frame-dims="FRAME"]').exists()).toBe(true)
+		expect(w.get('[data-frame-dims="FRAME"]').text()).toContain('Outer Frame: 915 × 1220 mm')
+	})
 })

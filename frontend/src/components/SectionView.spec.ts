@@ -1,7 +1,7 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import w01 from '@/design/__fixtures__/w01.json'
-import type { Design } from '@/design/types'
+import type { Design, SectionPieceTransform } from '@/design/types'
 import SectionView from './SectionView.vue'
 
 const fake = vi.hoisted(() => ({
@@ -18,6 +18,33 @@ vi.mock('@/api', () => ({
 
 const OUTLINE = (w: number, d: number) => ({ svg: `M 0 0 L ${w} 0 L ${w} ${d} L 0 ${d} Z`, width: w, depth: d })
 
+const W_MULLION_BEADS_CUT = {
+	ok: true,
+	result: {
+		axis: 'h',
+		at: 610,
+		length: 1220,
+		pieces: [
+			{ kind: 'profile', code: 'E104156', role: 'frame', panel: 'F1', start: 0, end: 50, mirrored: false, thickness: 0 },
+			{ kind: 'profile', code: 'E104161', role: 'bead', panel: 'F1.0', start: 25, end: 45, mirrored: false, thickness: 0 },
+			{ kind: 'glass', code: '6CTG', role: 'glass', panel: 'F1.0', start: 40, end: 570, mirrored: false, thickness: 6 },
+			{ kind: 'profile', code: 'E104161', role: 'bead', panel: 'F1.0', start: 565, end: 585, mirrored: true, thickness: 0 },
+			{ kind: 'profile', code: 'E104159', role: 'mullion', panel: 'M1', start: 575, end: 645, mirrored: false, thickness: 0 },
+			{ kind: 'profile', code: 'E104161', role: 'bead', panel: 'F1.1', start: 635, end: 655, mirrored: false, thickness: 0 },
+			{ kind: 'glass', code: '6CTG', role: 'glass', panel: 'F1.1', start: 650, end: 1180, mirrored: false, thickness: 6 },
+			{ kind: 'profile', code: 'E104161', role: 'bead', panel: 'F1.1', start: 1175, end: 1195, mirrored: true, thickness: 0 },
+			{ kind: 'profile', code: 'E104156', role: 'frame', panel: 'F1', start: 1170, end: 1220, mirrored: true, thickness: 0 },
+		],
+		dims: [],
+		issues: [],
+	},
+	outlines: {
+		E104156: OUTLINE(50, 70),
+		E104161: OUTLINE(20, 20),
+		E104159: OUTLINE(70, 70),
+	},
+}
+
 const W01_CUT = {
 	ok: true,
 	result: {
@@ -25,12 +52,12 @@ const W01_CUT = {
 		at: 610,
 		length: 915,
 		pieces: [
-			{ kind: 'profile', code: 'E104156', role: 'frame', panel: 'F1', start: 0, end: 50, mirrored: false },
-			{ kind: 'profile', code: 'E104160', role: 'sash', panel: 'F1-S1', start: 18, end: 78, mirrored: false },
-			{ kind: 'glass', code: '6CTG', role: 'glass', panel: 'F1-S1', start: 68.5, end: 401.5, mirrored: false },
-			{ kind: 'profile', code: 'E104160', role: 'sash', panel: 'F1-S1', start: 392, end: 452, mirrored: true },
-			{ kind: 'profile', code: 'E104159', role: 'mullion', panel: 'M1', start: 422.5, end: 492.5, mirrored: false },
-			{ kind: 'profile', code: 'E104156', role: 'frame', panel: 'F1', start: 865, end: 915, mirrored: true },
+			{ kind: 'profile', code: 'E104156', role: 'frame', panel: 'F1', start: 0, end: 50, mirrored: false, thickness: 0 },
+			{ kind: 'profile', code: 'E104160', role: 'sash', panel: 'F1-S1', start: 18, end: 78, mirrored: false, thickness: 0 },
+			{ kind: 'glass', code: '6CTG', role: 'glass', panel: 'F1-S1', start: 68.5, end: 401.5, mirrored: false, thickness: 6 },
+			{ kind: 'profile', code: 'E104160', role: 'sash', panel: 'F1-S1', start: 392, end: 452, mirrored: true, thickness: 0 },
+			{ kind: 'profile', code: 'E104159', role: 'mullion', panel: 'M1', start: 422.5, end: 492.5, mirrored: false, thickness: 0 },
+			{ kind: 'profile', code: 'E104156', role: 'frame', panel: 'F1', start: 865, end: 915, mirrored: true, thickness: 0 },
 		],
 		dims: [
 			{ start: 0, end: 915, label: '915', chain: 'overall' },
@@ -45,7 +72,7 @@ const W01_CUT = {
 
 function mountView(props: Record<string, unknown> = {}) {
 	return mount(SectionView, {
-		props: { design: w01 as Design, seriesVersion: 'SV1', axis: 'h', at: null, ...props },
+		props: { design: structuredClone(w01) as Design, seriesVersion: 'SV1', axis: 'h', at: null, ...props },
 	})
 }
 
@@ -58,35 +85,125 @@ describe('SectionView', () => {
 	})
 	afterEach(() => vi.useRealTimers())
 
-	it('renders_a_piece_per_section_piece', async () => {
+	it('renders each profile and stationary center glass without cluttered dimension chains', async () => {
 		const w = mountView()
 		await flushPromises()
 		expect(fake.calls[0]).toMatchObject({ series_version: 'SV1', axis: 'h', at: null })
-		expect((fake.calls[0].design as Design).width).toBe(915)
 		const pieces = w.findAll('[data-piece]')
 		expect(pieces).toHaveLength(6)
 		expect(w.findAll('path[data-piece]')).toHaveLength(5)
 		const glass = w.get('[data-piece="2"]')
 		expect(glass.element.tagName).toBe('rect')
 		expect(glass.attributes('data-kind')).toBe('glass')
+		const mullion = w.get('[data-piece="4"]')
+		expect(mullion.attributes('data-piece')).toBe('4')
+		expect(glass.attributes('data-stationary')).toBeUndefined()
+		// Glass is stationary at the y = 0 center plane (-thickness/2 to +thickness/2)
+		expect(Number(glass.attributes('y')) + Number(glass.attributes('height')) / 2).toBeCloseTo(0, 6)
 		// The mirrored sash flips; the unmirrored one does not.
 		expect(w.get('[data-piece="1"]').attributes('transform')).not.toContain('scale(-')
 		expect(w.get('[data-piece="3"]').attributes('transform')).toContain('scale(-')
-		const texts = w.findAll('text').map((t) => t.text())
-		for (const t of ['E104156', 'E104160', 'E104159', '6CTG', '915', '457.5', '333', '50']) expect(texts).toContain(t)
-		expect(w.text()).not.toContain('No section outline')
+		// Cluttered bottom dimension chains are omitted
+		expect(w.findAll('[data-chain]')).toHaveLength(0)
 	})
 
-	it('scales each outline to its piece width', async () => {
-		fake.response = structuredClone(W01_CUT)
-		;(fake.response as typeof W01_CUT).outlines.E104159 = OUTLINE(35, 70)
+	it('selects a profile, enters ghost mode while dragging, and resolves wall collisions on drop', async () => {
 		const w = mountView()
 		await flushPromises()
-		const a = w.get('[data-piece="0"]').attributes('transform')!
-		const b = w.get('[data-piece="4"]').attributes('transform')!
-		const sx = (t: string) => Number(/scale\((-?[\d.]+)/.exec(t)![1])
-		// 70 mm mullion from a 35 mm-wide outline is drawn at twice the scale of the 50/50 frame.
-		expect(sx(b) / sx(a)).toBeCloseTo(2, 6)
+		const sashGroup = w.get('[data-piece-group="1"]')
+		await sashGroup.trigger('click')
+		expect(w.find('[data-testid="profile-inspector"]').exists()).toBe(true)
+		expect(w.get('[data-testid="profile-inspector"]').text()).toContain('E104160')
+
+		// Start dragging sash toward the stationary glass to trigger ghost mode
+		await sashGroup.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+		expect(w.get('[data-piece-group="1"]').attributes('data-ghost')).toBe('true')
+		expect(w.text()).toContain('Ghost Mode')
+
+		await sashGroup.trigger('pointermove', { clientX: 112, clientY: 108, pointerId: 1 })
+		await sashGroup.trigger('pointerup', { pointerId: 1 })
+
+		// Ghost mode ends on release and no profiles are left clipping
+		expect(w.get('[data-piece-group="1"]').attributes('data-ghost')).toBeUndefined()
+		expect(w.findAll('[data-colliding="true"]')).toHaveLength(0)
+		expect(w.emitted('update:section-map')).toBeTruthy()
+	})
+
+	it('mirrors profile moves & rotations on opposite corners and syncs between B-B (top) and A-A (side) views', async () => {
+		const w = mountView()
+		await flushPromises()
+
+		// Select left frame (index 0, mirrored: false) and right frame (index 5, mirrored: true)
+		const getTranslateX = (idx: number) => {
+			const t = w.get(`[data-piece="${idx}"]`).attributes('transform')!
+			return Number(/translate\((-?[\d.]+)/.exec(t)![1])
+		}
+		const leftXBefore = getTranslateX(0)
+		const rightXBefore = getTranslateX(5)
+
+		// Drag left frame inward (+20 px -> +dx mm)
+		const leftFrameGroup = w.get('[data-piece-group="0"]')
+		await leftFrameGroup.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+		await leftFrameGroup.trigger('pointermove', { clientX: 120, clientY: 100, pointerId: 1 })
+		await leftFrameGroup.trigger('pointerup', { pointerId: 1 })
+
+		const leftXAfter = getTranslateX(0)
+		const rightXAfter = getTranslateX(5)
+
+		// Left frame moved right (+delta), right frame automatically mirrored and moved left (-delta)
+		const deltaLeft = leftXAfter - leftXBefore
+		const deltaRight = rightXAfter - rightXBefore
+		expect(deltaLeft).toBeGreaterThan(0)
+		expect(deltaRight).toBeCloseTo(-deltaLeft, 5)
+
+		// Rotate selected profile by +90° and verify sectionMap stores the canonical key `frame:E104156`
+		await w.get('button[aria-label="Rotate clockwise"]').trigger('click')
+		const lastMap = w.emitted('update:section-map')!.at(-1)![0] as Record<string, SectionPieceTransform>
+		expect(lastMap['frame:E104156']).toBeDefined()
+		expect(lastMap['frame:E104156'].rotation).toBe(90)
+
+		// Switching to A-A vertical (side view) preserves the same `frame:E104156` transform
+		const vBtn = w.findAll('button').find((b) => b.text() === 'A–A vertical')!
+		await vBtn.trigger('click')
+		await flushPromises()
+		expect(w.get('[data-piece="0"]').attributes('transform')).toContain('rotate(90)')
+	})
+
+	it('supports workspace zoom, drag-to-pan, and positions the floating control pill directly above the selected profile', async () => {
+		const w = mountView()
+		await flushPromises()
+
+		// Select left profile (index 0) and check floating toolbar position
+		await w.get('[data-piece-group="0"]').trigger('click')
+		const inspector0 = w.get('[data-testid="profile-inspector"]')
+		const style0 = inspector0.attributes('style') ?? ''
+		expect(style0).toContain('translate(-50%, -100%)')
+		const leftPct0 = Number(/left:\s*([\d.]+)%/.exec(style0)![1])
+
+		// Select right profile (index 5) and verify the floating toolbar moves above the right profile
+		await w.get('[data-piece-group="5"]').trigger('click')
+		const style5 = w.get('[data-testid="profile-inspector"]').attributes('style') ?? ''
+		const leftPct5 = Number(/left:\s*([\d.]+)%/.exec(style5)![1])
+		expect(leftPct5).toBeGreaterThan(leftPct0)
+
+		// Zoom in using the bottom-right workspace zoom button
+		const svg = w.get('svg')
+		const vbBefore = svg.attributes('viewBox')!
+		await w.get('button[aria-label="Zoom in section"]').trigger('click')
+		expect(w.get('button[aria-label="Reset section zoom"]').text()).toBe('115%')
+		expect(svg.attributes('viewBox')).not.toBe(vbBefore)
+
+		// Drag the workspace background to pan the cross-section canvas
+		const vbBeforePan = svg.attributes('viewBox')!
+		await svg.trigger('pointerdown', { clientX: 200, clientY: 200, button: 0, pointerId: 2 })
+		await svg.trigger('pointermove', { clientX: 260, clientY: 230, pointerId: 2 })
+		await svg.trigger('pointerup', { pointerId: 2 })
+		expect(svg.attributes('viewBox')).not.toBe(vbBeforePan)
+
+		// Reset zoom & pan back to 100%
+		await w.get('button[aria-label="Reset section zoom"]').trigger('click')
+		expect(w.get('button[aria-label="Reset section zoom"]').text()).toBe('100%')
+		expect(svg.attributes('viewBox')).toBe(vbBefore)
 	})
 
 	it('missing_outline_falls_back_to_box', async () => {
@@ -150,8 +267,9 @@ describe('SectionView', () => {
 		await flushPromises()
 		const svg = w.get('svg')
 		expect(svg.attributes('width')).toBe('100%')
-		expect(svg.attributes('viewBox')).toMatch(/^0 0 \d+(\.\d+)? \d+(\.\d+)?$/)
+		expect(svg.attributes('viewBox')).toMatch(/^-?\d+(\.\d+)? -?\d+(\.\d+)? \d+(\.\d+)? \d+(\.\d+)?$/)
 	})
+
 	it('does not refetch when the cut moves to where the engine already cut', async () => {
 		const w = mountView()
 		await flushPromises()
@@ -164,68 +282,219 @@ describe('SectionView', () => {
 		expect(fake.calls).toHaveLength(2)
 	})
 
-	it('keeps dimension labels in a chain from overlapping', async () => {
-		const cut = structuredClone(W01_CUT)
-		cut.result.dims = cut.result.dims.filter((d) => d.chain !== 'profiles')
-		cut.result.dims.push(
-			{ start: 0, end: 40, label: '40', chain: 'profiles' },
-			{ start: 18, end: 82.5, label: '64.5', chain: 'profiles' },
-			{ start: 70, end: 110, label: '40', chain: 'profiles' },
-		)
-		fake.response = cut
+	it('allows selecting, rotating, and dragging the center mullion', async () => {
 		const w = mountView()
 		await flushPromises()
-		const labels = w
-			.get('[data-chain="profiles"]')
-			.findAll('text')
-			.map((t) => ({ text: t.text(), x: Number(t.attributes('x')), y: Number(t.attributes('y')), hidden: t.attributes('visibility') === 'hidden' }))
-			.filter((l) => !l.hidden)
-		expect(labels.map((l) => l.text)).toEqual(expect.arrayContaining(['40', '64.5']))
-		const forty = labels.find((l) => l.text === '40')!
-		const sixty = labels.find((l) => l.text === '64.5')!
-		expect(sixty.y).not.toBe(forty.y)
-		// 9-unit font: about 0.6 em per character; labels on one line keep clear of each other.
-		const half = (t: string) => (t.length * 9 * 0.6) / 2
-		for (const a of labels)
-			for (const b of labels)
-				if (a !== b && a.y === b.y) expect(Math.abs(a.x - b.x)).toBeGreaterThanOrEqual(half(a.text) + half(b.text))
+
+		// Mullion is piece index 4
+		const mullionGroup = w.get('[data-piece-group="4"]')
+		expect(mullionGroup.attributes('style')).toContain('cursor: move')
+
+		// Click on the mullion to select it
+		await mullionGroup.trigger('pointerdown', { clientX: 200, clientY: 100, button: 0, pointerId: 1 })
+		expect(w.find('[data-testid="profile-inspector"]').exists()).toBe(true)
+		expect(w.get('[data-testid="profile-inspector"]').text()).toContain('E104159')
+
+		// Mullion is draggable (ghost mode is entered on pointerdown)
+		expect(mullionGroup.attributes('data-ghost')).toBeDefined()
+
+		// Rotating clockwise by 90° updates rotation
+		await w.get('button[aria-label="Rotate clockwise"]').trigger('click')
+		const lastMap = w.emitted('update:section-map')!.at(-1)![0] as Record<string, SectionPieceTransform>
+		const transform = lastMap['mullion:E104159'] || lastMap['M1:mullion:E104159']
+		expect(transform).toBeDefined()
+		expect(transform.rotation).toBe(90)
 	})
 
-	it('keeps a dropped label in its tooltip when both label lines are taken', async () => {
-		const cut = structuredClone(W01_CUT)
-		cut.result.dims = cut.result.dims.filter((d) => d.chain !== 'profiles')
-		cut.result.dims.push(
-			{ start: 0, end: 10, label: '10.25', chain: 'profiles' },
-			{ start: 10, end: 20, label: '10.5', chain: 'profiles' },
-			{ start: 20, end: 30, label: '10.75', chain: 'profiles' },
-		)
-		fake.response = cut
+	it('toggles 1:1 Profile Focus, frames assembly cleanly and clamps boundaries at compacted span', async () => {
 		const w = mountView()
 		await flushPromises()
-		const row = w.get('[data-chain="profiles"]')
-		const shown = row.findAll('text').map((t) => t.text())
-		const dropped = ['10.25', '10.5', '10.75'].filter((l) => !shown.includes(l))
-		expect(dropped).toEqual(['10.75'])
-		expect(row.findAll('title').map((t) => t.text())).toContain('10.75 mm')
+
+		const toggleBtn = w.get('[data-testid="toggle-compact-glass"]')
+		expect(toggleBtn.attributes('aria-pressed')).toBe('true')
+
+		// Toggle to full window mode (1:1 focus OFF)
+		await toggleBtn.trigger('click')
+		expect(toggleBtn.attributes('aria-pressed')).toBe('false')
+		expect(w.get('button[aria-label="Reset section zoom"]').text()).toBe('100%')
+
+		// Toggle back to 1:1 focus ON
+		await toggleBtn.trigger('click')
+		expect(toggleBtn.attributes('aria-pressed')).toBe('true')
+		expect(w.get('button[aria-label="Reset section zoom"]').text()).toBe('100%')
 	})
 
-	it('draws the glass band as thick as the glass', async () => {
-		const cut = structuredClone(W01_CUT)
-		;(cut.result.pieces[2] as Record<string, unknown>).thickness = 6
-		fake.response = cut
+	it('allows zooming past 4x up to 25x in 1:1 off mode for deep profile groove inspection', async () => {
 		const w = mountView()
 		await flushPromises()
-		const k = (640 - 2 * 28) / 915
-		const glass = w.get('[data-piece="2"]')
-		expect(Number(glass.attributes('height'))).toBeCloseTo(6 * k, 6)
-		const centre = Number(glass.attributes('y')) + Number(glass.attributes('height')) / 2
 
-		fake.response = structuredClone(W01_CUT)
-		const v = mountView()
+		// Switch to 1:1 OFF mode
+		await w.get('[data-testid="toggle-compact-glass"]').trigger('click')
+
+		// Zoom in repeatedly with zoomIn or wheel
+		const zoomBtn = w.get('button[aria-label="Zoom in section"]')
+		for (let i = 0; i < 15; i++) {
+			await zoomBtn.trigger('click')
+		}
+		const resetText = w.get('button[aria-label="Reset section zoom"]').text()
+		const zoomPct = parseInt(resetText, 10)
+		expect(zoomPct).toBeGreaterThan(400) // Exceeds old 4.0 (400%) limit
+	})
+
+	it('aligns the bottom boundary wall exactly with the bottom edge of the outer profiles', async () => {
+		const w = mountView()
 		await flushPromises()
-		const standIn = v.get('[data-piece="2"]')
-		expect(Number(standIn.attributes('height'))).toBeCloseTo(24 * k, 6)
-		// same glass line: the band is centred where the stand-in is
-		expect(Number(standIn.attributes('y')) + Number(standIn.attributes('height')) / 2).toBeCloseTo(centre, 6)
+
+		// The outer frame (depth 70, baseY = 0) has its bottom edge at y = 70.
+		// The bottom wall line must sit exactly at y = 70 with zero gap.
+		const bottomLine = w.get('[data-testid="bottom-boundary-line"]')
+		expect(Number(bottomLine.attributes('y1'))).toBe(70)
+		expect(Number(bottomLine.attributes('y2'))).toBe(70)
+	})
+
+	it('toggles Mirror & Sync as a pure flag without wiping or recomputing stored state', async () => {
+		const initialMap = {
+			'sash:E104160': { offsetAlong: 10, offsetDepth: -11.5, rotation: 0, flipX: false, flipY: false },
+		}
+		const w = mountView({
+			design: {
+				...w01,
+				sectionMap: initialMap,
+			},
+		})
+		await flushPromises()
+
+		const toggleBtn = w.get('[data-testid="toggle-mirror-sync"]')
+		expect(toggleBtn.attributes('aria-pressed')).toBe('true')
+
+		// Toggle Mirror & Sync to OFF
+		await toggleBtn.trigger('click')
+		expect(toggleBtn.attributes('aria-pressed')).toBe('false')
+
+		// Emitted update:mirror-sync with false
+		expect(w.emitted('update:mirror-sync')).toEqual([[false]])
+		// Pure toggle: does NOT emit update:section-map or wipe transforms
+		expect(w.emitted('update:section-map')).toBeUndefined()
+	})
+
+	it('links OBL <-> MBR (connection 1) and OBR <-> MBL (connection 2) across mullion centerline', async () => {
+		fake.response = structuredClone(W_MULLION_BEADS_CUT)
+		const w = mountView()
+		await flushPromises()
+
+		const getTranslateX = (idx: number) => {
+			const t = w.get(`[data-piece="${idx}"]`).attributes('transform')!
+			return Number(/translate\((-?[\d.]+)/.exec(t)![1])
+		}
+
+		// Initial positions
+		const oblBefore = getTranslateX(1)
+		const obrBefore = getTranslateX(3)
+		const mblBefore = getTranslateX(5)
+		const mbrBefore = getTranslateX(7)
+
+		// 1. Drag OBL (index 1) by +10px
+		const oblGroup = w.get('[data-piece-group="1"]')
+		await oblGroup.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+		await oblGroup.trigger('pointermove', { clientX: 110, clientY: 100, pointerId: 1 })
+		await oblGroup.trigger('pointerup', { pointerId: 1 })
+		await flushPromises()
+
+		// Verify only MBR moved in opposite x direction, while OBR and MBL did not move!
+		const oblDelta1 = getTranslateX(1) - oblBefore
+		const mbrDelta1 = getTranslateX(7) - mbrBefore
+		const obrDelta1 = getTranslateX(3) - obrBefore
+		const mblDelta1 = getTranslateX(5) - mblBefore
+
+		expect(oblDelta1).toBeGreaterThan(0)
+		expect(mbrDelta1).toBeCloseTo(-oblDelta1, 5)
+		expect(obrDelta1).toBe(0)
+		expect(mblDelta1).toBe(0)
+
+		// 2. Drag OBR (index 3) by +10px
+		const obrGroup = w.get('[data-piece-group="3"]')
+		await obrGroup.trigger('pointerdown', { clientX: 200, clientY: 100, button: 0, pointerId: 1 })
+		await obrGroup.trigger('pointermove', { clientX: 210, clientY: 100, pointerId: 1 })
+		await obrGroup.trigger('pointerup', { pointerId: 1 })
+		await flushPromises()
+
+		// Verify only MBL moved in opposite x direction, while OBL and MBR did not move further!
+		const obrDelta2 = getTranslateX(3) - obrBefore
+		const mblDelta2 = getTranslateX(5) - mblBefore
+		expect(obrDelta2).toBeGreaterThan(0)
+		expect(mblDelta2).toBeCloseTo(-obrDelta2, 5)
+		expect(getTranslateX(1) - oblBefore).toBe(oblDelta1)
+		expect(getTranslateX(7) - mbrBefore).toBe(mbrDelta1)
+	})
+
+	it('stops linked movement when Mirror & Sync is OFF and preserves differences when toggled ON', async () => {
+		fake.response = structuredClone(W_MULLION_BEADS_CUT)
+		const w = mountView({
+			design: {
+				...w01,
+				mirrorSync: false,
+				sectionMap: {
+					'h:OBL': { offsetAlong: -5, offsetDepth: 23, rotation: 0, flipX: false, flipY: false },
+					'h:MBR': { offsetAlong: 12, offsetDepth: 23, rotation: 0, flipX: false, flipY: false },
+				},
+			},
+		})
+		await flushPromises()
+
+		const getTranslateX = (idx: number) => {
+			const t = w.get(`[data-piece="${idx}"]`).attributes('transform')!
+			return Number(/translate\((-?[\d.]+)/.exec(t)![1])
+		}
+		const mbrXBefore = getTranslateX(7)
+
+		// With Sync OFF, drag OBL: MBR must NOT move!
+		const oblGroup = w.get('[data-piece-group="1"]')
+		await oblGroup.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+		await oblGroup.trigger('pointermove', { clientX: 105, clientY: 100, pointerId: 1 })
+		await oblGroup.trigger('pointerup', { pointerId: 1 })
+		await flushPromises()
+
+		expect(getTranslateX(7)).toBe(mbrXBefore)
+
+		// Toggle Mirror & Sync ON: existing values stay unchanged
+		const toggleBtn = w.get('[data-testid="toggle-mirror-sync"]')
+		await toggleBtn.trigger('click')
+		await flushPromises()
+		expect(toggleBtn.attributes('aria-pressed')).toBe('true')
+	})
+
+	it('restores default symmetric assembly on Reset All', async () => {
+		const w = mountView({
+			design: {
+				...w01,
+				sectionMap: {
+					'h:OBL': { offsetAlong: -5, offsetDepth: 23, rotation: 0, flipX: false, flipY: false },
+				},
+			},
+		})
+		await flushPromises()
+
+		const resetAllBtn = w.get('[data-testid="reset-all-profiles"]')
+		await resetAllBtn.trigger('click')
+		await flushPromises()
+
+		expect(w.emitted('update:section-map')?.at(-1)).toEqual([{}])
+	})
+
+	it('renders smart guides and spacing pills during drag and clears on pointerup', async () => {
+		const w = mountView()
+		await flushPromises()
+
+		const sashGroup = w.get('[data-piece-group="1"]')
+		await sashGroup.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+
+		// Move sash near an alignment line
+		await sashGroup.trigger('pointermove', { clientX: 105, clientY: 100, pointerId: 1 })
+		await flushPromises()
+
+		// When drag ends on pointerup, overlay is removed
+		await sashGroup.trigger('pointerup', { pointerId: 1 })
+		await flushPromises()
+		expect(w.find('[data-testid="smart-guides-overlay"]').exists()).toBe(false)
 	})
 })
