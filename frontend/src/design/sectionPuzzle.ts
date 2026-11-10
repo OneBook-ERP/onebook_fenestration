@@ -361,7 +361,7 @@ export function parseSvgRings(svg: string | undefined, fallbackW: number, fallba
 		if (op === 'C') { const c1 = point(relative); const c2 = point(relative); const end = point(relative); cubic(current, c1, c2, end); current = end; lastControl = c2; continue }
 		if (op === 'S') { const c1 = lastControl ? { x: 2 * current.x - lastControl.x, y: 2 * current.y - lastControl.y } : current; const c2 = point(relative); const end = point(relative); cubic(current, c1, c2, end); current = end; lastControl = c2; continue }
 		if (op === 'Q') { const c = point(relative); const end = point(relative); quadratic(current, c, end); current = end; lastControl = c; continue }
-		if (op === 'T') { const c = lastControl ? { x: 2 * current.x - lastControl.x, y: 2 * current.y - lastControl.y } : current; const end = point(relative); quadratic(current, c, end); current = end; lastControl = c; continue }
+		if (op === 'T') { const c: Point = lastControl ? { x: 2 * current.x - lastControl.x, y: 2 * current.y - lastControl.y } : current; const end = point(relative); quadratic(current, c, end); current = end; lastControl = c; continue }
 		if (op === 'A') { const rx = number(); const ry = number(); const r = number(); const large = number(); const sweep = number(); const end = point(relative); arc(current, rx, ry, r, large, sweep, end); current = end; lastControl = null; continue }
 		break
 	}

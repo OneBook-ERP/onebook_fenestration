@@ -140,7 +140,7 @@ export async function saveProfileSeries(
 		})
 		return existingName
 	}
-	const doc = await call('frappe.client.insert', {
+	const doc: any = await call('frappe.client.insert', {
 		doc: { doctype: 'Profile Series', ...values },
 	})
 	return doc.name
@@ -199,7 +199,7 @@ export async function saveFenestrationProfile(
 	existingName?: string | null,
 ): Promise<FenestrationProfileRow> {
 	if (existingName) {
-		const existing = await call('frappe.client.get', {
+		const existing: any = await call('frappe.client.get', {
 			doctype: 'Fenestration Profile',
 			name: existingName,
 		})
@@ -269,7 +269,7 @@ export async function saveFenestrationGlass(
 		})
 		return existingName
 	}
-	const doc = await call('frappe.client.insert', {
+	const doc: any = await call('frappe.client.insert', {
 		doc: {
 			doctype: 'Fenestration Glass',
 			glass_code: values.glass_code,

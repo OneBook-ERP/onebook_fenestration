@@ -267,7 +267,7 @@ export interface NewProject {
 }
 
 export async function createProject(values: NewProject): Promise<string> {
-	const doc = await call('frappe.client.insert', { doc: { doctype: 'Fenestration Project', ...values } })
+	const doc: any = await call('frappe.client.insert', { doc: { doctype: 'Fenestration Project', ...values } })
 	return doc.name
 }
 
