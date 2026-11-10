@@ -432,11 +432,7 @@ function commitTransformForPiece(index: number, piece: SectionPiece, nextTransfo
 	if (legacyInstKey !== instKey) {
 		nextMap[legacyInstKey] = nextTransform
 	}
-	if (piece.role !== 'bead') {
-		const canonKey = canonicalPieceKey(piece)
-		nextMap[canonKey] = nextTransform
-	}
-
+	let twinNext: SectionPieceTransform | null = null
 	if (mirrorSync.value && tag) {
 		const twinTag = getTwinTag(tag)
 		if (twinTag) {
@@ -448,7 +444,7 @@ function commitTransformForPiece(index: number, piece: SectionPiece, nextTransfo
 					const twinPrev = getTransformForPiece(twinIdx, twinPiece, twinOutline)
 					const twinInstKey = instancePieceKey(axis.value, twinTag, twinPiece)
 					const twinRot = ((((twinPrev.rotation || 0) - deltaRot) % 360) + 360) % 360
-					const twinNext: SectionPieceTransform = {
+					twinNext = {
 						...twinPrev,
 						offsetAlong: Math.round((twinPrev.offsetAlong - deltaAlong) * 10) / 10,
 						offsetDepth: Math.round((twinPrev.offsetDepth + deltaDepth) * 10) / 10,
@@ -464,6 +460,11 @@ function commitTransformForPiece(index: number, piece: SectionPiece, nextTransfo
 				}
 			}
 		}
+	}
+
+	if (piece.role !== 'bead') {
+		const canonKey = canonicalPieceKey(piece)
+		nextMap[canonKey] = piece.mirrored && twinNext ? twinNext : nextTransform
 	}
 
 	localSectionMap.value = nextMap
@@ -711,6 +712,13 @@ const drawn = computed<DrawnPiece[]>(() => {
 const selectedDrawn = computed<DrawnPiece | null>(() =>
 	selectedIndex.value !== null ? (drawn.value[selectedIndex.value] ?? null) : null,
 )
+
+const selectedVisualRotation = computed(() => {
+	const d = selectedDrawn.value
+	if (!d) return 0
+	const rot = d.pieceTransform.rotation || 0
+	return (((d.piece.mirrored ? -rot : rot) % 360) + 360) % 360
+})
 
 const cutLength = computed(() => section.value?.length ?? (axis.value === 'h' ? props.design.width : props.design.height))
 const effectiveCutLength = computed(() =>
@@ -1171,7 +1179,11 @@ function rotateSelected(deltaDeg: number) {
 	const d = selectedDrawn.value
 	if (!d || d.piece.kind !== 'profile') return
 	const cur = d.pieceTransform
-	const nextRot = (((cur.rotation + deltaDeg) % 360) + 360) % 360
+	// Mirrored pieces are rendered with effRot = -rotation in SVG.
+	// Inverting deltaDeg for mirrored pieces ensures clicking rotate clockwise (+90°)
+	// visually rotates the mirrored profile clockwise (+90°) rather than counter-clockwise.
+	const effectiveDelta = d.piece.mirrored ? -deltaDeg : deltaDeg
+	const nextRot = (((cur.rotation + effectiveDelta) % 360) + 360) % 360
 	const next: SectionPieceTransform = { ...cur, rotation: nextRot }
 	const tag = pieceTags.value[d.index]
 	const twinTag = mirrorSync.value && tag ? getTwinTag(tag) : null
@@ -1202,10 +1214,11 @@ async function saveSelectedAsDefaultOrientation() {
 	if (!d || d.piece.kind !== 'profile') return
 	const code = d.piece.code
 	const pieceRot = d.pieceTransform.rotation || 0
+	const visualRot = (((d.piece.mirrored ? -pieceRot : pieceRot) % 360) + 360) % 360
 
 	savingOrientation.value = true
 	try {
-		const res = await setProfileOrientation(code, { delta: pieceRot })
+		const res = await setProfileOrientation(code, { delta: visualRot })
 		const key = instancePieceKey(axis.value, pieceTags.value[d.index] ?? d.index, d.piece)
 		const nextMap = { ...activeMap.value }
 		if (nextMap[key]) {
@@ -1798,7 +1811,7 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 							</svg>
 						</button>
 						<span class="min-w-6 text-center font-mono text-[10px] font-semibold text-blue-600">
-							{{ selectedDrawn.pieceTransform.rotation }}°
+							{{ selectedVisualRotation }}°
 						</span>
 						<button
 							type="button"
@@ -1817,7 +1830,7 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 							aria-label="Set as default orientation"
 							title="Save current orientation as default for this profile"
 							class="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] font-medium transition-colors hover:bg-blue-50 hover:text-blue-700"
-							:class="selectedDrawn.pieceTransform.rotation !== 0 ? 'text-blue-600 font-semibold' : 'text-gray-500'"
+							:class="selectedVisualRotation !== 0 ? 'text-blue-600 font-semibold' : 'text-gray-500'"
 							:disabled="savingOrientation"
 							@click="saveSelectedAsDefaultOrientation"
 						>

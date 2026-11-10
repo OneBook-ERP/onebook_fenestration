@@ -169,6 +169,31 @@ describe('SectionView', () => {
 		expect(w.get('[data-piece="0"]').attributes('transform')).toContain('rotate(90)')
 	})
 
+	it('rotates a profile on the mirrored side clockwise when clicking rotate clockwise', async () => {
+		const w = mountView()
+		await flushPromises()
+
+		// Select right frame (index 5, which has piece.mirrored: true)
+		await w.get('[data-piece-group="5"]').trigger('click')
+		await flushPromises()
+
+		// Click rotate clockwise (+90°)
+		await w.get('button[aria-label="Rotate clockwise"]').trigger('click')
+		await flushPromises()
+
+		// Visual SVG transform on mirrored right frame (index 5) must rotate clockwise (+90)
+		const rightTransform = w.get('[data-piece="5"]').attributes('transform') ?? ''
+		expect(rightTransform).toContain('rotate(90)')
+
+		// Visual badge readout in the toolbar must show 90°
+		const inspector = w.get('[data-testid="profile-inspector"]')
+		expect(inspector.text()).toContain('90°')
+
+		// Mirrored twin (left frame, index 0) must also visually rotate clockwise (+90)
+		const leftTransform = w.get('[data-piece="0"]').attributes('transform') ?? ''
+		expect(leftTransform).toContain('rotate(90)')
+	})
+
 	it('supports workspace zoom, drag-to-pan, and positions the floating control pill directly above the selected profile', async () => {
 		const w = mountView()
 		await flushPromises()
