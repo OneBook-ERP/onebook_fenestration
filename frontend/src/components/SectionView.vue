@@ -1738,7 +1738,7 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 					</g>
 				</svg>
 
-				<!-- Minimal Floating Profile Control Bar Positioned Directly Above the Selected Profile -->
+				<!-- Slim Floating Profile Control Bar Positioned Directly Above Selected Profile -->
 				<div
 					v-if="selectedDrawn && selectedDrawn.piece.kind === 'profile'"
 					data-testid="profile-inspector"
@@ -1748,12 +1748,12 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 					@pointerdown.stop
 					@click.stop
 				>
-					<div
-						class="flex items-center gap-0.5 rounded-md border border-gray-200 bg-white/95 px-1 py-0.5 text-gray-800 shadow-md backdrop-blur-xs"
-					>
+					<div class="flex h-13 items-center gap-0.5 rounded-md border border-gray-200 bg-white px-2.5 text-gray-900 shadow-[0_6px_20px_rgba(20,30,50,0.16)]">
+
+						<!-- Profile Label & Catalog Picker trigger -->
 						<button
 							type="button"
-							class="flex items-center gap-1.5 rounded px-1.5 py-0.5 transition hover:bg-blue-50"
+							class="flex h-9 items-center gap-2 rounded px-2 transition hover:bg-gray-100"
 							title="Click to search and change profile in catalog"
 							@click="emit('open-profile-picker', selectedDrawn.piece)"
 						>
@@ -1761,131 +1761,142 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 								class="inline-block size-2 rounded-full"
 								:style="{ backgroundColor: selectedDrawn.colors.stroke }"
 							/>
-							<span class="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-800">
+							<span class="text-[11px] font-semibold uppercase tracking-wider text-blue-800">
 								{{ selectedDrawn.piece.role }}
 							</span>
-							<span class="font-mono text-[11px] font-bold text-gray-900 hover:text-blue-700">
+							<span class="text-[13px] font-semibold text-gray-900">
 								{{ selectedDrawn.piece.code }}
 							</span>
 						</button>
 
-						<div class="mx-0.5 h-3.5 w-px bg-gray-200" />
+						<div class="mx-1.5 h-5.5 w-px bg-gray-200" />
+
+						<!-- 1. Centre Datum (Pivot at Center) -->
 						<button
 							type="button"
 							aria-label="Centre datum"
 							title="Rotate and flip around profile centre"
-							class="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
-							:class="selectedDatum() === 'center' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'"
+							class="flex size-9 items-center justify-center rounded hover:bg-gray-100"
+							:class="selectedDatum() === 'center' ? 'bg-blue-50 text-blue-800' : 'text-gray-900'"
 							@click="setSelectedOrigin('center')"
 						>
-							<svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+							<svg viewBox="0 0 16 16" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
 								<circle cx="8" cy="8" r="2.2" />
 								<path d="M8 1.6v2.2M8 12.2v2.2M1.6 8h2.2M12.2 8h2.2" stroke-linecap="round" />
 							</svg>
 						</button>
+
+						<!-- 2. Outer Corner Datum (Pivot at Outer Corner) -->
 						<button
 							type="button"
 							aria-label="Outer datum"
 							title="Rotate and flip around profile outer corner"
-							class="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
-							:class="selectedDatum() === 'outer' ? 'bg-blue-50 text-blue-700' : 'text-gray-600'"
+							class="flex size-9 items-center justify-center rounded hover:bg-gray-100"
+							:class="selectedDatum() === 'outer' ? 'bg-blue-50 text-blue-800' : 'text-gray-900'"
 							@click="setSelectedOrigin('outer')"
 						>
-							<svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+							<svg viewBox="0 0 16 16" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
 								<path d="M4 4v8h8" stroke-linecap="round" stroke-linejoin="round" />
 								<circle cx="4" cy="12" r="1.1" fill="currentColor" stroke="none" />
 							</svg>
 						</button>
 
-						<div class="mx-0.5 h-3.5 w-px bg-gray-200" />
+						<div class="mx-1.5 h-5.5 w-px bg-gray-200" />
 
+						<!-- 3. Rotate Counter-Clockwise (-90°) -->
 						<button
 							type="button"
 							aria-label="Rotate counter-clockwise"
 							title="Rotate -90° (Shift+R)"
-							class="flex h-6 w-6 items-center justify-center rounded text-gray-600 hover:bg-gray-100"
+							class="flex size-9 items-center justify-center rounded text-gray-900 hover:bg-gray-100"
 							@click="rotateSelected(-90)"
 						>
-							<svg viewBox="0 0 640 640" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+							<svg viewBox="0 0 640 640" class="size-4.5" fill="currentColor" aria-hidden="true">
 								<path d="M88 256L232 256C241.7 256 250.5 250.2 254.2 241.2C257.9 232.2 255.9 221.9 249 215L202.3 168.3C277.6 109.7 386.6 115 455.8 184.2C530.8 259.2 530.8 380.7 455.8 455.7C380.8 530.7 259.3 530.7 184.3 455.7C174.1 445.5 165.3 434.4 157.9 422.7C148.4 407.8 128.6 403.4 113.7 412.9C98.8 422.4 94.4 442.2 103.9 457.1C113.7 472.7 125.4 487.5 139 501C239 601 401 601 501 501C601 401 601 239 501 139C406.8 44.7 257.3 39.3 156.7 122.8L105 71C98.1 64.2 87.8 62.1 78.8 65.8C69.8 69.5 64 78.3 64 88L64 232C64 245.3 74.7 256 88 256z" />
 							</svg>
 						</button>
-						<span class="min-w-6 text-center font-mono text-[10px] font-semibold text-blue-600">
+
+						<!-- Visual Rotation Degree Readout -->
+						<span class="min-w-9 text-center text-[13px] font-semibold text-gray-900">
 							{{ selectedVisualRotation }}°
 						</span>
+
+						<!-- 4. Rotate Clockwise (+90°) -->
 						<button
 							type="button"
 							aria-label="Rotate clockwise"
 							title="Rotate +90° (R)"
-							class="flex h-6 w-6 items-center justify-center rounded text-gray-600 hover:bg-gray-100"
+							class="flex size-9 items-center justify-center rounded text-gray-900 hover:bg-gray-100"
 							@click="rotateSelected(90)"
 						>
-							<svg viewBox="0 0 640 640" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+							<svg viewBox="0 0 640 640" class="size-4.5" fill="currentColor" aria-hidden="true">
 								<path d="M552 256L408 256C398.3 256 389.5 250.2 385.8 241.2C382.1 232.2 384.1 221.9 391 215L437.7 168.3C362.4 109.7 253.4 115 184.2 184.2C109.2 259.2 109.2 380.7 184.2 455.7C259.2 530.7 380.7 530.7 455.7 455.7C463.9 447.5 471.2 438.8 477.6 429.6C487.7 415.1 507.7 411.6 522.2 421.7C536.7 431.8 540.2 451.8 530.1 466.3C521.6 478.5 511.9 490.1 501 501C401 601 238.9 601 139 501C39.1 401 39 239 139 139C233.3 44.7 382.7 39.4 483.3 122.8L535 71C541.9 64.1 552.2 62.1 561.2 65.8C570.2 69.5 576 78.3 576 88L576 232C576 245.3 565.3 256 552 256z" />
 							</svg>
 						</button>
 
-						<button
-							type="button"
-							aria-label="Set as default orientation"
-							title="Save current orientation as default for this profile"
-							class="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] font-medium transition-colors hover:bg-blue-50 hover:text-blue-700"
-							:class="selectedVisualRotation !== 0 ? 'text-blue-600 font-semibold' : 'text-gray-500'"
-							:disabled="savingOrientation"
-							@click="saveSelectedAsDefaultOrientation"
-						>
-							<svg viewBox="0 0 16 16" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-								<path d="M3 3h10v10H3z" stroke-linecap="round" stroke-linejoin="round" />
-								<path d="M6 3v4h4V3" stroke-linecap="round" stroke-linejoin="round" />
-							</svg>
-							<span>Set default</span>
-						</button>
+						<div class="mx-1.5 h-5.5 w-px bg-gray-200" />
 
-						<div class="mx-0.5 h-3.5 w-px bg-gray-200" />
-
+						<!-- 5. Flip Horizontally -->
 						<button
 							type="button"
 							aria-label="Flip horizontal"
 							title="Flip horizontally"
-							class="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
-							:class="selectedDrawn.pieceTransform.flipX ? 'bg-blue-50 text-blue-700' : 'text-gray-600'"
+							class="flex size-9 items-center justify-center rounded hover:bg-gray-100"
+							:class="selectedDrawn.pieceTransform.flipX ? 'bg-blue-50 text-blue-800' : 'text-gray-900'"
 							@click="flipSelected('x')"
 						>
-							<svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+							<svg viewBox="0 0 16 16" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
 								<path d="M8 2.4v11.2" stroke-linecap="round" />
 								<path d="M5.6 5.4 3.2 8l2.4 2.6M10.4 5.4 12.8 8l-2.4 2.6" stroke-linecap="round" stroke-linejoin="round" />
 							</svg>
 						</button>
+
+						<!-- 6. Flip Vertically -->
 						<button
 							type="button"
 							aria-label="Flip vertical"
 							title="Flip vertically"
-							class="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
-							:class="selectedDrawn.pieceTransform.flipY ? 'bg-blue-50 text-blue-700' : 'text-gray-600'"
+							class="flex size-9 items-center justify-center rounded hover:bg-gray-100"
+							:class="selectedDrawn.pieceTransform.flipY ? 'bg-blue-50 text-blue-800' : 'text-gray-900'"
 							@click="flipSelected('y')"
 						>
-							<svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+							<svg viewBox="0 0 16 16" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
 								<path d="M2.4 8h11.2" stroke-linecap="round" />
 								<path d="M5.4 5.6 8 3.2l2.6 2.4M5.4 10.4 8 12.8l2.6-2.4" stroke-linecap="round" stroke-linejoin="round" />
 							</svg>
 						</button>
 
-						<div class="mx-0.5 h-3.5 w-px bg-gray-200" />
+						<div class="mx-1.5 h-5.5 w-px bg-gray-200" />
 
+						<!-- 7. Set As Default Orientation (Persists to DocType) -->
+						<button
+							type="button"
+							aria-label="Set as default orientation"
+							title="Save current orientation as default for this profile"
+							class="flex h-9 items-center rounded px-3 text-[13px] font-medium transition-colors hover:bg-gray-100"
+							:class="selectedVisualRotation !== 0 ? 'text-blue-800 font-semibold' : 'text-gray-900'"
+							:disabled="savingOrientation"
+							@click="saveSelectedAsDefaultOrientation"
+						>
+							Set default
+						</button>
+
+						<!-- 8. Reset Profile Position & Orientation -->
 						<button
 							type="button"
 							aria-label="Reset selected profile"
 							title="Reset this profile"
-							class="flex h-6 w-6 items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+							class="flex size-9 items-center justify-center rounded text-gray-900 hover:bg-gray-100"
 							@click="resetSelectedPiece"
 						>
-							<svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+							<svg viewBox="0 0 16 16" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
 								<path d="M12.6 8a4.6 4.6 0 1 1-1.2-3.1" stroke-linecap="round" />
 								<path d="M11.2 2.2v3H8.2" stroke-linecap="round" stroke-linejoin="round" />
 							</svg>
 						</button>
 					</div>
-					<!-- Subtle Downward Pointer Caret Anchored Above Profile -->
+
+					<!-- Downward Pointer Caret Anchored Above the Profile -->
 					<div class="h-1.5 w-3 overflow-hidden">
 						<div class="mx-auto size-2 -translate-y-1 rotate-45 border-r border-b border-gray-200 bg-white" />
 					</div>
