@@ -139,7 +139,12 @@ export function computeDesign(
 export type CutAxis = 'h' | 'v'
 export type DimChain = 'overall' | 'cells' | 'glass' | 'profiles'
 export interface SectionPiece {
-	kind: 'profile' | 'glass'
+	blades?: number
+	blade_width?: number
+	opening_height?: number
+	/** Physical pane/member owner; fixed panes share panel F1. */
+	path?: string
+	kind: 'profile' | 'glass' | 'louver'
 	code: string
 	role: string
 	panel: string

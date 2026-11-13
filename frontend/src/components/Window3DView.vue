@@ -106,12 +106,15 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { createGlassMaterialPair } from './glass3D'
+import { createLouverGroup } from './louver3D'
+import { seatAtDepth, splitAtSeatDepths, type ButtSeat } from './buttJoint'
 import { createSectionAO, type SectionAO } from './profileAO'
 import { createV2Materials, disposeV2Textures, finishVertexTint, identifyFinish } from './materialsV2'
 import { crossSection, windowAssembly, type CrossSection, type SectionOutline, type WindowAssembly } from '@/api'
 import { layoutGeom } from '@/design/geometry'
-import { defaultTransformForPiece, parseSvgRings, classifySectionPieceInstances } from '@/design/sectionPuzzle'
-import type { Design, LeafNode, SashNode, SectionPieceTransform } from '@/design/types'
+import { canonicalTransformForPiece, defaultTransformForPiece, parseSvgRings, classifySectionPieceInstances } from '@/design/sectionPuzzle'
+import type { Design, SashNode, SectionPieceTransform } from '@/design/types'
 import type { SectionPiece } from '@/api'
 import { useDesignerStore } from '@/stores/designer'
 
@@ -256,7 +259,7 @@ function sectionPieceFor(panel: string, role: string, position: string, profile?
 		.find(
 			(piece) =>
 				piece.kind === 'profile' &&
-				(piece.panel === panel || (panel.startsWith('F1.') && piece.panel === 'F1') || (panel === 'F1' && piece.panel.startsWith('F1.'))) &&
+				matchesSectionOwner(piece, panel) &&
 				piece.role === role &&
 				(!profile || piece.code === profile) &&
 				piece.mirrored === mirrored,
@@ -301,7 +304,7 @@ function getPieceTransform(
 		}
 	}
 
-	if (sectionMap[canonKey]) return sectionMap[canonKey]
+	if (sectionMap[canonKey]) return canonicalTransformForPiece(piece, sectionMap[canonKey])
 	if (piece.role !== 'bead') {
 		for (const k of Object.keys(sectionMap)) {
 			if (k.endsWith(`:${canonKey}`)) return sectionMap[k]
@@ -320,11 +323,19 @@ function getPieceTransform(
 	return base
 }
 
+function matchesSectionOwner(piece: SectionPiece, owner: string): boolean {
+	// Root cells use F1 just like nested cells use F1.0. Their sash members
+	// still have manufacturing panel IDs such as F1-S1, so comparing panels
+	// here would drop the section instance and all of its placement offsets.
+	if (piece.path && (owner === 'F1' || owner.startsWith('F1.'))) return piece.path === owner
+	return piece.panel === owner || (!piece.path && owner.startsWith('F1.') && piece.panel === 'F1')
+}
+
 function sectionPieces(panel: string, role?: string) {
 	const seen = new Set<string>()
 	return sectionCuts.value.flatMap((cut) => cut.pieces).filter((piece) => {
-		const key = `${piece.kind}:${piece.role}:${piece.code}:${piece.start}:${piece.end}:${piece.mirrored}`
-		if ((piece.panel !== panel && !(panel.startsWith('F1.') && piece.panel === 'F1')) || (role && piece.role !== role) || seen.has(key)) return false
+		const key = `${piece.path ?? piece.panel}:${piece.kind}:${piece.role}:${piece.code}:${piece.start}:${piece.end}:${piece.mirrored}`
+		if (!matchesSectionOwner(piece, panel) || (role && piece.role !== role) || seen.has(key)) return false
 		seen.add(key)
 		return true
 	})
@@ -335,7 +346,7 @@ function sectionSpan(panel: string, role: string, axis: 'h' | 'v'): { min: numbe
 	const pieces: SectionPiece[] = []
 	for (const cut of matchingCuts) {
 		cut.pieces.forEach((piece) => {
-			if ((piece.panel === panel || (panel.startsWith('F1.') && piece.panel === 'F1')) && piece.role === role) {
+			if (matchesSectionOwner(piece, panel) && piece.role === role) {
 				pieces.push(piece)
 			}
 		})
@@ -530,17 +541,22 @@ function getExtrudedMemberGeometry(
 	colors?: { inside: THREE.Color; outside: THREE.Color },
 	mitreStart = 0,
 	mitreEnd = 0,
+	buttSeats?: { start?: ButtSeat; end?: ButtSeat },
 ): THREE.BufferGeometry {
 	const inside = colors?.inside ?? profileInside
 	const outside = colors?.outside ?? profileOutside
 	const key = cacheKey
-		? `${cacheKey}:${shapeData.cacheId}:${Math.round(length)}:${isMitred ? 'm' : 's'}:${Math.round(mitreStart * 100)}:${Math.round(mitreEnd * 100)}:${inside.getHexString()}:${outside.getHexString()}`
+		? `${cacheKey}:${shapeData.cacheId}:${length}:${JSON.stringify(buttSeats ?? null)}:${isMitred ? 'm' : 's'}:${Math.round(mitreStart * 100)}:${Math.round(mitreEnd * 100)}:${inside.getHexString()}:${outside.getHexString()}`
 		: null
 	if (key && geometryCache.has(key)) {
 		return geometryCache.get(key)!
 	}
 
-	const geom = new THREE.ExtrudeGeometry(shapeOf(shapeData.loops), {
+	const loops = buttSeats
+		? splitAtSeatDepths(shapeData.loops, shapeData.depthOffset, [buttSeats.start, buttSeats.end])
+			.map((loop) => loop.map((p) => new THREE.Vector2(p.x, p.y)))
+		: shapeData.loops
+	const geom = new THREE.ExtrudeGeometry(shapeOf(loops), {
 		depth: length,
 		steps: 1,
 		bevelEnabled: false,
@@ -573,6 +589,13 @@ function getExtrudedMemberGeometry(
 			t = z <= zMid
 				? u + mitreStart - mitreOverlap
 				: length - u - mitreEnd + mitreOverlap
+		}
+		if (!isMitred && buttSeats) {
+			const start = z <= zMid
+			const seat = start ? buttSeats.start : buttSeats.end
+			const surface = seat ? seatAtDepth(seat, depth + shapeData.depthOffset, start) : null
+			// A tiny seating allowance avoids cracks from floating point triangulation.
+			if (surface !== null) t = surface + (start ? -0.05 : 0.05)
 		}
 		pos.setXYZ(i, t, u, depthTotal / 2 - (depth + shapeData.depthOffset))
 	}
@@ -714,8 +737,9 @@ function createBarMember(
 	frameFace: number,
 	zOffset = 0,
 	colors?: { inside: THREE.Color; outside: THREE.Color },
+	buttSeats?: { start?: ButtSeat; end?: ButtSeat },
 ): THREE.Mesh {
-	const geom = getExtrudedMemberGeometry(shapeData, bar.length, false, `bar:${bar.id}`, colors)
+	const geom = getExtrudedMemberGeometry(shapeData, bar.length, false, `bar:${bar.id}`, colors, 0, 0, buttSeats)
 	const mesh = new THREE.Mesh(geom, material)
 	mesh.matrixAutoUpdate = false
 	mesh.name = bar.id
@@ -751,8 +775,9 @@ function createGlassMesh(
 	path: string,
 ): THREE.Mesh {
 	const geom = new THREE.BoxGeometry(Math.max(2, w), Math.max(2, h), thickness)
-	const mesh = new THREE.Mesh(geom, material)
-	mesh.userData = { path, kind: 'glass' }
+	const pair = createGlassMaterialPair(material, selectedGlassMat ?? material, w, h, thickness)
+	const mesh = new THREE.Mesh(geom, pair.normal)
+	mesh.userData = { path, kind: 'glass', normalMaterial: pair.normal, selectedMaterial: pair.selected }
 	mesh.castShadow = false
 	mesh.receiveShadow = true
 	interactiveMeshes.push(mesh)
@@ -798,7 +823,9 @@ function disposeWindowObject(object: THREE.Object3D) {
 	object.traverse((child) => {
 		if (!(child instanceof THREE.Mesh)) return
 		if (!cached.has(child.geometry)) child.geometry.dispose()
-		for (const material of Array.isArray(child.material) ? child.material : [child.material]) {
+		const materials = [child.material, child.userData.normalMaterial, child.userData.selectedMaterial]
+			.flatMap(value => Array.isArray(value) ? value : value ? [value] : [])
+		for (const material of materials) {
 			if (!disposedMaterials.has(material)) { material.dispose(); disposedMaterials.add(material) }
 		}
 	})
@@ -863,6 +890,7 @@ function rebuild3DWindow() {
 		disposeWindowObject(obj)
 		scene.remove(obj)
 	}
+	for (const material of [frameMat, selectedFrameMat, glassMat, selectedGlassMat, gasketMat]) material?.dispose()
 	interactiveMeshes.length = 0
 	sashPivots.length = 0
 
@@ -929,7 +957,8 @@ function rebuild3DWindow() {
 	)
 	rootGroup.add(outerRingGroup)
 
-	// 2. Mullions and Transoms (Bars)
+	// Resolve all bar profiles before fitting the ends to their neighbours.
+	const barShapes = new Map<string, ProfileShapeData>()
 	for (const bar of geom.bars) {
 		const barRole = bar.dir === 'v' ? 'mullion' : 'transom'
 		const barCode = design.profiles?.[bar.id] || store.seriesInfo?.role_defaults?.[barRole]
@@ -947,13 +976,41 @@ function rebuild3DWindow() {
 			offsetDepth: barTransform?.offsetDepth || 0,
 		}
 		const barShape = buildProfileShape(barOutline, barFaceWidth, DEFAULT_BAR_DEPTH, effectiveBarTransform)
-		// Bars terminate at the frame's inner face.  Layout gives their design
-		// span centre-to-centre; the section profile gives the frame take-up.
-		// Do not run an extrusion through the frame and hide it with overlap.
+		barShapes.set(bar.id, barShape)
+	}
+	for (const bar of geom.bars) {
+		const barRole = bar.dir === 'v' ? 'mullion' : 'transom'
+		const barShape = barShapes.get(bar.id)!
+		// Keep the manufacturing span as the datum; fit each rendered cap to
+		// the actual frame or bar contour at that endpoint.
 		const placedBar = assemblyMember(bar.id, barRole)
 		const innerBar = bar.dir === 'v'
 			? { ...bar, y: placedBar?.y ?? bar.y + frameShape.faceWidth, length: placedBar?.length ?? Math.max(1, bar.length - 2 * frameShape.faceWidth) }
 			: { ...bar, x: placedBar?.x ?? bar.x + frameShape.faceWidth, length: placedBar?.length ?? Math.max(1, bar.length - 2 * frameShape.faceWidth) }
+		const lengthOrigin = bar.dir === 'v' ? innerBar.y : innerBar.x
+		const seatFor = (start: boolean): ButtSeat | undefined => {
+			const along = (bar.dir === 'v' ? bar.y : bar.x) + (start ? 0 : bar.length)
+			const across = bar.dir === 'v' ? bar.x : bar.y
+			const mate = geom.bars.find((other) => other.dir !== bar.dir &&
+				Math.abs((bar.dir === 'v' ? other.y : other.x) - along) < 1e-6 &&
+				across > (bar.dir === 'v' ? other.x : other.y) &&
+				across < (bar.dir === 'v' ? other.x : other.y) + other.length)
+			let shape: ProfileShapeData
+			let origin: number
+			let direction: number
+			if (mate) {
+				shape = barShapes.get(mate.id)!
+				direction = mate.dir === 'v' ? -1 : 1
+				origin = along + (mate.dir === 'v' ? 1 : -1) * (shape.faceWidth / 2 - shape.alongOffset)
+			} else {
+				const extent = bar.dir === 'v' ? design.height : design.width
+				if (Math.abs(along - (start ? 0 : extent)) > 1e-6) return undefined
+				shape = frameSides[bar.dir === 'v' ? (start ? 'B' : 'T') : (start ? 'L' : 'R')]
+				direction = start ? 1 : -1
+				origin = along + direction * shape.alongOffset
+			}
+			return { contour: shape.loops[0], depthOffset: shape.depthOffset, origin: origin - lengthOrigin, direction }
+		}
 		const barMesh = createBarMember(
 			innerBar,
 			barShape,
@@ -961,6 +1018,7 @@ function rebuild3DWindow() {
 			frameShape.faceWidth,
 			0,
 			profileColors,
+			{ start: seatFor(true), end: seatFor(false) },
 		)
 		rootGroup.add(barMesh)
 	}
@@ -1119,8 +1177,27 @@ function rebuild3DWindow() {
 				initialRotY: pivotGroup.rotation.y,
 				initialRotX: pivotGroup.rotation.x,
 			})
+		} else if (cell.node.type === 'louver') {
+			const xs = sectionSpan(cell.path, 'louver', 'h')
+			const ys = sectionSpan(cell.path, 'louver', 'v')
+			const left = cell.x === 0 ? frameSides.L.faceWidth : DEFAULT_BAR_WIDTH / 2
+			const right = cell.x + cell.w === design.width ? frameSides.R.faceWidth : DEFAULT_BAR_WIDTH / 2
+			const bottom = cell.y === 0 ? frameSides.B.faceWidth : DEFAULT_BAR_WIDTH / 2
+			const top = cell.y + cell.h === design.height ? frameSides.T.faceWidth : DEFAULT_BAR_WIDTH / 2
+			const isGlass = cell.node.bladeMaterial === 'glass'
+			const louverPiece = sectionPieces(cell.path, 'louver')[0]
+			const group = createLouverGroup({
+				x: xs?.min ?? cell.x + left, y: ys?.min ?? cell.y + bottom,
+				width: Math.max(1, xs ? xs.max - xs.min : cell.w - left - right),
+				height: Math.max(1, ys ? ys.max - ys.min : cell.h - bottom - top),
+			}, cell.node.blades, cell.path, isGlass ? glassMat! : frameMat!, SECTION_DEPTH_REFERENCE_MM, cell.node.bladeWidth, {
+				materialType: isGlass ? 'glass' : 'metal', inside: profileInside, outside: profileOutside,
+				selectedMaterial: isGlass ? selectedGlassMat! : selectedFrameMat!, thickness: louverPiece?.thickness || 4,
+			})
+			for (const blade of group.children) interactiveMeshes.push(blade as THREE.Mesh)
+			rootGroup.add(group)
 		} else {
-			// Fixed Glass or Louver Cell. Fixed panes share panel F1.
+			// Fixed glass uses its own pane and bead geometry.
 			const paneAssembly = assemblyPane(cell.path)
 			const glassPiece = findGlassPieceForCell(cell)
 			const glassTransform = getGlassTransformForCell(cell, glassPiece)
@@ -1179,29 +1256,6 @@ function rebuild3DWindow() {
 				))
 			}
 
-			// Louver blades if louver
-			if (cell.node.type === 'louver') {
-				const blades = (cell.node as LeafNode).blades || 7
-				const bladeH = cellH / blades
-				const bladeMat = new THREE.MeshStandardMaterial({
-					color: new THREE.Color(0x94a3b8),
-					roughness: 0.5,
-					transparent: true,
-					opacity: 0.8,
-					side: THREE.DoubleSide,
-				})
-				for (let i = 0; i < blades; i++) {
-					const bladeGeom = new THREE.BoxGeometry(cellW - 8, bladeH * 0.9, 4)
-					const bladeMesh = new THREE.Mesh(bladeGeom, bladeMat)
-					bladeMesh.position.set(
-						glassMesh.position.x,
-						glassMesh.position.y - cellH / 2 + i * bladeH + bladeH / 2,
-						4,
-					)
-					bladeMesh.rotation.x = THREE.MathUtils.degToRad(32)
-					rootGroup.add(bladeMesh)
-				}
-			}
 		}
 	}
 
@@ -1215,6 +1269,7 @@ function rebuild3DWindow() {
 }
 
 function panelFor(path: string, role: string): string {
+	if (sectionCuts.value.some((cut) => cut.pieces.some((piece) => piece.path === path && piece.role === role))) return path
 	const members = assembly.value?.members ?? []
 	const exact = members.find((member) => member.path === path && member.role === role)
 	if (exact) return exact.panel
@@ -1234,6 +1289,8 @@ function findGlassPieceForCell(cell: { path: string; x: number; y: number; w: nu
 		.flatMap((c) => c.pieces)
 		.filter((p) => p.kind === 'glass' || p.role === 'glass')
 	if (!allGlass.length) return undefined
+	const exact = allGlass.find((piece) => piece.path === cell.path)
+	if (exact) return exact
 
 	const pane = assemblyPane(cell.path)
 	if (pane) {
@@ -1266,7 +1323,7 @@ function getGlassTransformForCell(
 
 	if (piece) {
 		const canonKey = `${piece.role}:${piece.code}`
-		if (sectionMap[canonKey]) return sectionMap[canonKey]
+		if (sectionMap[canonKey]) return canonicalTransformForPiece(piece, sectionMap[canonKey])
 		for (const k of Object.keys(sectionMap)) {
 			if (k.endsWith(`:${canonKey}`)) return sectionMap[k]
 		}
@@ -1297,7 +1354,8 @@ function highlightSelection() {
 			: sel.startsWith('GLASS:')
 				? path === sel
 				: kind !== 'glass' && path === sel
-		if (kind === 'glass') mesh.material = selected ? selectedGlassMat : glassMat
+		if (mesh.userData.normalMaterial) mesh.material = selected ? mesh.userData.selectedMaterial : mesh.userData.normalMaterial
+		else if (kind === 'glass') mesh.material = selected ? selectedGlassMat : glassMat
 		else if (kind === 'gasket') mesh.material = gasketMat
 		else mesh.material = selected ? selectedFrameMat : frameMat
 	}
@@ -1542,6 +1600,9 @@ onUnmounted(() => {
 	if (stageEl.value) stageEl.value.removeEventListener('pointerdown', onPointerDown)
 	resizeObserver?.disconnect()
 
+	const root = scene?.getObjectByName('window-root')
+	if (root) disposeWindowObject(root)
+	for (const material of [frameMat, selectedFrameMat, glassMat, selectedGlassMat, gasketMat]) material?.dispose()
 	controls?.dispose()
 	renderer?.dispose()
 	disposeV2Textures()

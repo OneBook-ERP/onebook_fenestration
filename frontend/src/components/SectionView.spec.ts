@@ -273,6 +273,45 @@ describe('SectionView', () => {
 		expect((fake.calls[2].design as Design).width).toBe(1001)
 	})
 
+	it('displays A–A bottom to top and converts upward dragging to increasing cut position', async () => {
+		const w = mountView({ axis: 'v' })
+		await flushPromises()
+		expect(fake.calls[0].axis).toBe('v')
+		expect(w.get('[data-testid="section-orientation"]').attributes('transform')).toBe('rotate(-90)')
+		const frame = w.get('[data-piece-group="0"]')
+		const before = w.get('[data-piece="0"]').attributes('transform')!
+		await frame.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+		await frame.trigger('pointermove', { clientX: 100, clientY: 80, pointerId: 1 })
+		await frame.trigger('pointerup', { pointerId: 1 })
+		const after = w.get('[data-piece="0"]').attributes('transform')!
+		const along = (value: string) => Number(/translate\((-?[\d.]+)/.exec(value)![1])
+		expect(along(after)).toBeGreaterThan(along(before))
+		await w.setProps({ axis: 'h' })
+		await flushPromises()
+		expect(fake.calls.at(-1)!.axis).toBe('h')
+		expect(w.get('[data-testid="section-orientation"]').attributes('transform')).toBeUndefined()
+	})
+
+	it('shows selectable louver blades in A–A and a labeled area in B–B without glass', async () => {
+		fake.response = { ...structuredClone(W01_CUT), result: {
+			axis: 'v', at: 200, length: 610, dims: [], issues: [], pieces: [
+				{ kind: 'louver', role: 'louver', code: 'Louver', panel: 'F1.0', path: 'F1.0', start: 24, end: 586, opening_height: 562, blades: 9, mirrored: false, thickness: 0 },
+			],
+		} }
+		const w = mountView({ axis: 'v' })
+		await flushPromises()
+		expect(w.get('[data-kind="louver"]').findAll('polygon')).toHaveLength(9)
+		expect(w.text()).toContain('Louver · 9 blades')
+		expect(w.find('[data-kind="glass"]').exists()).toBe(false)
+		await w.get('[data-kind="louver"]').trigger('click')
+		expect(w.emitted('select')!.at(-1)).toEqual(['F1.0'])
+		await w.setProps({ axis: 'h' })
+		await flushPromises()
+		expect(w.get('[data-kind="louver"]').findAll('polygon')).toHaveLength(1)
+		expect(w.get('[data-testid="louver-blade-strips"]').findAll('line')).toHaveLength(9)
+		expect(w.get('[data-testid="louver-label"]').attributes('font-size')).toBe('3')
+	})
+
 	it('emits the snapped cut position', async () => {
 		const w = mountView()
 		await flushPromises()
@@ -522,4 +561,46 @@ describe('SectionView', () => {
 		await flushPromises()
 		expect(w.find('[data-testid="smart-guides-overlay"]').exists()).toBe(false)
 	})
+	it('publishes automatic sash placement to both section axes and the shared 3D transform', async () => {
+		let worker: { onmessage?: (event: { data: unknown }) => void }
+		vi.stubGlobal('Worker', class {
+			onmessage?: (event: { data: unknown }) => void
+			constructor() { worker = this }
+			postMessage() {}
+			terminate() {}
+		})
+		try {
+			const w = mountView()
+			await flushPromises()
+			const left = { offsetAlong: 2, offsetDepth: 12, rotation: 0, flipX: false, flipY: false }
+			worker!.onmessage!({ data: [null, left, null, { ...left, offsetAlong: -2 }, null, null] })
+			await flushPromises()
+			const map = w.emitted('update:section-map')!.at(-1)![0] as Record<string, SectionPieceTransform>
+			expect(map['sash:E104160']).toEqual(left)
+			for (const key of Object.keys(map).filter(key => key.startsWith('h:'))) {
+				expect(map[`v:${key.slice(2)}`]).toEqual(map[key])
+			}
+		} finally { vi.unstubAllGlobals() }
+	})
+
+	it('selecting a profile without dragging never moves or snaps it', async () => {
+		const w = mountView()
+		await flushPromises()
+		const frame = w.get('[data-piece-group="0"]')
+		await frame.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+		await frame.trigger('pointerup', { clientX: 100, clientY: 100, pointerId: 1 })
+		expect(w.emitted('update:section-map')).toBeUndefined()
+	})
+
+	it('keeps the mirrored outline orientation while dragging its partner', async () => {
+		const w = mountView()
+		await flushPromises()
+		const before = w.get('[data-piece="5"]').attributes('transform')
+		const frame = w.get('[data-piece-group="0"]')
+		await frame.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+		await frame.trigger('pointermove', { clientX: 105, clientY: 100, altKey: true, pointerId: 1 })
+		const during = w.get('[data-piece="5"]').attributes('transform')
+		expect(during.match(/scale\([^)]*\)/)?.[0]).toBe(before.match(/scale\([^)]*\)/)?.[0])
+	})
+
 })

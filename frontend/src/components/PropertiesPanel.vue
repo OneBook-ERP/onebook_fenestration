@@ -3,6 +3,7 @@ import { FormControl, Select, useList } from 'frappe-ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { profileCatalog, type CatalogProfile } from '@/api'
 import ProfilePickerModal, { type ProfileItem } from '@/components/ProfilePickerModal.vue'
+import { DEFAULT_LOUVER_WIDTH } from '@/design/louverGeometry'
 import { layoutGeom } from '@/design/geometry'
 import { getNode, moveSplit, removeSplit, setLeaf, setSize } from '@/design/tree'
 import { panelLabel } from '@/design/typology'
@@ -1211,8 +1212,29 @@ const selectedObjectLabel = computed(() => {
 					@change="patchLeaf({ blades: num($event) })"
 				/>
 
+				<FormControl
+					v-if="leaf.type === 'louver' && !isGlassSelected"
+					type="number" label="Blade width (mm)" min="1" step="1"
+					data-testid="louver-blade-width"
+					:model-value="leaf.bladeWidth ?? DEFAULT_LOUVER_WIDTH"
+					@change="num($event) > 0 && Number.isFinite(num($event)) && patchLeaf({ bladeWidth: num($event) })"
+				/>
+				<p v-if="leaf.type === 'louver' && !isGlassSelected" class="text-xs text-gray-500">
+					Actual blade width before tilting.
+				</p>
+
+				<div v-if="leaf.type === 'louver' && !isGlassSelected" class="space-y-2">
+					<span class="text-sm text-gray-600">Blade material</span>
+					<div class="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1" role="group" aria-label="Blade material">
+						<button v-for="material in (['metal', 'glass'] as const)" :key="material" type="button"
+							:aria-pressed="(leaf.bladeMaterial ?? 'metal') === material"
+							:style="(leaf.bladeMaterial ?? 'metal') === material ? activeSegmentStyle : inactiveSegmentStyle"
+							@click="patchLeaf({ bladeMaterial: material })">{{ material === 'metal' ? 'Metal' : 'Glass' }}</button>
+					</div>
+				</div>
+
 				<!-- Glass Select Row -->
-				<div style="display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 12px">
+				<div v-if="leaf.type !== 'louver' || leaf.bladeMaterial === 'glass'" style="display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 12px">
 					<span style="font-size: 13px; color: #5b6472">Glass</span>
 					<Select
 						label="Glass"
@@ -1222,7 +1244,7 @@ const selectedObjectLabel = computed(() => {
 					/>
 
 					<!-- Beading Segmented On/Off -->
-					<template v-if="!isGlassSelected">
+					<template v-if="!isGlassSelected && leaf.type !== 'louver'">
 						<span style="font-size: 13px; color: #5b6472">Beading</span>
 						<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: #eef0f3; border-radius: 7px; padding: 3px; gap: 3px">
 							<button
@@ -1247,7 +1269,7 @@ const selectedObjectLabel = computed(() => {
 			<div style="height: 1px; background: #e1e4e8"></div>
 
 			<!-- Three Read-only Sizes (Plain Mono Text) -->
-			<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+			<div v-if="leaf.type !== 'louver'" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
 				<div style="display: flex; flex-direction: column; gap: 3px">
 					<span style="font-size: 11px; color: #5b6472">Glass width</span>
 					<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500">{{ glassDims.w }}</span>

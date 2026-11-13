@@ -13,7 +13,7 @@
  *   roles (`frame`, `sash`, `bead`, `gasket`) between B-B (Top/Horizontal) and A-A (Side/Vertical) views.
  */
 import { Button, toast } from 'frappe-ui'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
 	crossSection,
 	setProfileOrientation,
@@ -26,6 +26,8 @@ import {
 import {
 	buildPlacedShape,
 	canonicalPieceKey,
+	canonicalTransformForPiece,
+	profileContactGuides,
 	classifySectionPieceInstances,
 	compactPieceSpans,
 	computeBBox,
@@ -34,7 +36,6 @@ import {
 	defaultTransformForPiece,
 	getTwinTag,
 	MIRROR_OF,
-	seatedDefaultTransform,
 	GLASS_REF_THICKNESS_MM,
 	instancePieceKey,
 	isPieceMoveable,
@@ -45,6 +46,7 @@ import {
 } from '@/design/sectionPuzzle'
 import { computeSmartGuides, measureGuides, type Rect, type SmartGuideResult } from './sectionSmartGuides'
 import { layoutGeom } from '@/design/geometry'
+import { startSectionSeating } from '@/design/sectionSeating'
 import type { Design, SectionPieceTransform, SectionViewportState } from '@/design/types'
 import { COMPUTE_DEBOUNCE_MS } from '@/stores/designer'
 
@@ -214,6 +216,8 @@ const ghostDrag = ref<{
 	origTwinTransform?: SectionPieceTransform
 	currentTransform: SectionPieceTransform
 	twinTransform?: SectionPieceTransform
+	moved?: boolean
+	snapDisabled?: boolean
 	pointerId: number
 } | null>(null)
 
@@ -233,7 +237,10 @@ const activeSmartGuides = ref<SmartGuideResult | null>(null)
 const guideScale = ref(0.5)
 let lastMoveEvent: PointerEvent | null = null
 
+let cancelSeating: (() => void) | undefined
+
 async function load() {
+	cancelSeating?.()
 	clearTimeout(timer)
 	const mine = ++seq
 	let res: CutResponse
@@ -294,6 +301,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+	cancelSeating?.()
 	clearTimeout(timer)
 	seq += 1
 	endPieceDrag()
@@ -380,7 +388,7 @@ function getTransformForPiece(index: number, piece: SectionPiece, outline: Outli
 		return activeMap.value[tag]
 	}
 	if (piece.role !== 'bead' && activeMap.value[canonKey]) {
-		return activeMap.value[canonKey]
+		return canonicalTransformForPiece(piece, activeMap.value[canonKey])
 	}
 	return defaultTransformForPiece(piece, outline)
 }
@@ -388,33 +396,51 @@ function getTransformForPiece(index: number, piece: SectionPiece, outline: Outli
 /** Persist automatic seating so the section workspace and Three renderer use
  * exactly the same sash and glass depth unless the user moves a piece. */
 function seedDefaultSeats(cut: CrossSection) {
-	const nextMap = { ...activeMap.value }
-	const { starts, ends } = compactPieceSpans(cut.pieces, compactGlass.value)
-	const placed: PlacedShape[] = []
-	let changed = false
-	for (let index = 0; index < cut.pieces.length; index++) {
-		const piece = cut.pieces[index]
+	const initialMap = activeMap.value
+	const generation = seq
+	const { starts, ends } = compactPieceSpans(cut.pieces, compactGlass.value, axis.value)
+	const keys: string[] = []
+	const entries = cut.pieces.map((piece, index) => {
 		const outline = piece.kind === 'profile' ? (outlines.value[piece.code] ?? null) : null
 		const key = canonicalPieceKey(piece)
 		const tag = pieceTags.value[index]
-		const instKey = tag ? instancePieceKey(axis.value, tag, piece) : instancePieceKey(axis.value, index, piece)
-		let transform = nextMap[instKey] ?? nextMap[key] ?? defaultTransformForPiece(piece, outline)
-		const hasGlazingRebate = placed.some((shape) =>
-			['bead', 'gasket', 'glass_adaptor'].includes(shape.piece.role) ||
-			(shape.piece.role === 'sash' && shape.rings.some((ring) => ring.length > 5)),
-		)
-		if (!nextMap[key] && !nextMap[instKey] && (piece.role === 'sash' || (piece.kind === 'glass' && hasGlazingRebate))) {
-			transform = seatedDefaultTransform(index, piece, starts[index] ?? piece.start, ends[index] ?? piece.end, outline, placed)
-			nextMap[instKey] = transform
-			changed = true
+		const instKey = instancePieceKey(axis.value, tag ?? index, piece)
+		keys.push(instKey)
+		return {
+			piece, outline, start: starts[index] ?? piece.start, end: ends[index] ?? piece.end,
+			transform: getTransformForPiece(index, piece, outline),
+			needsSeat: !initialMap[key] && !initialMap[instKey]
+				&& !initialMap[instancePieceKey(axis.value, index, piece)] && !(tag && initialMap[tag])
+				&& (piece.role === 'sash' || piece.kind === 'glass'),
 		}
-		placed.push(buildPlacedShape(index, piece, starts[index] ?? piece.start, ends[index] ?? piece.end, outline, transform))
-	}
-	if (changed) {
+	})
+	if (!entries.some((entry) => entry.needsSeat)) return
+	cancelSeating = startSectionSeating(entries, (transforms) => {
+		// Never overwrite an edit or a new cut with a late background result.
+		if (seq !== generation || activeMap.value !== initialMap || ghostDrag.value) return
+		const nextMap = { ...initialMap }
+		entries.forEach((entry, index) => {
+			const fitted = transforms[index]
+			if (entry.needsSeat && fitted) {
+				nextMap[keys[index]] = fitted
+				if (mirrorSync.value && entry.piece.role === 'sash') {
+					nextMap[canonicalPieceKey(entry.piece)] = canonicalTransformForPiece(entry.piece, fitted)
+					nextMap[`${axis.value === 'h' ? 'v' : 'h'}:${pieceTags.value[index]}`] = fitted
+				}
+			}
+		})
+		if (!transforms.some(Boolean)) return
 		localSectionMap.value = nextMap
 		emit('update:section-map', nextMap)
-	}
+	}, () => {
+		if (seq === generation && activeMap.value === initialMap) {
+			toast.error('Automatic fitting could not finish. The section is editable at its saved or default positions.')
+		}
+	})
 }
+
+// Stop obsolete work immediately when a profile is edited or the design changes.
+watch(() => [props.design.root, props.design.width, props.design.height, props.design.profiles, activeMap.value], () => cancelSeating?.(), { deep: true })
 
 function commitTransformForPiece(index: number, piece: SectionPiece, nextTransform: SectionPieceTransform) {
 	const nextMap = { ...activeMap.value }
@@ -464,9 +490,15 @@ function commitTransformForPiece(index: number, piece: SectionPiece, nextTransfo
 
 	if (piece.role !== 'bead') {
 		const canonKey = canonicalPieceKey(piece)
-		nextMap[canonKey] = piece.mirrored && twinNext ? twinNext : nextTransform
+		nextMap[canonKey] = canonicalTransformForPiece(piece, nextTransform)
 	}
 
+	if (mirrorSync.value && tag) {
+		const otherAxis = axis.value === 'h' ? 'v' : 'h'
+		nextMap[`${otherAxis}:${tag}`] = nextTransform
+		const twinTag = getTwinTag(tag)
+		if (twinTag && twinNext) nextMap[`${otherAxis}:${twinTag}`] = twinNext
+	}
 	localSectionMap.value = nextMap
 	emit('update:section-map', nextMap)
 }
@@ -475,7 +507,7 @@ function toggleMirrorSync() {
 	mirrorSync.value = !mirrorSync.value
 }
 
-const compacted = computed(() => compactPieceSpans(section.value?.pieces ?? [], compactGlass.value))
+const compacted = computed(() => compactPieceSpans(section.value?.pieces ?? [], compactGlass.value, axis.value))
 
 interface DrawnPiece {
 	index: number
@@ -507,12 +539,17 @@ const placedShapes = computed<PlacedShape[]>(() => {
 	return pieces.map((piece, i) => {
 		const outline = piece.kind === 'profile' ? (outlines.value[piece.code] ?? null) : null
 		const t = getTransformForPiece(i, piece, outline)
-		return buildPlacedShape(i, piece, starts[i] ?? piece.start, ends[i] ?? piece.end, outline, t)
+		return buildPlacedShape(i, piece, starts[i] ?? piece.start, ends[i] ?? piece.end, outline, t, axis.value)
 	})
 })
 
 function pathForPiece(piece: SectionPiece): string {
 	if (piece.role === 'frame') return 'FRAME'
+	if (piece.path) {
+		if (piece.kind === 'glass') return `GLASS:${piece.path}`
+		if (piece.role === 'bead') return `BEAD:${piece.path}`
+		return piece.path
+	}
 	if (piece.role === 'mullion' || piece.role === 'transom') return piece.panel
 	const g = layoutGeom(props.design)
 	let sashCount = 0
@@ -709,6 +746,9 @@ const drawn = computed<DrawnPiece[]>(() => {
 	return rawDrawn
 })
 
+// Keep louver labels beyond every profile's depth envelope, in both views.
+const louverLabelDepth = computed(() => Math.min(...placedShapes.value.map(s => s.bbox.minY), 0) - 6)
+
 const selectedDrawn = computed<DrawnPiece | null>(() =>
 	selectedIndex.value !== null ? (drawn.value[selectedIndex.value] ?? null) : null,
 )
@@ -815,7 +855,8 @@ const sceneBBox = computed(() => {
 	const padX = compactGlass.value ? 16 : 28
 	const minX = Math.min(b.minX - padX, -10)
 	const maxX = Math.max(b.maxX + padX, effectiveCutLength.value + 10)
-	const minY = Math.min(b.minY - 20, -50)
+	const labelPadding = axis.value === 'v' && shapes.some(s => s.piece.kind === 'louver') ? 60 : 20
+	const minY = Math.min(b.minY - labelPadding, -50)
 	const maxY = Math.max(b.maxY, bottomWallY.value) + 12
 	return {
 		minX,
@@ -839,7 +880,11 @@ const sectionExtentLabel = computed(() => {
 
 /** Computed viewBox rectangle matching container aspect ratio for 1:1 coordinate projection. */
 const viewBoxRect = computed(() => {
-	const b = sceneBBox.value
+	const scene = sceneBBox.value
+	// A–A runs bottom to top: (along, depth) -> (depth, -along).
+	const b = axis.value === 'v'
+		? { minX: scene.minY, maxX: scene.maxY, minY: -scene.maxX, maxY: -scene.minX, width: scene.height, height: scene.width }
+		: scene
 	const baseW = b.width / sectionZoom.value
 	const baseH = b.height / sectionZoom.value
 	const cw = Math.max(1, containerSize.value.width)
@@ -879,8 +924,10 @@ const selectedFloatingStyle = computed<Record<string, string>>(() => {
 	const vb = viewBoxRect.value
 	const anchorX = d.shape.bbox.minX + d.shape.bbox.width / 2
 	const anchorY = d.shape.bbox.minY - 7
-	const rawLeftPct = ((anchorX - vb.x) / vb.w) * 100
-	const rawTopPct = ((anchorY - vb.y) / vb.h) * 100
+	const screenX = axis.value === 'v' ? anchorY : anchorX
+	const screenY = axis.value === 'v' ? -anchorX : anchorY
+	const rawLeftPct = ((screenX - vb.x) / vb.w) * 100
+	const rawTopPct = ((screenY - vb.y) / vb.h) * 100
 	const leftPct = Math.min(82, Math.max(18, rawLeftPct))
 	const topPct = Math.min(88, Math.max(11, rawTopPct))
 	return {
@@ -972,16 +1019,7 @@ function clampTransformToBoundary(
 		offsetAlong: Math.round(clampedAlong * 10) / 10,
 	}
 
-	// Clamp depth so the piece's bottom edge never exceeds bottomWallY
-	const shape = buildPlacedShape(0, piece, baseStart, baseEnd, outline ?? null, candidate)
-	const limitY = bottomWallY.value
-	if (shape.bbox.maxY > limitY) {
-		const over = shape.bbox.maxY - limitY
-		candidate = {
-			...candidate,
-			offsetDepth: Math.round((candidate.offsetDepth - over) * 10) / 10,
-		}
-	}
+	// Depth is free: sash rebates can legitimately extend past the frame depth.
 
 	return candidate
 }
@@ -994,13 +1032,18 @@ function onPiecePointerMove(e: PointerEvent) {
 
 	const scaleMm = svgUnitsPerPixel()
 	guideScale.value = scaleMm
-	const dxMm = (e.clientX - gd.startClientX) * scaleMm
-	const dyMm = (e.clientY - gd.startClientY) * scaleMm
+	const screenDx = (e.clientX - gd.startClientX) * scaleMm
+	const screenDy = (e.clientY - gd.startClientY) * scaleMm
+	const dxMm = axis.value === 'v' ? -screenDy : screenDx
+	const dyMm = axis.value === 'v' ? screenDx : screenDy
 	const candidate: SectionPieceTransform = {
 		...gd.origTransform,
 		offsetAlong: Math.round((gd.origTransform.offsetAlong + dxMm) * 10) / 10,
 		offsetDepth: Math.round((gd.origTransform.offsetDepth + dyMm) * 10) / 10,
 	}
+
+	gd.moved = gd.moved || e.clientX !== gd.startClientX || e.clientY !== gd.startClientY
+	gd.snapDisabled = e.altKey || e.ctrlKey
 
 	const cur = drawn.value[gd.index]
 	if (!cur) {
@@ -1022,7 +1065,7 @@ function onPiecePointerMove(e: PointerEvent) {
 		let finalT = clamped
 
 		if (!(e.altKey || e.ctrlKey)) {
-			const joined = magneticAutoJoin(movingShape, clamped, gd.piece, obstacles)
+			const joined = magneticAutoJoin(movingShape, clamped, gd.piece, obstacles, Math.max(0.01, 6 * scaleMm))
 			if (joined) {
 				finalT = clamp(joined)
 			} else {
@@ -1042,7 +1085,9 @@ function onPiecePointerMove(e: PointerEvent) {
 
 		gd.currentTransform = finalT
 		const finalShape = finalT === clamped ? movingShape : build(finalT)
-		activeSmartGuides.value = nonEmpty(measureGuides(shapeToRect(finalShape), targets))
+		const measured = measureGuides(shapeToRect(finalShape), targets)
+		measured.lines = [...profileContactGuides(finalShape, obstacles), ...measured.lines].slice(0, 8)
+		activeSmartGuides.value = nonEmpty(measured)
 	}
 
 	// Update twin ghost transform in real-time
@@ -1053,7 +1098,7 @@ function onPiecePointerMove(e: PointerEvent) {
 			...gd.origTwinTransform,
 			offsetAlong: Math.round((gd.origTwinTransform.offsetAlong - deltaAlong) * 10) / 10,
 			offsetDepth: Math.round((gd.origTwinTransform.offsetDepth + deltaDepth) * 10) / 10,
-			flipX: !gd.currentTransform.flipX,
+			flipX: gd.origTwinTransform.flipX,
 		}
 	}
 }
@@ -1072,31 +1117,19 @@ function endPieceDrag() {
 	ghostDrag.value = null
 	activeSmartGuides.value = null
 
+	if (!gd.moved) return
 	const d = drawn.value[idx]
 	if (!d) return
 
-	const obstacles = placedShapes.value.filter((obs) => {
-		if (obs.index === idx) return false
-		if (twinIdx !== undefined && obs.index === twinIdx) return false
-		return true
-	})
-
-	const resolved = resolvePuzzleDrop(
-		idx,
-		piece,
-		d.baseStart,
-		d.baseEnd,
-		d.outline,
-		desired,
-		obstacles,
-	)
+	const obstacles = placedShapes.value.filter(shape => shape.index !== idx && shape.index !== twinIdx)
+	// Keep the visible snap on release. Only resolve actual collisions, with
+	// magnetic snapping disabled; Alt/Ctrl preserves the exact free placement.
+	const resolved = gd.snapDisabled ? { transform: desired, resolvedCollision: false }
+		: resolvePuzzleDrop(idx, piece, d.baseStart, d.baseEnd, d.outline, desired, obstacles, 0)
 	const finalClamped = clampTransformToBoundary(piece, d.baseStart, d.baseEnd, resolved.transform, d.outline)
+	if (resolved.resolvedCollision) lastSnapNotice.value = 'Moved clear of overlapping profile walls'
 	commitTransformForPiece(idx, piece, finalClamped)
-	if (resolved.resolvedCollision) {
-		lastSnapNotice.value = 'Snapped flush to profile border'
-	} else if (resolved.snapped) {
-		lastSnapNotice.value = 'Snapped to mating rebate edge'
-	}
+
 }
 
 /**
@@ -1276,10 +1309,13 @@ function resetSelectedPiece() {
 	lastSnapNotice.value = 'Reset profile to default datum'
 }
 
-function resetAllPieces() {
+async function resetAllPieces() {
+	cancelSeating?.()
 	localSectionMap.value = {}
 	emit('update:section-map', {})
 	lastSnapNotice.value = 'Reset all profiles to default assembly'
+	await nextTick()
+	if (section.value) seedDefaultSeats(section.value)
 }
 
 function onSectionWheel(e: WheelEvent) {
@@ -1413,7 +1449,7 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 							? { backgroundColor: '#ECFEFF', borderColor: '#06B6D4', color: '#0E7490' }
 							: { backgroundColor: '#F9FAFB', borderColor: '#D1D5DB', color: '#4B5563' }
 					"
-					title="Keep glass compact in the center so profile scale is large and easy to assemble"
+					title="Shorten glass spans to inspect profiles. Turn off to compare the full cut lengths."
 					@click="toggleCompactGlass"
 				>
 					1:1 Profile Focus
@@ -1456,6 +1492,7 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 					@pointercancel="endWorkspacePan"
 					@lostpointercapture="endWorkspacePan"
 				>
+					<g :transform="axis === 'v' ? 'rotate(-90)' : undefined" data-testid="section-orientation">
 					<defs>
 						<!-- Minor 5mm & Major 25mm CAD Grid matching WindowCanvas workspace -->
 						<pattern id="section-minor-grid" width="5" height="5" patternUnits="userSpaceOnUse">
@@ -1533,9 +1570,29 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 
 					<!-- Pieces: Stationary Mullions + Moveable Glass & Profile Puzzle Pieces -->
 					<template v-for="(d, i) in drawn" :key="i">
+						<!-- Louvers are a panel indication, selected as a whole rather than a profile. -->
+						<g v-if="d.piece.kind === 'louver'" :data-piece="i" data-kind="louver"
+							class="cursor-pointer" @click.stop="onPieceClick(d)">
+							<polygon v-for="(ring, blade) in d.shape.rings" :key="blade"
+								:points="ring.map(p => `${p.x},${p.y}`).join(' ')"
+								fill="#CBD5E1" :fill-opacity="axis === 'h' ? 0.25 : 0.8"
+								:stroke="d.selected ? '#2563EB' : '#64748B'" :stroke-dasharray="axis === 'h' ? '4 3' : undefined"
+								stroke-width="1.2" vector-effect="non-scaling-stroke" />
+							<g v-if="axis === 'h'" data-testid="louver-blade-strips" pointer-events="none">
+								<line v-for="blade in (d.piece.blades || 7)" :key="blade"
+									:x1="d.shape.bbox.minX + 1" :x2="d.shape.bbox.maxX - 1"
+									:y1="d.shape.bbox.minY + (blade - 0.5) * d.shape.bbox.height / (d.piece.blades || 7)"
+									:y2="d.shape.bbox.minY + (blade - 0.5) * d.shape.bbox.height / (d.piece.blades || 7)"
+									stroke="#94A3B8" stroke-opacity="0.4" stroke-width="1" vector-effect="non-scaling-stroke" />
+							</g>
+							<text :x="d.labelPos.x" :y="louverLabelDepth" :text-anchor="axis === 'v' ? 'end' : 'middle'" font-size="3" fill="#475569"
+								data-testid="louver-label"
+								:transform="axis === 'v' ? `rotate(90 ${d.labelPos.x} ${louverLabelDepth})` : undefined"
+								>Louver · {{ d.piece.blades || 7 }} blades</text>
+						</g>
 						<!-- Glass Piece (Moveable Reference) -->
 						<g
-							v-if="d.piece.kind === 'glass'"
+							v-else-if="d.piece.kind === 'glass'"
 							:data-piece-group="i"
 							:data-ghost="d.ghost ? 'true' : undefined"
 							:opacity="d.ghost ? 0.6 : 1"
@@ -1585,6 +1642,7 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 							<text
 								:x="d.labelPos.x"
 								:y="d.labelPos.y"
+								:transform="axis === 'v' ? `rotate(90 ${d.labelPos.x} ${d.labelPos.y})` : undefined"
 								text-anchor="middle"
 								dominant-baseline="middle"
 								:font-size="d.fontSize"
@@ -1652,6 +1710,7 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 							<text
 								:x="d.labelPos.x"
 								:y="d.labelPos.y"
+								:transform="axis === 'v' ? `rotate(90 ${d.labelPos.x} ${d.labelPos.y})` : undefined"
 								text-anchor="middle"
 								dominant-baseline="middle"
 								:font-size="d.fontSize"
@@ -1735,6 +1794,7 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 								>{{ s.label }}</text>
 							</g>
 						</g>
+					</g>
 					</g>
 				</svg>
 
@@ -1836,14 +1896,15 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 
 						<div class="mx-1.5 h-5.5 w-px bg-gray-200" />
 
+						<!-- Flip directions follow the screen axes of the rotated workspace. -->
 						<!-- 5. Flip Horizontally -->
 						<button
 							type="button"
 							aria-label="Flip horizontal"
 							title="Flip horizontally"
 							class="flex size-9 items-center justify-center rounded hover:bg-gray-100"
-							:class="selectedDrawn.pieceTransform.flipX ? 'bg-blue-50 text-blue-800' : 'text-gray-900'"
-							@click="flipSelected('x')"
+							:class="(axis === 'v' ? selectedDrawn.pieceTransform.flipY : selectedDrawn.pieceTransform.flipX) ? 'bg-blue-50 text-blue-800' : 'text-gray-900'"
+							@click="flipSelected(axis === 'v' ? 'y' : 'x')"
 						>
 							<svg viewBox="0 0 16 16" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
 								<path d="M8 2.4v11.2" stroke-linecap="round" />
@@ -1857,8 +1918,8 @@ defineExpose({ sectionZoom, sectionPan, zoomIn, zoomOut, resetView, panBy })
 							aria-label="Flip vertical"
 							title="Flip vertically"
 							class="flex size-9 items-center justify-center rounded hover:bg-gray-100"
-							:class="selectedDrawn.pieceTransform.flipY ? 'bg-blue-50 text-blue-800' : 'text-gray-900'"
-							@click="flipSelected('y')"
+							:class="(axis === 'v' ? selectedDrawn.pieceTransform.flipX : selectedDrawn.pieceTransform.flipY) ? 'bg-blue-50 text-blue-800' : 'text-gray-900'"
+							@click="flipSelected(axis === 'v' ? 'x' : 'y')"
 						>
 							<svg viewBox="0 0 16 16" class="size-4.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
 								<path d="M2.4 8h11.2" stroke-linecap="round" />

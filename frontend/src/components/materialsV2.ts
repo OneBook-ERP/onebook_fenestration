@@ -96,20 +96,20 @@ export function createV2Materials(finishNameOrColor?: string | null, opts: V2Opt
 	const finish = identifyFinish(finishNameOrColor)
 	const envMap = opts.envMap
 
-	// Float glass: IOR 1.52, fully transmissive, mirror smooth. Reflection comes from Fresnel,
-	// so no clear-coat layer (that would add a second, non-physical reflection).
-	// `thickness` is the 6 mm pane. Absorption uses that constant thickness, so it tints the
-	// pane evenly; it does not get stronger when you look through the pane at a grazing angle.
+	// Clear float glass with Fresnel reflections and subtle green absorption.
+	// The geometry assigns ray distances per face, so edges absorb more light.
 	const glass = new THREE.MeshPhysicalMaterial({
 		color: 0xffffff,
 		transmission: 1,
 		thickness: 6,
 		ior: 1.52,
-		roughness: 0.03,
+		roughness: 0.015,
 		metalness: 0,
 		specularIntensity: 1,
-		attenuationColor: new THREE.Color(0xbfe0e8),
-		attenuationDistance: 60,
+		attenuationColor: new THREE.Color(0xd6eee1),
+		attenuationDistance: 400,
+		envMapIntensity: 1.1,
+		dispersion: 0.015,
 		side: THREE.FrontSide,
 		...(envMap ? { envMap } : {}),
 	})

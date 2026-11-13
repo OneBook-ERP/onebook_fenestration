@@ -3,7 +3,7 @@
 Coordinates follow `layout()`: x runs right from the frame's left outer edge, y runs up from its bottom outer edge.
 Axis "h" (B-B) cuts horizontally at height `at`; pieces run left -> right and `start` / `end` are x.
 Axis "v" (A-A) cuts vertically at x = `at`; pieces run bottom -> top and `start` / `end` are y.
-`at` snaps to the centre of the cell it falls in (outside the frame: the nearest cell), so the cut never runs along a bar.
+`at` snaps between adjacent perpendicular cell boundaries (outside the frame: the nearest band), so the cut never runs along a bar.
 
 Pieces are placed with the deductions the cut list uses; glass sizes come from `compute()`. Each profile piece is
 `widths[code]` wide (the profile's face width: its outline's extent along the cut, after the profile's section
@@ -36,6 +36,11 @@ class SectionPiece:
 	mirrored: bool = False
 	# glass only: overall unit thickness (mm) of the pane's glass spec; 0 for profiles
 	thickness: float = 0.0
+	# Physical owner; fixed panes share panel F1.
+	path: str = ""
+	blades: int = 0
+	blade_width: float = 60.0
+	opening_height: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -57,13 +62,18 @@ class CrossSection:
 
 
 def cross_section(
-	design: dict, snapshot: SeriesSnapshot, axis: str, at: float | None = None, widths: dict[str, float] | None = None
+	design: dict,
+	snapshot: SeriesSnapshot,
+	axis: str,
+	at: float | None = None,
+	widths: dict[str, float] | None = None,
+	result: EngineResult | None = None,
 ) -> CrossSection:
 	if axis not in AXES:
 		raise DesignError(f"cut axis must be 'h' or 'v', got {axis!r}")
 	if at is not None and not is_real(at):
 		raise DesignError(f"cut position must be a number, got {at!r}")
-	result = compute(design, snapshot)
+	result = result or compute(design, snapshot)
 	cells, bars = layout(design)
 	return _Cut(design, snapshot, axis, result, bars, widths or {}).run(cells, at)
 
@@ -97,14 +107,13 @@ class _Cut:
 		return CrossSection(self.axis, at, self.length, self.pieces, self.dims, self._issues())
 
 	def _snap(self, cells: list[Cell], at: float | None) -> float:
-		"""Centre of the cell `at` falls in; containing cells beat touching ones, and ties go to the first cell."""
-
-		def distance(cell):
-			lo, hi = self._perp_span(cell)
-			return -1 if lo <= at < hi else min(abs(at - lo), abs(at - hi))
-
-		cell = cells[0] if at is None else min(cells, key=distance)
-		lo, hi = self._perp_span(cell)
+		"""Snap between perpendicular cell boundaries so nested panes remain reachable."""
+		if at is None:
+			lo, hi = self._perp_span(cells[0])
+			at = (lo + hi) / 2
+		edges = sorted({edge for cell in cells for edge in self._perp_span(cell)})
+		bands = list(zip(edges, edges[1:]))
+		lo, hi = min(bands, key=lambda band: -1 if band[0] <= at < band[1] else min(abs(at - band[0]), abs(at - band[1])))
 		return (lo + hi) / 2
 
 	def _place_cell(self, cell: Cell, lo: float, hi: float):
@@ -120,6 +129,22 @@ class _Cut:
 			self._place_glass(
 				cell, lo + self._deduction("fixed_glass_side", cell, self.low), hi - self._deduction("fixed_glass_side", cell, self.high)
 			)
+
+		elif kind == "louver":
+			start = lo + self._deduction("bar_end", cell, self.low)
+			end = hi - self._deduction("bar_end", cell, self.high)
+			height = cell.h - self._deduction("bar_end", cell, "B") - self._deduction("bar_end", cell, "T")
+			width = cell.node.get("bladeWidth", 60.0)
+			if not is_real(width) or width <= 0:
+				width = 60.0
+			material = cell.node.get("bladeMaterial", "metal")
+			spec = self.snapshot.glasses.get(cell.node.get("glass")) if material == "glass" else None
+			thickness = spec.thickness_mm if spec else 4.0
+			if end > start and height > 0:
+				self.pieces.append(SectionPiece(
+					"louver", "Louver", "louver", cell.path, _mm(start), _mm(end),
+					path=cell.path, blades=cell.node.get("blades", 7), opening_height=_mm(height), blade_width=width, thickness=thickness,
+				))
 
 	def _place_glass(self, cell: Cell, lo: float, hi: float):
 		"""The pane centred in its opening, with its beads / adaptors from the rebate edge (glass edge + clearance)."""
@@ -150,7 +175,7 @@ class _Cut:
 		spec = self.snapshot.glasses.get(pane.glass)
 		thickness = spec.thickness_mm if spec else 0.0
 		self.pieces.append(
-			SectionPiece("glass", pane.glass, "glass", pane.panel, _mm(start), _mm(start + size), thickness=thickness)
+			SectionPiece("glass", pane.glass, "glass", pane.panel, _mm(start), _mm(start + size), thickness=thickness, path=cell.path)
 		)
 		self.dims.append(Dim(_mm(start), _mm(start + size), _label(size), "glass"))
 		for role in GLASS_ROLES:
@@ -192,7 +217,7 @@ class _Cut:
 
 	def _add_profile(self, member: CutMember, panel: str, start: float, end: float, mirrored: bool):
 		start, end = _mm(start), _mm(end)
-		self.pieces.append(SectionPiece("profile", member.profile, member.role, panel, start, end, mirrored))
+		self.pieces.append(SectionPiece("profile", member.profile, member.role, panel, start, end, mirrored, path=member.path))
 		self.dims.append(Dim(start, end, _label(end - start), "profiles"))
 
 	def _width(self, member: CutMember) -> float:

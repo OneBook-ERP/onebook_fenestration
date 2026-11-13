@@ -1,6 +1,6 @@
 import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { Select } from 'frappe-ui'
+import { FormControl, Select } from 'frappe-ui'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import PropertiesPanel from '@/components/PropertiesPanel.vue'
 import { useDesignerStore } from '@/stores/designer'
@@ -49,6 +49,29 @@ describe('PropertiesPanel', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
 		glassState.loading = false
+	})
+
+	it('edits the actual louver blade width independently of its blade count', async () => {
+		const w = mountPanel([{ type: 'louver', glass: '6CTG', blades: 9 }, fixed], 'F1.0', [])
+		const field = w.findAllComponents(FormControl).find(c => c.props('label') === 'Blade width (mm)')!
+		expect((field.get('input').element as HTMLInputElement).value).toBe('60')
+		await field.get('input').setValue('80')
+		const root = useDesignerStore().design.root as any
+		expect(root.children[0].bladeWidth).toBe(80)
+		expect(root.children[0].blades).toBe(9)
+	})
+
+	it('selects glass or metal for the blades alone', async () => {
+		const w = mountPanel([{ type: 'louver', glass: '6CTG', blades: 9 }, fixed], 'F1.0', [])
+		const buttons = w.get('[aria-label="Blade material"]').findAll('button')
+		expect(buttons[0].attributes('aria-pressed')).toBe('true')
+		await buttons[1].trigger('click')
+		const store = useDesignerStore()
+		expect((store.design.root as any).children[0].bladeMaterial).toBe('glass')
+		expect((store.design.root as any).children[1]).toEqual(fixed)
+		await buttons[0].trigger('click')
+		expect((store.design.root as any).children[0].bladeMaterial).toBe('metal')
+		expect(w.text()).not.toContain('Beading')
 	})
 
 	it('is full width on phone and w-72 from md', () => {

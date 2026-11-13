@@ -1,3 +1,4 @@
+import { louverSectionRings, louverLayout, LOUVER_ANGLE, LOUVER_THICKNESS } from './louverGeometry'
 import type { SectionOutline, SectionPiece } from '@/api'
 import type { SectionPieceTransform } from '@/design/types'
 
@@ -183,8 +184,7 @@ export function instancePieceKey(axis: string, tagOrIndex: string | number, piec
  * are moveable in the puzzle editor.
  */
 export function isPieceMoveable(piece: SectionPiece): boolean {
-	void piece
-	return true
+	return piece.kind !== 'louver'
 }
 
 /**
@@ -223,19 +223,60 @@ export function seatedDefaultTransform(
 	const obstacleMax = Math.max(...obstacles.map((o) => o.bbox.maxY))
 	const minDepth = Math.floor((obstacleMin - rawDepth - 8) * 2) / 2
 	const maxDepth = Math.ceil((obstacleMax + rawDepth + 8) * 2) / 2
-	const alongRange = Math.min(12, Math.max(2, (baseEnd - baseStart) / 8))
+	// Glass width and its endpoints come from the manufacturing layout. Only
+	// its depth may be fitted; shifting it sideways breaks the opposite rebate.
+	const alongRange = piece.kind === 'glass' ? 0 : Math.min(12, Math.max(2, (baseEnd - baseStart) / 8))
 	let best: { transform: SectionPieceTransform; score: number } | null = null
-	for (let depth = minDepth; depth <= maxDepth; depth += 0.5) {
-		for (let along = -alongRange; along <= alongRange; along += 0.5) {
-			const transform = { ...initial, offsetAlong: along, offsetDepth: depth }
-			const shape = buildPlacedShape(movingIndex, piece, baseStart, baseEnd, outline, transform)
-			if (obstacles.some((obstacle) => solidsOverlap(shape, obstacle))) continue
-			const clearance = Math.min(...obstacles.map((obstacle) => shapeDistance(shape, obstacle)))
-			const score = clearance + Math.abs(along) * 0.02 + Math.abs(depth) * 0.001
-			if (!best || score < best.score) best = { transform, score }
+	const evaluate = (along: number, depth: number) => {
+		const roundedAlong = Math.round(along * 2) / 2 || 0
+		const roundedDepth = Math.round(depth * 2) / 2
+		const transform = { ...initial, offsetAlong: roundedAlong, offsetDepth: roundedDepth }
+		const shape = buildPlacedShape(movingIndex, piece, baseStart, baseEnd, outline, transform)
+		if (obstacles.some((obstacle) => solidsOverlap(shape, obstacle))) return
+		const penalty = Math.abs(roundedAlong) * 0.02 + Math.abs(roundedDepth) * 0.001
+		// The bounding-box gap is a lower bound for the exact polygon distance.
+		// Skip expensive ring-to-ring distance work when it cannot beat the best fit.
+		if (best && Math.min(...obstacles.map((obstacle) => bboxDistance(shape.bbox, obstacle.bbox))) + penalty >= best.score) return
+		const clearance = Math.min(...obstacles.map((obstacle) => shapeDistance(shape, obstacle)))
+		const score = clearance + penalty
+		if (!best || score < best.score) best = { transform, score }
+	}
+	// A full 0.5 mm grid can mean several thousand polygon collision checks for
+	// each sash. Find the seating basin coarsely, then retain the original 0.5 mm
+	// precision in a small neighborhood around the best candidate.
+	const coarseStep = 2.5
+	for (let depth = minDepth; depth <= maxDepth; depth += coarseStep) {
+		for (let along = -alongRange; along <= alongRange; along += coarseStep) evaluate(along, depth)
+	}
+	if (best) {
+		const centerAlong = best.transform.offsetAlong
+		const centerDepth = best.transform.offsetDepth
+		for (let depth = Math.max(minDepth, centerDepth - coarseStep); depth <= Math.min(maxDepth, centerDepth + coarseStep); depth += 0.5) {
+			for (let along = Math.max(-alongRange, centerAlong - coarseStep); along <= Math.min(alongRange, centerAlong + coarseStep); along += 0.5) evaluate(along, depth)
 		}
 	}
-	return best?.transform ?? initial
+	const fitted = best?.transform ?? initial
+	const shape = buildPlacedShape(movingIndex, piece, baseStart, baseEnd, outline, fitted)
+	const joined = magneticAutoJoin(shape, fitted, piece, obstacles, 0.55)
+	if (joined) {
+		if (piece.kind === 'glass') joined.offsetAlong = 0
+		const joinedShape = buildPlacedShape(movingIndex, piece, baseStart, baseEnd, outline, joined)
+		if (!obstacles.some(obstacle => solidsOverlap(joinedShape, obstacle)) &&
+			Math.min(...obstacles.map(obstacle => shapeDistance(joinedShape, obstacle))) <=
+			Math.min(...obstacles.map(obstacle => shapeDistance(shape, obstacle)))) return joined
+	}
+	return fitted
+}
+
+function bboxDistance(a: BBox, b: BBox): number {
+	const dx = Math.max(0, a.minX - b.maxX, b.minX - a.maxX)
+	const dy = Math.max(0, a.minY - b.maxY, b.minY - a.maxY)
+	return Math.hypot(dx, dy)
+}
+
+/** Shared transforms are expressed on the low side; instance offsets are world coordinates. */
+export function canonicalTransformForPiece(piece: SectionPiece, transform: SectionPieceTransform): SectionPieceTransform {
+	return { ...transform, offsetAlong: (piece.mirrored ? -transform.offsetAlong : transform.offsetAlong) || 0 }
 }
 
 /**
@@ -245,6 +286,7 @@ export function seatedDefaultTransform(
 export function compactPieceSpans(
 	pieces: SectionPiece[],
 	compact = true,
+	axis: 'h' | 'v' = 'h',
 ): { starts: number[]; ends: number[]; totalSpan: number } {
 	if (!pieces.length) return { starts: [], ends: [], totalSpan: 100 }
 	if (!compact) {
@@ -253,14 +295,23 @@ export function compactPieceSpans(
 		const maxEnd = Math.max(...ends, 100)
 		return { starts, ends, totalSpan: maxEnd }
 	}
+	const displayLength = (piece: SectionPiece) => {
+		const length = piece.end - piece.start
+		if (piece.kind === 'louver' && axis === 'v') {
+			const layout = louverLayout(piece.opening_height || length, piece.blades || 7, piece.blade_width)
+			const projected = layout.chord * Math.cos(LOUVER_ANGLE) + (piece.thickness || LOUVER_THICKNESS) * Math.sin(LOUVER_ANGLE)
+			return Math.min(length, Math.max(COMPACT_GLASS_MM, layout.count * (projected + 4)))
+		}
+		return Math.min(length, COMPACT_GLASS_MM)
+	}
 	const reductions: { cutAfter: number; delta: number }[] = []
 	for (const p of pieces) {
-		if (p.kind !== 'glass') continue
+		if (p.kind !== 'glass' && p.kind !== 'louver') continue
 		const len = p.end - p.start
-		if (len > COMPACT_GLASS_MM) {
+		if (len > displayLength(p)) {
 			reductions.push({
 				cutAfter: (p.start + p.end) / 2,
-				delta: len - COMPACT_GLASS_MM,
+				delta: len - displayLength(p),
 			})
 		}
 	}
@@ -274,11 +325,11 @@ export function compactPieceSpans(
 	const starts: number[] = []
 	const ends: number[] = []
 	for (const p of pieces) {
-		if (p.kind === 'glass') {
+		if (p.kind === 'glass' || p.kind === 'louver') {
 			const s = shiftAt(p.start)
 			const e = shiftAt(p.end)
 			starts.push(s)
-			ends.push(Math.max(s + Math.min(p.end - p.start, COMPACT_GLASS_MM), e))
+			ends.push(Math.max(s + displayLength(p), e))
 		} else {
 			const w = p.end - p.start
 			const center = (p.start + p.end) / 2
@@ -300,8 +351,13 @@ export function compactPieceSpans(
  * representation.  Curves are flattened here so the puzzle and Three preview
  * use the same source geometry.  An arc gets ten samples per quarter turn.
  */
+const parsedSvgRingCache = new Map<string, Point[][]>()
+
 export function parseSvgRings(svg: string | undefined, fallbackW: number, fallbackD: number): Point[][] {
 	if (!svg) return [rectRing(0, 0, fallbackW, fallbackD)]
+	const cacheKey = `${fallbackW}|${fallbackD}|${svg}`
+	const cached = parsedSvgRingCache.get(cacheKey)
+	if (cached) return cached
 	const tokens = svg.match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:e[-+]?\d+)?/g) ?? []
 	const rings: Point[][] = []
 	let i = 0
@@ -366,7 +422,9 @@ export function parseSvgRings(svg: string | undefined, fallbackW: number, fallba
 		break
 	}
 	if (ring.length) finish()
-	return rings.length ? rings : [rectRing(0, 0, fallbackW, fallbackD)]
+	const parsed = rings.length ? rings : [rectRing(0, 0, fallbackW, fallbackD)]
+	parsedSvgRingCache.set(cacheKey, parsed)
+	return parsed
 }
 
 /** Build transformed world-space polygon rings (in mm). */
@@ -377,7 +435,13 @@ export function buildPlacedShape(
 	baseEnd: number,
 	outline: SectionOutline | null,
 	transform: SectionPieceTransform,
+	axis: 'h' | 'v' = 'h',
 ): PlacedShape {
+	if (piece.kind === 'louver') {
+		const rings = louverSectionRings(axis, baseStart, baseEnd, piece.opening_height || piece.end - piece.start, piece.blades || 7, piece.blade_width, piece.thickness || LOUVER_THICKNESS)
+		const bbox = computeBBox(rings)
+		return { index, piece, rings, bbox, labelPos: { x: (baseStart + baseEnd) / 2, y: bbox.minY - 6 } }
+	}
 	const rawW = outline?.width && outline.width > 0 ? outline.width : Math.max(4, baseEnd - baseStart)
 	const rawD =
 		piece.kind === 'glass'
@@ -484,7 +548,7 @@ export function canPiecesOverlap(a: SectionPiece, b: SectionPiece): boolean {
 	) {
 		return true
 	}
-	if (a.kind === 'glass' || b.kind === 'glass') {
+	if (a.kind === 'glass' || b.kind === 'glass' || a.kind === 'louver' || b.kind === 'louver') {
 		return true
 	}
 	if (rA === 'gasket' || rB === 'gasket') {
@@ -567,6 +631,7 @@ export function resolvePuzzleDrop(
 	outline: SectionOutline | null,
 	desired: SectionPieceTransform,
 	obstacles: PlacedShape[],
+	snapTolerance = SNAP_THRESHOLD_MM,
 ): { transform: SectionPieceTransform; snapped: boolean; resolvedCollision: boolean } {
 	if (!isPieceMoveable(piece)) {
 		return {
@@ -590,7 +655,7 @@ export function resolvePuzzleDrop(
 	const initial = testAt(desired.offsetAlong, desired.offsetDepth)
 
 	// 1. Apply magnetic auto-join to nearby vertical & horizontal profile/groove walls
-	const mag = magneticAutoJoin(initial.shape, initial.cand, piece, obstacles)
+	const mag = magneticAutoJoin(initial.shape, initial.cand, piece, obstacles, snapTolerance)
 	if (mag) {
 		const verifyMag = testAt(mag.offsetAlong, mag.offsetDepth)
 		if (!verifyMag.collides) {
@@ -618,7 +683,7 @@ export function resolvePuzzleDrop(
 		for (const [ux, uy] of dirs) {
 			const res = testAt(desired.offsetAlong + ux * r, desired.offsetDepth + uy * r)
 			if (!res.collides) {
-				const postMag = magneticAutoJoin(res.shape, res.cand, piece, obstacles)
+				const postMag = magneticAutoJoin(res.shape, res.cand, piece, obstacles, snapTolerance)
 				if (postMag) {
 					const vPost = testAt(postMag.offsetAlong, postMag.offsetDepth)
 					if (!vPost.collides) {
@@ -661,7 +726,7 @@ export function resolvePuzzleDrop(
 	for (const cand of pushCandidates) {
 		const res = testAt(cand.along, cand.depth)
 		if (!res.collides) {
-			const postMag = magneticAutoJoin(res.shape, res.cand, piece, obstacles)
+			const postMag = magneticAutoJoin(res.shape, res.cand, piece, obstacles, snapTolerance)
 			if (postMag) {
 				const vPost = testAt(postMag.offsetAlong, postMag.offsetDepth)
 				if (!vPost.collides) {
@@ -682,15 +747,11 @@ interface WallFaces {
 	hFaces: { y: number; minX: number; maxX: number }[]
 }
 
-function extractWallFaces(shape: PlacedShape): WallFaces {
-	const vFaces: { x: number; minY: number; maxY: number }[] = [
-		{ x: shape.bbox.minX, minY: shape.bbox.minY, maxY: shape.bbox.maxY },
-		{ x: shape.bbox.maxX, minY: shape.bbox.minY, maxY: shape.bbox.maxY },
-	]
-	const hFaces: { y: number; minX: number; maxX: number }[] = [
-		{ y: shape.bbox.minY, minX: shape.bbox.minX, maxX: shape.bbox.maxX },
-		{ y: shape.bbox.maxY, minX: shape.bbox.minX, maxX: shape.bbox.maxX },
-	]
+export function extractWallFaces(shape: PlacedShape): WallFaces {
+	// Only actual outline segments are mating surfaces. Bounding boxes can
+	// pass through empty cavities and must not attract a profile.
+	const vFaces: WallFaces['vFaces'] = []
+	const hFaces: WallFaces['hFaces'] = []
 	for (const ring of shape.rings) {
 		for (let i = 0; i < ring.length; i++) {
 			const a = ring[i]
@@ -724,23 +785,24 @@ export function magneticAutoJoin(
 	cand: SectionPieceTransform,
 	piece: SectionPiece,
 	obstacles: PlacedShape[],
+	tolerance = SNAP_THRESHOLD_MM,
 ): SectionPieceTransform | null {
-	const sign = piece.mirrored ? -1 : 1
+	void piece
 	const myWalls = extractWallFaces(shape)
 	let bestDx = 0
 	let bestDy = 0
-	let minDistX = SNAP_THRESHOLD_MM
-	let minDistY = SNAP_THRESHOLD_MM
+	let minDistX = tolerance
+	let minDistY = tolerance
 
 	for (const obs of obstacles) {
 		if (obs.index === shape.index) continue
-		if (!bboxesOverlap(shape.bbox, obs.bbox, SNAP_THRESHOLD_MM + 4)) continue
+		if (!bboxesOverlap(shape.bbox, obs.bbox, tolerance + 0.1)) continue
 		const obsWalls = extractWallFaces(obs)
 
 		for (const mv of myWalls.vFaces) {
 			for (const ov of obsWalls.vFaces) {
 				// Require vertical proximity/overlap to snap X faces together
-				if (mv.maxY >= ov.minY - 6 && mv.minY <= ov.maxY + 6) {
+				if (mv.maxY >= ov.minY + 0.05 && mv.minY <= ov.maxY - 0.05) {
 					const diff = ov.x - mv.x
 					if (Math.abs(diff) < minDistX) {
 						minDistX = Math.abs(diff)
@@ -753,7 +815,7 @@ export function magneticAutoJoin(
 		for (const mh of myWalls.hFaces) {
 			for (const oh of obsWalls.hFaces) {
 				// Require horizontal proximity/overlap to snap Y faces together
-				if (mh.maxX >= oh.minX - 6 && mh.minX <= oh.maxX + 6) {
+				if (mh.maxX >= oh.minX + 0.05 && mh.minX <= oh.maxX - 0.05) {
 					const diff = oh.y - mh.y
 					if (Math.abs(diff) < minDistY) {
 						minDistY = Math.abs(diff)
@@ -764,12 +826,35 @@ export function magneticAutoJoin(
 		}
 	}
 
-	if (minDistX >= SNAP_THRESHOLD_MM && minDistY >= SNAP_THRESHOLD_MM) return null
+	if (minDistX >= tolerance && minDistY >= tolerance) return null
 	return {
 		...cand,
-		offsetAlong: Math.round((cand.offsetAlong + sign * bestDx) * 10) / 10,
+		offsetAlong: Math.round((cand.offsetAlong + bestDx) * 10) / 10,
 		offsetDepth: Math.round((cand.offsetDepth + bestDy) * 10) / 10,
 	}
+}
+
+/** Guides through the actual wall segments that are flush after snapping. */
+export function profileContactGuides(shape: PlacedShape, obstacles: PlacedShape[]) {
+	const lines: { axis: 'x' | 'y'; pos: number; start: number; end: number; type: 'edge' }[] = []
+	const mine = extractWallFaces(shape)
+	for (const obstacle of obstacles) {
+		if (!bboxesOverlap(shape.bbox, obstacle.bbox, 0.1)) continue
+		const walls = extractWallFaces(obstacle)
+		for (const a of mine.vFaces) for (const b of walls.vFaces) {
+			if (Math.abs(a.x - b.x) <= 0.08 && Math.min(a.maxY, b.maxY) > Math.max(a.minY, b.minY) &&
+				!lines.some(line => line.axis === 'x' && Math.abs(line.pos - b.x) < 0.08)) {
+				lines.push({ axis: 'x', pos: b.x, start: Math.min(a.minY, b.minY) - 2, end: Math.max(a.maxY, b.maxY) + 2, type: 'edge' })
+			}
+		}
+		for (const a of mine.hFaces) for (const b of walls.hFaces) {
+			if (Math.abs(a.y - b.y) <= 0.08 && Math.min(a.maxX, b.maxX) > Math.max(a.minX, b.minX) &&
+				!lines.some(line => line.axis === 'y' && Math.abs(line.pos - b.y) < 0.08)) {
+				lines.push({ axis: 'y', pos: b.y, start: Math.min(a.minX, b.minX) - 2, end: Math.max(a.maxX, b.maxX) + 2, type: 'edge' })
+			}
+		}
+	}
+	return lines.slice(0, 8)
 }
 
 function rectRing(x: number, y: number, w: number, h: number): Point[] {

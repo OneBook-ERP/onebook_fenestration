@@ -58,21 +58,24 @@ def cross_section(design: dict | str, series_version: str, axis: str, at: float 
 		return {"ok": False, "error_type": "design", "message": f"cut position must be a number, got {at!r}"}
 	try:
 		snapshot = get_snapshot(series_version)
-		extra_codes = set()
-		if isinstance(design, dict):
-			if design.get("beadProfileId"):
-				extra_codes.add(design["beadProfileId"])
-			if design.get("profiles") and isinstance(design["profiles"], dict):
-				extra_codes.update(c for c in design["profiles"].values() if c)
-		all_codes = sorted(set(snapshot.profiles) | {c for c in extra_codes if c})
-		profiles = _profile_sections(all_codes)
+		# The profile-width pass only changes section geometry. Reuse the same
+		# full design result so sash layouts and glazing are not recalculated.
+		computed = compute_engine(design, snapshot)
+		# First discover the profiles on the cut without loading any profile SVGs.
+		# The series snapshot includes every profile in the catalogue; fetching their
+		# large section_svg fields here made each section request transfer the whole catalogue.
+		section = cut_design(design, snapshot, axis, at, result=computed)
+		codes = {piece.code for piece in section.pieces if piece.kind == "profile"}
+		profiles = _profile_sections(sorted(codes))
 		widths = {
 			# width_mm is already the outline's extent along the cut after section_rotation.
 			code: float(p.width_mm or p.depth_mm or 0)
 			for code, p in profiles.items()
 			if (p.width_mm or p.depth_mm)
 		}
-		section = cut_design(design, snapshot, axis, at, widths)
+		# Recut with real profile widths, preserving the CAD placement and warnings.
+		section = cut_design(design, snapshot, axis, at, widths, result=computed)
+
 	except DesignError as exc:
 		return {"ok": False, "error_type": "design", "message": str(exc)}
 	except RuleError as exc:

@@ -36,6 +36,9 @@ export interface LouverNode {
 	type: 'louver'
 	glass: string
 	blades: number
+	/** Actual blade chord before tilting, in mm. */
+	bladeWidth?: number
+	bladeMaterial?: 'glass' | 'metal'
 	bead?: boolean
 	fan?: boolean
 }
