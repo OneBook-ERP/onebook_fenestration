@@ -34,11 +34,12 @@ class TestProcurementFlow(IntegrationTestCase):
 		if not frappe.db.exists("Warehouse Type", "Transit"):
 			frappe.get_doc({"doctype": "Warehouse Type", "name": "Transit"}).insert()
 		if not frappe.db.exists("Company", COMPANY):
+			abbr = "OBF" if not frappe.db.exists("Company", {"abbr": "OBF"}) else "OBF1"
 			frappe.get_doc(
 				{
 					"doctype": "Company",
 					"company_name": COMPANY,
-					"abbr": "OF",
+					"abbr": abbr,
 					"default_currency": "INR",
 					"country": "India",
 				}
@@ -47,6 +48,24 @@ class TestProcurementFlow(IntegrationTestCase):
 		test_quotation.TestQuotation.set_up_prices()
 		setup_production_items()
 		setup_procurement(company=COMPANY)
+		if not frappe.db.exists(
+			"Dynamic Link", {"link_doctype": "Company", "link_name": COMPANY, "parenttype": "Address"}
+		):
+			frappe.get_doc(
+				{
+					"doctype": "Address",
+					"address_title": f"{COMPANY} Billing",
+					"address_type": "Billing",
+					"address_line1": "1 Test Industrial Estate",
+					"city": "Chennai",
+					"state": "Tamil Nadu",
+					"pincode": "600001",
+					"country": "India",
+					"is_primary_address": 1,
+					"is_your_company_address": 1,
+					"links": [{"link_doctype": "Company", "link_name": COMPANY}],
+				}
+			).insert()
 
 	@classmethod
 	def tearDownClass(cls):

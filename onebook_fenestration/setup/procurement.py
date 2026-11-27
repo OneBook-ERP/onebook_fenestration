@@ -55,7 +55,13 @@ def setup_procurement(company: str | None = None) -> None:
 def ensure_supplier_groups() -> None:
 	parent = "All Supplier Groups"
 	if not frappe.db.exists("Supplier Group", parent):
-		return
+		frappe.get_doc(
+			{
+				"doctype": "Supplier Group",
+				"supplier_group_name": parent,
+				"is_group": 1,
+			}
+		).insert(ignore_permissions=True)
 	for name in SUPPLIER_GROUPS:
 		if not frappe.db.exists("Supplier Group", name):
 			frappe.get_doc(

@@ -83,6 +83,8 @@ class TestQuotation(IntegrationTestCase):
 	@classmethod
 	def set_up_parties(cls):
 		"""A company address (india_compliance needs one on every quotation) and test customers."""
+		if not frappe.db.exists("DocType", "GST Settings") or not frappe.db.exists("Company", COMPANY):
+			raise unittest.SkipTest(f"Requires {COMPANY!r} and india_compliance GST Settings fixtures")
 		if not company_address(COMPANY):
 			cls.make_address(
 				"Fen Test Office", "Tamil Nadu", "639001", "Company", COMPANY, gstin="33AAHCH3108G1Z0"
