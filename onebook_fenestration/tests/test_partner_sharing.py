@@ -103,3 +103,77 @@ class TestPartnerSharing(FrappeTestCase):
 			self.assertIn("fen_is_dealer_private", cond)
 			self.assertIn("fen_shared_with_hilux", cond)
 
+	def test_has_permission_returns_true_not_none_for_system_manager_and_hilux_staff(self):
+		doc = frappe._dict(
+			name="FP-TEST-1",
+			owner="dealer@example.com",
+			fen_is_dealer_private=0,
+			fen_shared_with_hilux=1,
+		)
+		with patch.object(sharing.frappe, "get_roles", return_value=["System Manager"]):
+			self.assertIs(sharing.project_has_permission(doc, ptype="write", user="admin@example.com"), True)
+			self.assertIs(sharing.design_has_permission(frappe._dict(name="WD-1", owner="dealer@example.com", project="FP-TEST-1"), ptype="write", user="admin@example.com"), True)
+
+		with patch.object(sharing.frappe, "get_roles", return_value=["Fenestration Engineer"]):
+			self.assertIs(sharing.project_has_permission(doc, ptype="read", user="eng@hilux.com"), True)
+
+	def test_docshare_permission_is_ptype_aware_and_blocks_delete(self):
+		doc = frappe._dict(
+			name="FP-TEST-2",
+			owner="other@example.com",
+			fen_is_dealer_private=1,
+			fen_shared_with_hilux=0,
+		)
+		with (
+			patch.object(sharing.frappe, "get_roles", return_value=["Fenestration Dealer"]),
+			patch.object(
+				sharing.frappe.db,
+				"exists",
+				side_effect=lambda dt, flt: dt == "DocShare" and flt.get("read") == 1,
+			),
+		):
+			self.assertIs(sharing.project_has_permission(doc, ptype="read", user="dealer@example.com"), True)
+			self.assertIs(sharing.project_has_permission(doc, ptype="write", user="dealer@example.com"), False)
+			self.assertIs(sharing.project_has_permission(doc, ptype="delete", user="dealer@example.com"), False)
+
+	def test_share_project_requires_share_permission_and_hides_staff_emails(self):
+		fake_project = frappe._dict(
+			name="FP-TEST-DEALER",
+			fen_partner_type="Dealer",
+			customer=None,
+			fen_shared_with_hilux=0,
+			fen_is_dealer_private=1,
+			fen_manufacturing_status="Private Draft",
+			flags=frappe._dict(),
+			db_set=lambda *a, **kw: None,
+		)
+
+		def deny_share(dt, ptype, doc=None, throw=False):
+			if ptype == "share" and throw:
+				raise frappe.PermissionError
+			return ptype != "share"
+
+		with (
+			patch.object(sharing.frappe, "has_permission", side_effect=deny_share),
+			patch.object(sharing.frappe, "get_doc", return_value=fake_project),
+		):
+			with self.assertRaises(frappe.PermissionError):
+				sharing.share_project_with_hilux("FP-TEST-DEALER")
+
+		with (
+			patch.object(sharing.frappe, "has_permission", return_value=True),
+			patch.object(sharing.frappe, "get_doc", return_value=fake_project),
+			patch.object(sharing, "now_datetime", return_value="2026-11-27 00:00:00"),
+			patch.object(
+				sharing.frappe,
+				"get_all",
+				return_value=[frappe._dict(name="WD-1", design_ref="W01", qty=1, error_count=0)],
+			),
+			patch.object(sharing, "_grant_hilux_docshares", return_value=["eng@hilux.com"]),
+			patch.object(sharing, "_notify_hilux_team"),
+		):
+			result = sharing.share_project_with_hilux("FP-TEST-DEALER")
+			self.assertEqual(result["shared_user_count"], 1)
+			self.assertNotIn("shared_users", result)
+
+

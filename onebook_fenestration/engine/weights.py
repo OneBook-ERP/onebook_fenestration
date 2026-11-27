@@ -26,8 +26,8 @@ def weights(
 			area -= pi * (pane.cutout["diameter"] / 2) ** 2
 		return area / 1e6 * mm * pane_density
 
-	# Every member cut for a sash panel (sash profile, glass adaptor) weighs on that shutter.
-	shutter = {m.panel: 0.0 for m in members if m.role == "sash"}
+	# Every member cut for a sash panel (sash profile, door sash, glass adaptor) weighs on that shutter.
+	shutter = {m.panel: 0.0 for m in members if m.role in ("sash", "door_sash")}
 	for member in members:
 		if member.panel in shutter:
 			shutter[member.panel] += member_kg(member)

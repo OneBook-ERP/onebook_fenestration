@@ -1,7 +1,12 @@
 import re
 import unittest
 
-from onebook_fenestration.series_studio.outline import compose_section_transform, rotate_path, svg_extents, transform_path
+from onebook_fenestration.series_studio.outline import (
+	compose_section_transform,
+	rotate_path,
+	svg_extents,
+	transform_path,
+)
 
 RECT = "M 0 0 L 40 0 L 40 60 L 0 60 Z"
 

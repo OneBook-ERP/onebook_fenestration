@@ -169,7 +169,7 @@ function build_blueprint_svg(doc, state) {
 			${state.showGrid ? `<rect x="0" y="0" width="${cw}" height="${ch}" fill="url(#${gridId}-major)" />` : ""}
 
 			<g transform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)}) scale(${s.toFixed(4)})">
-				<path d="${doc.section_svg}" fill="#94a3b8" fill-opacity="0.85" stroke="#1e293b" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
+				<path d="${frappe.utils.escape_html(doc.section_svg || "")}" fill="#94a3b8" fill-opacity="0.85" stroke="#1e293b" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
 			</g>
 
 			${

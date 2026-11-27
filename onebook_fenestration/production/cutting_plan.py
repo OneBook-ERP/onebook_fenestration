@@ -134,6 +134,8 @@ def _design_members(design_name: str, default_finish: str | None) -> tuple:
 	design = frappe.db.get_value(
 		"Window Design", design_name, ("design_ref", "series_version", "design_json", "finish"), as_dict=True
 	)
+	if not design:
+		frappe.throw(_("Window Design {0} was not found.").format(design_name))
 	spec = design.design_json
 	result = compute(json.loads(spec) if isinstance(spec, str) else spec, get_snapshot(design.series_version))
 	return design.design_ref, design.finish or default_finish or "", result.members
@@ -145,7 +147,10 @@ def _check_orders(order_names: list[str], company: str) -> None:
 		if name in seen:
 			frappe.throw(_("Sales Order {0} is listed twice.").format(name))
 		seen.add(name)
-		docstatus, order_company = frappe.db.get_value("Sales Order", name, ("docstatus", "company"))
+		row = frappe.db.get_value("Sales Order", name, ("docstatus", "company"))
+		if not row:
+			frappe.throw(_("Sales Order {0} was not found.").format(name))
+		docstatus, order_company = row
 		if docstatus != 1:
 			frappe.throw(_("Sales Order {0} is not submitted.").format(name))
 		if order_company != company:
@@ -157,7 +162,7 @@ def _piece_dict(piece: Piece) -> dict:
 
 
 def _summary_row(profile: str, finish: str, stats: dict) -> dict:
-	bars = ", ".join(f"{length:g} × {count}" for length, count in sorted(stats["bars"].items()))
+	bars = ", ".join(f"{length:g} × {count}" for length, count in sorted(stats["bars"].items()))  # noqa: RUF001
 	return {"profile": profile, "finish": finish, "bars": bars, **{k: stats[k] for k in SUMMARY_FIELDS}}
 
 

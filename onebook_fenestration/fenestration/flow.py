@@ -185,8 +185,10 @@ def submit_document(doctype: str, name: str) -> dict:
 		doc.submit()
 	except (frappe.ValidationError, frappe.PermissionError, frappe.DoesNotExistError) as exc:
 		frappe.db.rollback(save_point=sp)
+		frappe.clear_messages()
 		return {"ok": False, "message": _clean_exc_message(exc)}
 
+	frappe.db.release_savepoint(sp)
 	return {
 		"ok": True,
 		"doctype": doctype,
@@ -235,8 +237,10 @@ def create_next_document(
 			doc.submit()
 	except (frappe.ValidationError, frappe.PermissionError, frappe.DoesNotExistError) as exc:
 		frappe.db.rollback(save_point=sp)
+		frappe.clear_messages()
 		return {"ok": False, "message": _clean_exc_message(exc)}
 
+	frappe.db.release_savepoint(sp)
 	return {
 		"ok": True,
 		"doctype": target_doctype,
@@ -251,6 +255,7 @@ def _create_takeoff_doc(src, target_doctype: str, supplier: str | None, submit: 
 	project = _infer_project(src)
 	if not project:
 		frappe.throw(_("{0} {1} is not linked to a Fenestration Project.").format(src.doctype, src.name))
+	frappe.has_permission("Fenestration Project", "read", project, throw=True)
 
 	if target_doctype == "Material Request":
 		res = takeoff.create_material_request_from_project(project)
@@ -261,12 +266,14 @@ def _create_takeoff_doc(src, target_doctype: str, supplier: str | None, submit: 
 
 	if not doc_name:
 		frappe.db.rollback(save_point=savepoint)
+		frappe.clear_messages()
 		return {"ok": False, "message": _("No {0} could be created for project {1}.").format(target_doctype, project)}
 
 	doc = frappe.get_doc(target_doctype, doc_name)
 	if submit:
 		doc.submit()
 
+	frappe.db.release_savepoint(savepoint)
 	return {
 		"ok": True,
 		"doctype": target_doctype,
@@ -286,12 +293,17 @@ def _map_downstream_doc(src, source_doctype: str, source_name: str, target_docty
 		_ensure_payment_reference(doc, source_name)
 		return doc
 
-	doc = mapper(source_name)
+	if source_doctype == "Material Request" and target_doctype == "Purchase Order" and supplier:
+		doc = mapper(source_name, args={"supplier": supplier})
+	else:
+		doc = mapper(source_name)
 	if target_doctype == "Sales Order":
 		_prepare_sales_order(doc, src, po_no=po_no)
 	elif target_doctype == "Purchase Order":
-		if supplier:
+		if supplier and doc.get("supplier") != supplier:
 			doc.supplier = supplier
+			doc.run_method("set_missing_values")
+			doc.run_method("calculate_taxes_and_totals")
 		if not doc.get("supplier"):
 			frappe.throw(_("Select a Supplier to create a Purchase Order."))
 
@@ -338,14 +350,19 @@ def _infer_project(doc) -> str | None:
 	if doc.get("fen_project"):
 		return doc.fen_project
 	for row in doc.get("items") or []:
-		for field in ("sales_order", "purchase_order", "purchase_receipt", "delivery_note", "material_request"):
+		for field, target_dt in (
+			("sales_order", "Sales Order"),
+			("against_sales_order", "Sales Order"),
+			("purchase_order", "Purchase Order"),
+			("purchase_receipt", "Purchase Receipt"),
+			("delivery_note", "Delivery Note"),
+			("material_request", "Material Request"),
+		):
 			ref = row.get(field)
-			if ref:
-				target_dt = field.replace("_", " ").title()
-				if frappe.db.has_column(target_dt, "fen_project"):
-					proj = frappe.db.get_value(target_dt, ref, "fen_project")
-					if proj:
-						return proj
+			if ref and frappe.db.has_column(target_dt, "fen_project"):
+				proj = frappe.db.get_value(target_dt, ref, "fen_project")
+				if proj:
+					return proj
 	for ref_row in doc.get("references") or []:
 		ref_dt = ref_row.get("reference_doctype")
 		ref_name = ref_row.get("reference_name")
@@ -357,6 +374,8 @@ def _infer_project(doc) -> str | None:
 
 
 def _get_quotation_doc(project: str) -> dict | None:
+	if not frappe.has_permission("Quotation", "read"):
+		return None
 	q_state = quote_status(project)
 	q_name = q_state.get("quotation")
 	if not q_name:
@@ -370,6 +389,8 @@ def _get_quotation_doc(project: str) -> dict | None:
 		if not rows:
 			return None
 		q_name = rows[0]["name"]
+	if not frappe.has_permission("Quotation", "read", q_name):
+		return None
 	row = frappe.db.get_value(
 		"Quotation",
 		q_name,
@@ -385,6 +406,8 @@ def _get_quotation_doc(project: str) -> dict | None:
 
 
 def _get_sales_orders(project: str) -> list[dict]:
+	if not frappe.has_permission("Sales Order", "read"):
+		return []
 	return frappe.get_list(
 		"Sales Order",
 		filters={"fen_project": project, "docstatus": ["!=", 2]},
@@ -398,6 +421,8 @@ def _get_sales_orders(project: str) -> list[dict]:
 
 
 def _get_material_requests(project: str) -> list[dict]:
+	if not frappe.has_permission("Material Request", "read"):
+		return []
 	return frappe.get_list(
 		"Material Request",
 		filters={"fen_project": project, "docstatus": ["!=", 2]},
@@ -408,6 +433,8 @@ def _get_material_requests(project: str) -> list[dict]:
 
 
 def _get_purchase_orders(project: str, mr_names: list[str]) -> list[dict]:
+	if not frappe.has_permission("Purchase Order", "read"):
+		return []
 	names = set(_get_names_by_project("Purchase Order", project))
 	if mr_names:
 		linked = frappe.get_all(
@@ -431,6 +458,8 @@ def _get_purchase_orders(project: str, mr_names: list[str]) -> list[dict]:
 
 
 def _get_purchase_receipts(project: str, po_names: list[str]) -> list[dict]:
+	if not frappe.has_permission("Purchase Receipt", "read"):
+		return []
 	names = set(_get_names_by_project("Purchase Receipt", project))
 	if po_names:
 		linked = frappe.get_all(
@@ -451,6 +480,8 @@ def _get_purchase_receipts(project: str, po_names: list[str]) -> list[dict]:
 
 
 def _get_purchase_invoices(project: str, po_names: list[str], pr_names: list[str]) -> list[dict]:
+	if not frappe.has_permission("Purchase Invoice", "read"):
+		return []
 	names = set(_get_names_by_project("Purchase Invoice", project))
 	if po_names:
 		names.update(
@@ -472,6 +503,8 @@ def _get_purchase_invoices(project: str, po_names: list[str], pr_names: list[str
 
 
 def _get_delivery_notes(project: str, so_names: list[str]) -> list[dict]:
+	if not frappe.has_permission("Delivery Note", "read"):
+		return []
 	names = set(_get_names_by_project("Delivery Note", project))
 	if so_names:
 		names.update(
@@ -489,6 +522,8 @@ def _get_delivery_notes(project: str, so_names: list[str]) -> list[dict]:
 
 
 def _get_sales_invoices(project: str, so_names: list[str], dn_names: list[str]) -> list[dict]:
+	if not frappe.has_permission("Sales Invoice", "read"):
+		return []
 	names = set(_get_names_by_project("Sales Invoice", project))
 	if so_names:
 		names.update(
@@ -510,6 +545,8 @@ def _get_sales_invoices(project: str, so_names: list[str], dn_names: list[str]) 
 
 
 def _get_payment_entries(so_names: list[str], si_names: list[str], po_names: list[str], pi_names: list[str]) -> list[dict]:
+	if not frappe.has_permission("Payment Entry", "read"):
+		return []
 	ref_pairs = [
 		("Sales Order", so_names),
 		("Sales Invoice", si_names),
@@ -544,7 +581,7 @@ def _get_payment_entries(so_names: list[str], si_names: list[str], po_names: lis
 
 
 def _get_names_by_project(doctype: str, project: str) -> list[str]:
-	if not frappe.db.has_column(doctype, "fen_project"):
+	if not frappe.db.has_column(doctype, "fen_project") or not frappe.has_permission(doctype, "read"):
 		return []
 	return frappe.get_list(
 		doctype,
@@ -555,6 +592,8 @@ def _get_names_by_project(doctype: str, project: str) -> list[str]:
 
 
 def _list_suppliers() -> list[dict]:
+	if not frappe.has_permission("Supplier", "read"):
+		return []
 	return frappe.get_list(
 		"Supplier",
 		filters={"disabled": 0},
@@ -772,7 +811,7 @@ def _build_header_actions(
 		"Delivery Note": delivery_notes,
 		"Sales Invoice": sales_invoices,
 	}
-	for _, src_dt, tgt_dt, label, pred, req_sup in _TRANSITION_PRIORITIES:
+	for _prio, src_dt, tgt_dt, label, pred, req_sup in _transition_priorities():
 		if partner_type == "Fabrication Partner" and tgt_dt in (
 			"Material Request",
 			"Purchase Order",
@@ -790,15 +829,16 @@ def _build_header_actions(
 	return None, create_options
 
 
-_TRANSITION_PRIORITIES = (
-	(0, "Purchase Receipt", "Purchase Invoice", "Create Purchase Invoice", lambda r: flt(r.get("per_billed")) < 100, False),
-	(1, "Purchase Invoice", "Payment Entry", "Create Payment Entry", lambda r: flt(r.get("outstanding_amount")) > 0, False),
-	(2, "Purchase Order", "Purchase Receipt", "Create Purchase Receipt", lambda r: flt(r.get("per_received")) < 100, False),
-	(3, "Material Request", "Purchase Order", "Create Purchase Order", lambda r: flt(r.get("per_ordered")) < 100, True),
-	(4, "Sales Invoice", "Payment Entry", "Create Payment Entry", lambda r: flt(r.get("outstanding_amount")) > 0, False),
-	(5, "Delivery Note", "Sales Invoice", "Create Sales Invoice", lambda r: flt(r.get("per_billed")) < 100, False),
-	(6, "Sales Order", "Delivery Note", "Create Delivery Note", lambda r: flt(r.get("per_delivered")) < 100, False),
-)
+def _transition_priorities():
+	return (
+		(0, "Purchase Receipt", "Purchase Invoice", "Create Purchase Invoice", lambda r: flt(r.get("per_billed")) < 100, False),
+		(1, "Purchase Invoice", "Payment Entry", "Create Payment Entry", lambda r: flt(r.get("outstanding_amount")) > 0, False),
+		(2, "Purchase Order", "Purchase Receipt", "Create Purchase Receipt", lambda r: flt(r.get("per_received")) < 100, False),
+		(3, "Material Request", "Purchase Order", "Create Purchase Order", lambda r: flt(r.get("per_ordered")) < 100, True),
+		(4, "Sales Invoice", "Payment Entry", "Create Payment Entry", lambda r: flt(r.get("outstanding_amount")) > 0, False),
+		(5, "Delivery Note", "Sales Invoice", "Create Sales Invoice", lambda r: flt(r.get("per_billed")) < 100, False),
+		(6, "Sales Order", "Delivery Note", "Create Delivery Note", lambda r: flt(r.get("per_delivered")) < 100, False),
+	)
 
 
 def _collect_create_options(

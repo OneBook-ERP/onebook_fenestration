@@ -8,8 +8,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from onebook_fenestration.engine.layout import layout
 from onebook_fenestration.engine.exhaust_cut import exhaust_cut
+from onebook_fenestration.engine.layout import layout
 
 VIEW_W = 640
 VIEW_H = 760
@@ -62,9 +62,12 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 
 	cells, bars = layout(design)
 
-	parts: list[str] = [
+	svg_open = (
 		f'<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Window {_fmt(width)} by {_fmt(height)} mm" '
-		f'viewBox="0 0 {VIEW_W} {VIEW_H}" width="{VIEW_W}" height="{VIEW_H}" font-family="Inter, sans-serif">',
+		f'viewBox="0 0 {VIEW_W} {VIEW_H}" width="{VIEW_W}" height="{VIEW_H}" font-family="Inter, sans-serif">'
+	)
+	parts: list[str] = [
+		svg_open,
 		f'<rect x="0" y="0" width="{VIEW_W}" height="{VIEW_H}" fill="#FFFFFF"/>',
 	]
 
@@ -139,8 +142,8 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 
 		cx = px(cell.x + l)
 		cy = py(cell.y + cell.h - t)
-		cw = (cell.w - l - r) * scale
-		ch = (cell.h - t - b) * scale
+		cw = max(0.0, (cell.w - l - r) * scale)
+		ch = max(0.0, (cell.h - t - b) * scale)
 
 		node_type = cell.node.get("type", "fixed")
 		steel = bool(cell.node.get("fan")) and node_type != "louver"

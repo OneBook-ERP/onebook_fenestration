@@ -24,13 +24,20 @@ def preview_dxf(file_url: str) -> dict:
 		or frappe.has_permission("Fenestration Hardware", "read")
 	):
 		frappe.has_permission("Fenestration Profile", "read", throw=True)
-	if not file_url:
+	if not file_url or not isinstance(file_url, str):
 		return {"ok": False, "message": _("No DXF file URL provided")}
+	if not file_url.lower().endswith(".dxf"):
+		return {"ok": False, "message": _("Only .dxf files can be previewed")}
 	try:
 		file_doc = frappe.get_doc("File", {"file_url": file_url})
+		file_doc.check_permission("read")
 		section = analyze_dxf(file_doc.get_full_path())
-	except (SectionError, frappe.DoesNotExistError, OSError) as exc:
-		return {"ok": False, "message": _("Could not read section from DXF: {0}").format(exc)}
+	except frappe.PermissionError:
+		raise
+	except OSError:
+		return {"ok": False, "message": _("Could not read the uploaded DXF file from storage")}
+	except (SectionError, frappe.DoesNotExistError) as exc:
+		return {"ok": False, "message": _("Could not read section from DXF: {0}").format(str(exc))}
 
 	return {
 		"ok": True,
@@ -118,12 +125,12 @@ def set_profile_orientation(
 @frappe.whitelist()
 def get_series_section_config(series: str) -> dict:
 	"""Return the normalized auto section configuration for a Profile Series along with its profiles, glasses, and gaskets."""
-	frappe.has_permission("Profile Series", "read", throw=True)
 	doc = frappe.get_doc("Profile Series", series)
+	doc.check_permission("read")
 	raw_cfg = getattr(doc, "section_config_json", None)
 	config = normalize_section_config(raw_cfg)
 
-	profiles = frappe.get_all(
+	profiles = frappe.get_list(
 		"Fenestration Profile",
 		filters={"series": doc.name},
 		fields=[
@@ -146,7 +153,7 @@ def get_series_section_config(series: str) -> dict:
 	)
 	for p in profiles:
 		p["section_anchors"] = normalize_profile_anchors(p.get("section_anchors_json"))
-	glasses = frappe.get_all(
+	glasses = frappe.get_list(
 		"Fenestration Glass",
 		fields=["name", "glass_code", "glass_name", "thickness_mm", "glazing_rules_json"],
 		order_by="thickness_mm asc, glass_code asc",
@@ -154,24 +161,26 @@ def get_series_section_config(series: str) -> dict:
 	)
 	for g in glasses:
 		g["glazing_rules"] = normalize_glass_glazing_rules(g.get("glazing_rules_json"))
-	gaskets = frappe.get_all(
-		"Item",
-		filters={"fen_item_kind": "Gasket"},
-		fields=["name", "item_name", "stock_uom"],
-		order_by="name asc",
-		limit_page_length=200,
-	)
-	if not gaskets:
-		gaskets = frappe.get_all(
+	gaskets = []
+	if frappe.has_permission("Item", "read"):
+		gaskets = frappe.get_list(
 			"Item",
-			filters={"item_name": ("like", "%gasket%")},
+			filters={"fen_item_kind": "Gasket"},
 			fields=["name", "item_name", "stock_uom"],
 			order_by="name asc",
 			limit_page_length=200,
 		)
+		if not gaskets:
+			gaskets = frappe.get_list(
+				"Item",
+				filters={"item_name": ("like", "%gasket%")},
+				fields=["name", "item_name", "stock_uom"],
+				order_by="name asc",
+				limit_page_length=200,
+			)
 	preview_series_version = doc.published_version
-	if not preview_series_version:
-		latest = frappe.get_all(
+	if not preview_series_version and frappe.has_permission("Series Version", "read"):
+		latest = frappe.get_list(
 			"Series Version",
 			filters={"series": doc.name},
 			pluck="name",
@@ -189,17 +198,17 @@ def get_series_section_config(series: str) -> dict:
 		raw_auto = frappe.db.get_single_value("Fenestration Glazing Settings", "auto_config_json")
 		global_auto = normalize_glazing_auto_config(raw_auto)
 
-	gasket_hardware = (
-		frappe.get_all(
+	gasket_hardware = []
+	if frappe.db.exists("DocType", "Fenestration Hardware") and frappe.has_permission(
+		"Fenestration Hardware", "read"
+	):
+		gasket_hardware = frappe.get_list(
 			"Fenestration Hardware",
 			filters={"category": ("in", ["Gasket", "Seal / Weatherstrip"])},
 			fields=["name", "hardware_code", "hardware_name", "category", "item", "thickness_mm"],
 			order_by="thickness_mm asc, hardware_code asc",
 			limit_page_length=200,
 		)
-		if frappe.db.exists("DocType", "Fenestration Hardware")
-		else []
-	)
 
 	return {
 		"ok": True,
@@ -278,25 +287,36 @@ def get_global_glazing_rules() -> dict:
 	series_fields = ["name", "series_code", "series_title", "system_type"]
 	if frappe.db.has_column("Profile Series", "supported_products"):
 		series_fields.append("supported_products")
-	series_rows = frappe.get_all(
-		"Profile Series",
-		fields=series_fields,
-		order_by="series_code asc",
-		limit_page_length=200,
+	series_rows = (
+		frappe.get_list(
+			"Profile Series",
+			fields=series_fields,
+			order_by="series_code asc",
+			limit_page_length=200,
+		)
+		if frappe.has_permission("Profile Series", "read")
+		else []
 	)
 	for s in series_rows:
 		s["supported_products"] = normalize_supported_products(s.get("supported_products"))
 
 	# Collect bead profiles across all series
-	bead_profiles = frappe.get_all(
-		"Fenestration Profile",
-		filters={"role": "bead"},
-		fields=["name", "profile_code", "profile_name", "series", "width_mm", "depth_mm", "section_svg"],
-		order_by="series asc, profile_code asc",
-		limit_page_length=300,
+	bead_profiles = (
+		frappe.get_list(
+			"Fenestration Profile",
+			filters={"role": "bead"},
+			fields=["name", "profile_code", "profile_name", "series", "width_mm", "depth_mm", "section_svg"],
+			order_by="series asc, profile_code asc",
+			limit_page_length=300,
+		)
+		if frappe.has_permission("Fenestration Profile", "read")
+		else []
 	)
-	hardware_rows = (
-		frappe.get_all(
+	hardware_rows = []
+	if frappe.db.exists("DocType", "Fenestration Hardware") and frappe.has_permission(
+		"Fenestration Hardware", "read"
+	):
+		hardware_rows = frappe.get_list(
 			"Fenestration Hardware",
 			fields=[
 				"name",
@@ -313,25 +333,24 @@ def get_global_glazing_rules() -> dict:
 			order_by="category asc, thickness_mm asc, hardware_code asc",
 			limit_page_length=300,
 		)
-		if frappe.db.exists("DocType", "Fenestration Hardware")
-		else []
-	)
-	gasket_items = frappe.get_all(
-		"Item",
-		filters={"fen_item_kind": "Gasket"},
-		fields=["name", "item_name", "stock_uom"],
-		order_by="name asc",
-		limit_page_length=200,
-	)
-	if not gasket_items:
-		gasket_items = frappe.get_all(
+	gasket_items = []
+	if frappe.has_permission("Item", "read"):
+		gasket_items = frappe.get_list(
 			"Item",
-			filters={"item_name": ("like", "%gasket%")},
+			filters={"fen_item_kind": "Gasket"},
 			fields=["name", "item_name", "stock_uom"],
 			order_by="name asc",
 			limit_page_length=200,
 		)
-	glasses = frappe.get_all(
+		if not gasket_items:
+			gasket_items = frappe.get_list(
+				"Item",
+				filters={"item_name": ("like", "%gasket%")},
+				fields=["name", "item_name", "stock_uom"],
+				order_by="name asc",
+				limit_page_length=200,
+			)
+	glasses = frappe.get_list(
 		"Fenestration Glass",
 		fields=["name", "glass_code", "glass_name", "thickness_mm"],
 		order_by="thickness_mm asc, glass_code asc",

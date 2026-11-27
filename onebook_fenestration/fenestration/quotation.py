@@ -64,15 +64,21 @@ class QuoteNotReady(frappe.ValidationError):
 
 
 def reprice_project(project: str) -> dict:
-	"""Re-price every design of the project from current Item Prices; one bad design does not stop the rest."""
+	"""Re-price every active design of the project from current Item Prices; one bad design does not stop the rest."""
 	frappe.has_permission("Fenestration Project", "write", project, throw=True)
-	names = frappe.get_all("Window Design", {"project": project}, pluck="name", order_by="design_ref")
+	names = frappe.get_all(
+		"Window Design",
+		{"project": project, "superseded_by": ("is", "not set")},
+		pluck="name",
+		order_by="design_ref",
+	)
 	repriced, failed = 0, []
 	for name in names:
 		try:
 			frappe.get_doc("Window Design", name).reprice()
 			repriced += 1
 		except frappe.ValidationError as exc:
+			frappe.clear_messages()
 			failed.append({"design": name, "message": str(exc)})
 	return {"repriced": repriced, "failed": failed}
 
@@ -113,8 +119,10 @@ def current_designs(project: str, fields) -> list:
 def quote_status(project: str) -> dict:
 	frappe.has_permission("Fenestration Project", "read", project, throw=True)
 	name = frappe.db.get_value("Fenestration Project", project, "quotation")
+	if not name or not frappe.has_permission("Quotation", "read", name):
+		return {"quotation": None}
 	fields = ("docstatus", "status", "grand_total", "rounded_total", "net_total", "total_taxes_and_charges")
-	values = name and frappe.db.get_value("Quotation", name, fields, as_dict=True)
+	values = frappe.db.get_value("Quotation", name, fields, as_dict=True)
 	if not values:
 		return {"quotation": None}
 	values["rounded_total"] = values.rounded_total or values.grand_total
@@ -144,7 +152,7 @@ def _staleness(project: str, quotation: str) -> dict:
 	lines = frappe.get_all(
 		"Quotation Item",
 		{"parent": quotation, "parenttype": "Quotation"},
-		["item_code", "item_name", "amount", "fen_window_design", "fen_design_hash"],
+		["item_code", "item_name", "qty", "amount", "fen_window_design", "fen_design_hash"],
 		order_by="idx",
 	)
 	partner_type = (
@@ -175,8 +183,10 @@ def _staleness(project: str, quotation: str) -> dict:
 		by_name[line.fen_window_design].design_ref
 		for line in lines
 		if line.fen_window_design in by_name
-		and line.fen_design_hash
-		and line.fen_design_hash != design_hash(by_name[line.fen_window_design])
+		and (
+			(line.fen_design_hash and line.fen_design_hash != design_hash(by_name[line.fen_window_design]))
+			or abs(flt(line.qty) - flt(by_name[line.fen_window_design].qty)) > 1e-6
+		)
 	]
 	transport = sum(flt(line.amount) for line in lines if line.item_code == TRANSPORT_ITEM)
 	project_transport = flt(frappe.db.get_value("Fenestration Project", project, "transport_charges"))
@@ -279,9 +289,11 @@ class QuotationBuilder:
 			frappe.db.get_single_value("Fenestration Settings", "cost_price_list")
 			or "Standard Selling"
 		)
+		missing_items = []
 		for row in rows:
 			item_code = row.get("item_code")
 			if not item_code or not frappe.db.exists("Item", item_code):
+				missing_items.append(row.get("label") or item_code or _("Unknown material"))
 				continue
 			rate = _material_supply_rate(item_code, price_list)
 			self.add_line(
@@ -292,6 +304,10 @@ class QuotationBuilder:
 				uom=row.get("uom") or "Nos",
 			)
 
+		if missing_items:
+			raise QuoteNotReady(
+				_("Link ERP Items for these materials before quoting: {0}").format(", ".join(dict.fromkeys(missing_items)))
+			)
 		if not self.quotation.items:
 			raise QuoteNotReady(_("No ERP Items linked to the project's profiles/materials for material quoting."))
 

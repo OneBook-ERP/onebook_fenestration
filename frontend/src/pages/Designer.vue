@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Alert, Badge, Button, Tooltip, toast, useList } from 'frappe-ui'
+import { Alert, Button, Tooltip, toast, useList } from 'frappe-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { copyDesign, getDesign, getFenestrationDefaults, saveDesign, type CutAxis, type SavedDesign } from '@/api'
@@ -760,7 +760,7 @@ const seriesVersionOptions = computed(() => {
 })
 
 const issuePaths = computed(() => (store.result?.issues ?? []).map((i) => i.path))
-const activeCellPath = computed(() => store.selectedPath.replace(/^(GLASS|GRILL):/, ''))
+const activeCellPath = computed(() => store.selectedPath.replace(/^(GLASS|GRILL|BEAD):/, ''))
 const selectedLeaf = computed(() => {
 	try {
 		if (!activeCellPath.value || activeCellPath.value === 'FRAME') return null
@@ -1065,7 +1065,7 @@ const canResetPanel = computed(() => Boolean(selectedLeaf.value))
 function resetPanel() {
 	const leaf = selectedLeaf.value
 	if (!leaf) return
-	const defaultGlass = leaf.glass || store.seriesInfo?.defaults?.glass || '6CTG'
+	const defaultGlass = leaf.glass || store.seriesInfo?.glasses?.[0] || '6CTG'
 	store.apply((d) => setLeaf(d, activeCellPath.value, { type: 'fixed', glass: defaultGlass, bead: true }))
 }
 
@@ -1153,7 +1153,7 @@ const editBtnDisabledStyle = {
 
 const buildBtnStyle = {
 	height: '36px',
-	padding: '0 12px !important',
+	padding: '0 12px',
 	border: '1px solid #d7dbe0',
 	borderRadius: '7px',
 	background: '#ffffff',
@@ -1161,8 +1161,8 @@ const buildBtnStyle = {
 	fontWeight: '500',
 	display: 'flex',
 	alignItems: 'center',
-	justifyContent: 'flex-start !important',
-	gap: '10px !important',
+	justifyContent: 'flex-start',
+	gap: '10px',
 	cursor: 'pointer',
 	color: '#14171c',
 	boxSizing: 'border-box' as const,
@@ -1171,7 +1171,7 @@ const buildBtnStyle = {
 
 const buildBtnDisabledStyle = {
 	height: '36px',
-	padding: '0 12px !important',
+	padding: '0 12px',
 	border: '1px solid #d7dbe0',
 	borderRadius: '7px',
 	background: '#ffffff',
@@ -1179,8 +1179,8 @@ const buildBtnDisabledStyle = {
 	fontWeight: '500',
 	display: 'flex',
 	alignItems: 'center',
-	justifyContent: 'flex-start !important',
-	gap: '10px !important',
+	justifyContent: 'flex-start',
+	gap: '10px',
 	cursor: 'not-allowed',
 	opacity: '0.45',
 	color: '#5b6472',
@@ -1190,7 +1190,7 @@ const buildBtnDisabledStyle = {
 
 const buildBtnActiveStyle = {
 	height: '36px',
-	padding: '0 12px !important',
+	padding: '0 12px',
 	border: '1px solid #b8d5fb',
 	borderRadius: '7px',
 	background: '#eef4ff',
@@ -1198,8 +1198,8 @@ const buildBtnActiveStyle = {
 	fontWeight: '500',
 	display: 'flex',
 	alignItems: 'center',
-	justifyContent: 'flex-start !important',
-	gap: '10px !important',
+	justifyContent: 'flex-start',
+	gap: '10px',
 	cursor: 'pointer',
 	color: '#1b5fb8',
 	boxSizing: 'border-box' as const,
@@ -1311,10 +1311,12 @@ function onSectionOpenProfilePicker(piece: { role?: string; panel?: string }) {
 			? 'mullion'
 			: piece.role === 'transom'
 				? 'transom'
-				: piece.role === 'sash'
+				: piece.role === 'sash' || piece.role === 'door_sash'
 					? 'sash'
-					: 'frame'
-	const key = piece.role === 'frame' ? 'frame' : piece.panel || 'frame'
+					: piece.role === 'bead'
+						? 'bead'
+						: 'frame'
+	const key = piece.role === 'frame' ? 'frame' : piece.panel || role
 	propertiesPanel.value?.openProfilePicker(role, key)
 }
 </script>

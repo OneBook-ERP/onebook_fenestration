@@ -49,7 +49,6 @@ def setup_procurement(company: str | None = None) -> None:
 	ensure_profile_uoms_and_lead_times()
 	ensure_hardware_uom_alignment()
 	ensure_default_suppliers(company)
-	ensure_company_address(company)
 	ensure_glass_and_profile_prices()
 
 
@@ -113,10 +112,11 @@ def ensure_warehouses(company: str | None = None) -> list[str]:
 
 	all_wh = _ensure_all_warehouses(company)
 	main_group = _ensure_group_warehouse(MAIN_GROUP_WAREHOUSE, all_wh, company)
+	child_parent = main_group if frappe.db.get_value("Warehouse", main_group, "is_group") else all_wh
 	created_or_existing = [main_group]
 
 	for wh_name in MAIN_CHILD_WAREHOUSES:
-		created_or_existing.append(_ensure_leaf_warehouse(wh_name, main_group, company))
+		created_or_existing.append(_ensure_leaf_warehouse(wh_name, child_parent, company))
 
 	for wh_name in LEAF_WAREHOUSES:
 		created_or_existing.append(_ensure_leaf_warehouse(wh_name, all_wh, company))
@@ -295,9 +295,16 @@ def ensure_hardware_uom_alignment() -> None:
 def ensure_default_suppliers(company: str | None = None) -> None:
 	"""Create default Aluminium, Glass, and Hardware suppliers and set Item Default.default_supplier when unset."""
 	company = _resolve_company(company)
+	fallback_group = (
+		"All Supplier Groups"
+		if frappe.db.exists("Supplier Group", "All Supplier Groups")
+		else frappe.db.get_value("Supplier Group", {}, "name")
+	)
 	for sup_name, group, payment_terms in DEFAULT_SUPPLIERS:
 		if not frappe.db.exists("Supplier", sup_name):
-			target_group = group if frappe.db.exists("Supplier Group", group) else "All Supplier Groups"
+			target_group = group if frappe.db.exists("Supplier Group", group) else fallback_group
+			if not target_group:
+				continue
 			doc_dict = {
 				"doctype": "Supplier",
 				"supplier_name": sup_name,
@@ -307,7 +314,7 @@ def ensure_default_suppliers(company: str | None = None) -> None:
 				doc_dict["payment_terms"] = payment_terms
 			frappe.get_doc(doc_dict).insert(ignore_permissions=True)
 
-	if not company:
+	if not company or not frappe.db.has_column("Item", "fen_item_kind"):
 		return
 
 	kind_to_supplier = {
@@ -374,19 +381,28 @@ def ensure_glass_and_profile_prices() -> None:
 		else None
 	) or "Standard Buying"
 
-	price_lists = list(dict.fromkeys(((cost_list, 1), ("Standard Buying", 1), ("Standard Selling", 0))))
+	price_list_names = list(dict.fromkeys((cost_list, "Standard Buying", "Standard Selling")))
+	price_lists: list[tuple[str, int]] = []
+	for plist in price_list_names:
+		if not frappe.db.exists("Price List", plist):
+			continue
+		pl_flags = frappe.db.get_value("Price List", plist, ["buying", "selling"], as_dict=True) or {}
+		is_buying = 1 if (pl_flags.get("buying") and not pl_flags.get("selling")) or plist == "Standard Buying" else 0
+		price_lists.append((plist, is_buying))
 	profile_items = list(
 		dict.fromkeys(frappe.get_all("Fenestration Profile", filters={"item": ("is", "set")}, pluck="item"))
 	)
-	hw_items = frappe.get_all(
-		"Item",
-		filters={"fen_item_kind": ("in", ("Hardware", "Gasket")), "disabled": 0},
-		pluck="name",
+	hw_items = (
+		frappe.get_all(
+			"Item",
+			filters={"fen_item_kind": ("in", ("Hardware", "Gasket")), "disabled": 0},
+			pluck="name",
+		)
+		if frappe.db.has_column("Item", "fen_item_kind")
+		else []
 	)
 
 	for plist, is_buying in price_lists:
-		if not frappe.db.exists("Price List", plist):
-			continue
 		default_glass_rate = 850.0 if is_buying else 1050.0
 		for glass in frappe.get_all("Fenestration Glass", filters={"item": ("is", "set")}, fields=["item", "thickness_mm"]):
 			rate = default_glass_rate if flt(glass.thickness_mm) <= 6 else round(default_glass_rate * 1.4, 2)
@@ -405,7 +421,8 @@ def ensure_glass_and_profile_prices() -> None:
 		try:
 			frappe.get_doc("Window Design", d_name).reprice()
 		except Exception:
-			pass
+			frappe.clear_messages()
+			frappe.log_error(title=f"Procurement setup reprice skipped for {d_name}", message=frappe.get_traceback())
 
 
 def _ensure_item_price(item_code: str, price_list: str, rate: float) -> None:

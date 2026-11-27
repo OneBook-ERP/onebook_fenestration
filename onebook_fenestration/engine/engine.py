@@ -5,7 +5,7 @@ from onebook_fenestration.engine.glazing_members import frame_context, glass_mem
 from onebook_fenestration.engine.hardware import hardware_bom
 from onebook_fenestration.engine.layout import layout
 from onebook_fenestration.engine.members import cut_members, sash_nodes
-from onebook_fenestration.engine.types import EngineResult, SeriesSnapshot, Issue
+from onebook_fenestration.engine.types import EngineResult, Issue, SeriesSnapshot
 from onebook_fenestration.engine.validate import validate
 from onebook_fenestration.engine.weights import weights
 
@@ -28,7 +28,7 @@ def compute(design: dict, snapshot: SeriesSnapshot) -> EngineResult:
 		**frame_context(design, snapshot, members),
 	}
 	hardware, hardware_issues = hardware_bom(members, panes, sash_sizes, shutter_kg, window_vars, snapshot, sash_nodes(cells), design=design)
-	sash_paths = {m.panel: m.path for m in members if m.role == "sash"}
+	sash_paths = {m.panel: m.path for m in members if m.role in ("sash", "door_sash")}
 	issues = member_issues + glass_issues + glazing_issues + hardware_issues
 	issues += _series_product_warnings(design, cells, snapshot)
 	issues += [Issue("warn", "grill_visual_only", "Grill: weight, fabrication quantities and cost are not included", path=c.path) for c in cells if c.node.get("grill") is not None]

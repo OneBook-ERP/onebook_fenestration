@@ -26,7 +26,14 @@ from onebook_fenestration.engine.section_config import (
 	resolve_template_glass_domain,
 	resolve_template_placement,
 )
-from onebook_fenestration.engine.types import CutMember, DesignError, EngineResult, GlassPane, Issue, SeriesSnapshot
+from onebook_fenestration.engine.types import (
+	CutMember,
+	DesignError,
+	EngineResult,
+	GlassPane,
+	Issue,
+	SeriesSnapshot,
+)
 
 # axis -> (along coordinate, along size, low side, high side, bar kind crossed, perpendicular coordinate, size)
 AXES = {"h": ("x", "w", "L", "R", "mullion", "y", "h"), "v": ("y", "h", "B", "T", "transom", "x", "w")}
@@ -101,13 +108,18 @@ class _Cut:
 		self.role_profiles: dict[str, str] = {}
 		self.cell_sash_profiles: dict[str, str] = {}
 		for m in result.members:
-			self.members.setdefault((m.role, m.path, m.position), []).append(m)
-			if m.role == "sash":
+			canonical_role = (
+				"sash"
+				if m.role == "door_sash"
+				else ("frame" if m.role in ("threshold", "door_bottom_adaptor") else m.role)
+			)
+			self.members.setdefault((canonical_role, m.path, m.position), []).append(m)
+			if canonical_role == "sash":
 				self.has_sash = True
 				if m.path and m.profile:
 					self.cell_sash_profiles.setdefault(m.path, m.profile)
-			if m.profile and m.role in ("frame", "sash", "mullion", "transom"):
-				self.role_profiles.setdefault(m.role, m.profile)
+			if m.profile and canonical_role in ("frame", "sash", "mullion", "transom"):
+				self.role_profiles.setdefault(canonical_role, m.profile)
 		self.has_door_sash = self._design_has_door_sash(design.get("root") if isinstance(design, dict) else None)
 		self.pieces: list[SectionPiece] = []
 		self.dims: list[Dim] = []
@@ -156,7 +168,7 @@ class _Cut:
 			lo, hi = self._perp_span(cells[0])
 			at = (lo + hi) / 2
 		edges = sorted({edge for cell in cells for edge in self._perp_span(cell)})
-		bands = list(zip(edges, edges[1:]))
+		bands = [(edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
 		lo, hi = min(bands, key=lambda band: -1 if band[0] <= at < band[1] else min(abs(at - band[0]), abs(at - band[1])))
 		return (lo + hi) / 2
 
@@ -295,16 +307,33 @@ class _Cut:
 				or profiles.get(f"{cell.path}:bead")
 				or profiles.get("bead")
 				or (self.design.get("beadProfileId") if isinstance(self.design, dict) else None)
-				or (getattr(self.snapshot, "role_defaults", {}).get("bead"))
 			)
-			if bead_code:
-				members = [CutMember(cell.path, "bead", side, bead_code, 0.0, (90.0, 90.0), cell.path)]
+			if bead_code and not self._is_no_bead_pane(cell):
+				members = [CutMember(FRAME_PANEL, "bead", side, bead_code, 0.0, (90.0, 90.0), cell.path)]
 		for member in members:
 			width = self._width(member)
 			if side == self.low:
 				self._add_profile(member, member.panel, edge, edge + width, False, cell=cell)
 			else:
 				self._add_profile(member, member.panel, edge - width, edge, True, cell=cell)
+
+	def _is_no_bead_pane(self, cell: Cell) -> bool:
+		pane = self.panes.get(cell.path)
+		if pane is None:
+			return False
+		spec = self.snapshot.glasses.get(pane.glass)
+		thickness = pane.thickness or (spec.thickness_mm if spec else 0.0)
+		in_sash = pane.panel != FRAME_PANEL
+		opening_type, application = detect_design_context(self.design, cell.node, is_sash_pane=in_sash)
+		gaskets = resolve_pane_glazing_gaskets(
+			self.snapshot,
+			thickness,
+			"sash" if in_sash else "frame",
+			opening_type,
+			application,
+			pane.glass,
+		)
+		return bool(gaskets and gaskets.get("no_bead"))
 
 	def _config_placement(
 		self,
@@ -396,11 +425,11 @@ class _Cut:
 
 	def _fallback_width(self, role: str) -> float:
 		d, c = self.snapshot.deductions, self.snapshot.constants
-		if role == "frame":
+		if role in ("frame", "threshold", "door_bottom_adaptor"):
 			return d["bar_end_frame"]
 		if role in ("mullion", "transom"):
 			return 2 * d[f"bar_end_{role}"]
-		if role == "sash":
+		if role in ("sash", "door_sash"):
 			return d["sash_glass"]
 		return c.get("bead_depth") or c.get("glass_clearance", 0)
 

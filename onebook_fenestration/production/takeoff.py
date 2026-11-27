@@ -20,6 +20,7 @@ VALID_CATEGORIES = ("all", "Profile", "Glass", "Hardware")
 
 def project_material_tree(project_name: str) -> dict:
 	"""Return the categorized BOM tree per Window Design plus a consolidated project procurement summary."""
+	frappe.has_permission("Fenestration Project", "read", project_name, throw=True)
 	project = frappe.get_doc("Fenestration Project", project_name)
 	company = project.company or default_company() or frappe.db.get_value("Company", {}, "name")
 	designs = frappe.get_all(
@@ -315,13 +316,19 @@ def _collect_window_profiles(design, design_qty: int, result, snapshot, meta: "_
 		cut_mm = round(flt(member.length), 1)
 		cut_kg = cut_mm / 1000.0 * kg_per_m
 
+		item_info = meta.item(p_info["item_code"]) if p_info["item_code"] else None
+		uom = (
+			item_info["stock_uom"]
+			if item_info and item_info["exists"] and "Kg" not in item_info["valid_uoms"] and item_info["stock_uom"]
+			else "Kg"
+		)
 		grp = by_profile.setdefault(
 			code,
 			{
 				"profile_code": code,
 				"item_code": p_info["item_code"],
 				"item_name": p_info["item_name"] or p_info["profile_name"] or code,
-				"uom": "Kg",
+				"uom": uom,
 				"kg": 0.0,
 				"total_mm": 0.0,
 				"pieces": 0,
@@ -381,13 +388,19 @@ def _collect_window_glass(design, design_qty: int, result, meta: "_MasterLookup"
 		h = round(flt(pane.height), 1)
 		area = w * h / 1e6
 
+		item_info = meta.item(g_info["item_code"]) if g_info["item_code"] else None
+		uom = (
+			item_info["stock_uom"]
+			if item_info and item_info["exists"] and "Square Meter" not in item_info["valid_uoms"] and item_info["stock_uom"]
+			else "Square Meter"
+		)
 		grp = by_glass.setdefault(
 			code,
 			{
 				"glass_code": code,
 				"item_code": g_info["item_code"],
 				"item_name": g_info["item_name"] or g_info["glass_name"] or code,
-				"uom": "Square Meter",
+				"uom": uom,
 				"area_m2": 0.0,
 				"pieces": 0,
 				"default_supplier": g_info["default_supplier"],
@@ -536,13 +549,14 @@ def _accumulate_summary(
 
 
 def _company_warehouses(company: str | None) -> list[dict]:
-	if not company:
+	if not company or not frappe.has_permission("Warehouse", "read"):
 		return []
-	return frappe.get_all(
+	return frappe.get_list(
 		"Warehouse",
 		filters={"company": company, "is_group": 0, "disabled": 0},
 		fields=["name", "warehouse_name"],
 		order_by="warehouse_name asc",
+		limit_page_length=200,
 	)
 
 
@@ -611,7 +625,7 @@ class _MasterLookup:
 					pluck="uom",
 				)
 				valid_uoms.update(u for u in conv_uoms if u)
-			if row and self.company:
+			if row and self.company and frappe.has_permission("Supplier", "read"):
 				supplier = frappe.db.get_value(
 					"Item Default",
 					{"parent": item_code, "parenttype": "Item", "company": self.company},

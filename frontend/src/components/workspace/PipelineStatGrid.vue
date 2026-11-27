@@ -21,12 +21,7 @@
 </template>
 
 <script setup lang="ts">
-export interface StatCardItem {
-	label: string
-	value: string | number
-	sublabel: string
-	icon: string
-}
+import type { StatCardItem } from './pipelineConfig'
 
 defineProps<{ cards: StatCardItem[] }>()
 </script>

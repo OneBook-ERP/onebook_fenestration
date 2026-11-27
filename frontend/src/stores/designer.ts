@@ -8,7 +8,6 @@ import type {
 	SashNode,
 	SectionPieceTransform,
 	SectionViewportState,
-	SelectionKind,
 	SelectionState,
 } from '@/design/types'
 
@@ -140,12 +139,13 @@ export const useDesignerStore = defineStore('designer', {
 		/** After undo/redo the selected node may be gone: select its nearest existing ancestor. */
 		keepSelection() {
 			let path = this.selectedPath
-            if(path.startsWith('GRILL:')) {
-             const cell=path.slice(6)
-             this.selectedPath=hasNode(this.design,cell) ? path : 'F1'
-             return
-            }
 			if (!path) return
+			const prefixMatch = path.match(/^(GRILL|GLASS|BEAD):(.*)$/)
+			if (prefixMatch) {
+				const [, prefix, cell] = prefixMatch
+				this.selectedPath = hasNode(this.design, cell) ? `${prefix}:${cell}` : 'F1'
+				return
+			}
 			if (/^[MT]\d+$/.test(path)) {
 				const exists = layoutGeom(this.design).bars.some((b) => b.id === path)
 				if (!exists) this.selectedPath = 'F1'

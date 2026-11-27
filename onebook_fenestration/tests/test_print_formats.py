@@ -4,11 +4,11 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils.pdf import get_pdf
 
+from onebook_fenestration.fenestration import print_context
 from onebook_fenestration.fenestration.quotation import make_quotation
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests import test_quotation
 from onebook_fenestration.tests.test_snapshot import load
-from onebook_fenestration.fenestration import print_context
 from onebook_fenestration.utils.jinja import fen_svg_data_uri
 
 QUOTATION_FORMAT = "Fenestration Quotation"

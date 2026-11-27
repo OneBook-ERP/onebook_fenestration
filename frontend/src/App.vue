@@ -4,7 +4,7 @@
       <Alert theme="red" title="Could not load your session. Reload the page." />
       <Button label="Reload" class="min-h-9 self-start" @click="reload" />
     </div>
-    <RouterView v-else-if="$route.meta.fullscreen" />
+    <RouterView v-else-if="session && $route.meta.fullscreen" />
     <AppShell v-else-if="session" :user="session.user" :roles="session.roles">
       <RouterView :key="$route.path" />
     </AppShell>

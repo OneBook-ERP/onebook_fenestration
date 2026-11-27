@@ -16,6 +16,7 @@ Each preset configures:
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 OPENING_TYPES = ("fixed", "openable", "sliding")
@@ -103,15 +104,18 @@ def template_keys_for_products(products: list[str] | tuple[str, ...] | None) -> 
 def _num(value: Any, default: float = 0.0) -> float:
 	try:
 		v = float(value)
-		return v if v == v else default
+		return v if math.isfinite(v) else default
 	except (TypeError, ValueError):
 		return default
 
 
 def _int_rot(value: Any) -> int:
 	try:
-		r = (((int(float(value))) % 360) + 360) % 360
-	except (TypeError, ValueError):
+		v = float(value)
+		if not math.isfinite(v):
+			return 0
+		r = (((int(v)) % 360) + 360) % 360
+	except (TypeError, ValueError, OverflowError):
 		return 0
 	return r if r in VALID_ROTATIONS else 0
 
@@ -1022,23 +1026,23 @@ def _lookup_axis_role_transform(axis_data: dict, role: str, code: str, adjacent:
 	adj = "mullion" if adjacent in ("mullion", "transom") else ("frame" if adjacent == "frame" else "")
 
 	if role in ("bead", "glass_adaptor"):
-		if code and adj and isinstance(beads.get(f"{code}:{adj}"), dict):
+		if code and adj != "" and isinstance(beads.get(f"{code}:{adj}"), dict):
 			return beads[f"{code}:{adj}"]
 		if code and isinstance(beads.get(code), dict):
 			return beads[code]
-		if adj and isinstance(roles.get(f"{role}_{adj}"), dict):
+		if adj != "" and isinstance(roles.get(f"{role}_{adj}"), dict):
 			return roles[f"{role}_{adj}"]
 		if isinstance(roles.get(role), dict):
 			return roles[role]
 		if role == "glass_adaptor":
-			if adj and isinstance(roles.get(f"bead_{adj}"), dict):
+			if adj != "" and isinstance(roles.get(f"bead_{adj}"), dict):
 				return roles[f"bead_{adj}"]
 			if isinstance(roles.get("bead"), dict):
 				return roles["bead"]
 		return None
 
 	if role == "sash":
-		if adj and isinstance(roles.get(f"sash_{adj}"), dict):
+		if adj != "" and isinstance(roles.get(f"sash_{adj}"), dict):
 			return roles[f"sash_{adj}"]
 		return roles.get("sash") if isinstance(roles.get("sash"), dict) else None
 
@@ -1190,8 +1194,6 @@ def resolve_pane_glazing_gaskets(
 		glasses = getattr(snapshot, "glasses", {}) or {}
 		gspec = glasses.get(glass_code)
 		if gspec is not None:
-			from onebook_fenestration.engine.section_config import match_glass_glazing_rule
-
 			rule = match_glass_glazing_rule(getattr(gspec, "glazing_rules", None), getattr(snapshot, "code", ""), host)
 	if not rule and getattr(snapshot, "section_config", None):
 		rule = match_bead_gasket_rule(snapshot.section_config, opening_type, application, glass_t, host)

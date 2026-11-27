@@ -4,7 +4,14 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate
 
-from onebook_fenestration.engine import EngineResult, PriceBreakdown, PricingInput, SeriesSnapshot, compute, price
+from onebook_fenestration.engine import (
+	EngineResult,
+	PriceBreakdown,
+	PricingInput,
+	SeriesSnapshot,
+	compute,
+	price,
+)
 from onebook_fenestration.pricing.doctype.price_structure.price_structure import to_cost_heads
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 

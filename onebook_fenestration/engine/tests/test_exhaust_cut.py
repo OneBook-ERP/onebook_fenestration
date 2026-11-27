@@ -1,4 +1,5 @@
 import unittest
+
 from onebook_fenestration.engine import compute, cross_section
 from onebook_fenestration.engine.exhaust_cut import exhaust_cut
 from onebook_fenestration.engine.tests.helpers import snapshot
@@ -49,6 +50,7 @@ class TestExhaustCut(unittest.TestCase):
 
 	def test_steel_weight_uses_sheet_thickness_and_deducts_hole(self):
 		from math import pi
+
 		from onebook_fenestration.engine.weights import weights
 		design = self.design()
 		design["root"]["steelThickness"] = 2

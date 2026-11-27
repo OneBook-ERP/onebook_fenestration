@@ -56,7 +56,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
 import { createCutGlassGeometry, createGlassMaterialPair, createSteelMaterialPair } from './glass3D'
 import { createArchitecturalHandle, measureClosingStilePlacement } from './handle3D'
 import { pickWindowHit } from './grillPicking'
@@ -144,6 +144,11 @@ let selectedFrameMat: THREE.Material | null = null
 let glassMat: THREE.Material | null = null
 let selectedGlassMat: THREE.Material | null = null
 let gasketMat: THREE.Material | null = null
+let hardwareMat: THREE.Material | null = null
+let envRenderTarget: THREE.WebGLRenderTarget | null = null
+let roomEnv: RoomEnvironment | null = null
+let dirLight1: THREE.DirectionalLight | null = null
+let isUnmounted = false
 const sashPivots: {
 	pivot: THREE.Group
 	hinge: string
@@ -224,7 +229,7 @@ function beginModelLoad(force = false, minMs = MIN_LOADER_MS) {
 
 function finishModelLoad() {
 	clearTimeout(revealTimer)
-	if (sceneReady.value) return
+	if (isUnmounted || sceneReady.value) return
 	if (!webGLSupported.value) {
 		sceneReady.value = true
 		return
@@ -233,9 +238,10 @@ function finishModelLoad() {
 	const elapsed = loadStartTs > 0 ? now - loadStartTs : loadMinMs
 	const wait = Math.max(0, loadMinMs - elapsed)
 	const reveal = () => {
+		if (isUnmounted) return
 		if (typeof requestAnimationFrame === 'function') {
 			requestAnimationFrame(() => {
-				sceneReady.value = true
+				if (!isUnmounted) sceneReady.value = true
 			})
 		} else {
 			sceneReady.value = true
@@ -277,7 +283,7 @@ async function loadOutlines(showLoader = false) {
 			crossSection(props.design, store.seriesVersion, 'v', cell.x + cell.w / 2),
 		])
 		const [complete, responses] = await Promise.all([windowAssembly(props.design, store.seriesVersion), Promise.all(requests)])
-		if (mine !== outlineRequest) return
+		if (isUnmounted || mine !== outlineRequest) return
 		const outlines: Record<string, SectionOutline> = {}
 		const cuts: CrossSection[] = []
 		for (const res of responses) {
@@ -976,7 +982,7 @@ function rebuild3DWindow() {
 		disposeWindowObject(obj)
 		scene.remove(obj)
 	}
-	for (const material of [frameMat, selectedFrameMat, glassMat, selectedGlassMat, gasketMat]) material?.dispose()
+	for (const material of [frameMat, selectedFrameMat, glassMat, selectedGlassMat, gasketMat, hardwareMat]) material?.dispose()
 	interactiveMeshes.length = 0
 	sashPivots.length = 0
 
@@ -1020,7 +1026,8 @@ function rebuild3DWindow() {
 	glassMat = mats.glass
 	selectedGlassMat = mats.selectedGlass
 	gasketMat = mats.gasket
-	const hardwareMat = mats.hardware
+	const currentHardwareMat = mats.hardware
+	hardwareMat = currentHardwareMat
 
 	// 1. Resolve Frame Profile & Build Outer Frame Ring
 	const frameCode =
@@ -1312,7 +1319,7 @@ function rebuild3DWindow() {
 						}
 				const handleStyle: 'casement' | 'door' | 'sliding' = isSlidingSash ? 'sliding' : isDoorSash ? 'door' : 'casement'
 				const leverSign = closingSide === 'R' ? -1 : 1
-				const handleMesh = createArchitecturalHandle(handleStyle, leverSign, hardwareMat)
+				const handleMesh = createArchitecturalHandle(handleStyle, leverSign, currentHardwareMat)
 				let handleX = closingSide === 'L' || closingSide === 'R' ? placed.center : sashW / 2
 				let handleY = sashH / 2
 				let extHandleX = closingSide === 'L' || closingSide === 'R' ? placed.exteriorCenter : sashW / 2
@@ -1335,7 +1342,7 @@ function rebuild3DWindow() {
 
 				if (isDoorSash && !isSlidingSash) {
 					// Flip leverSign because rotation.y = Math.PI negates local X, keeping exterior lever over the glass
-					const extHandle = createArchitecturalHandle('door', -leverSign, hardwareMat)
+					const extHandle = createArchitecturalHandle('door', -leverSign, currentHardwareMat)
 					extHandle.rotation.y = Math.PI
 					extHandle.position.set(extHandleX, extHandleY, placed.exteriorZ)
 					sashGroup.add(extHandle)
@@ -1934,14 +1941,16 @@ function initThree() {
 
 	// Studio Lighting Setup
 	const pmrem = new THREE.PMREMGenerator(renderer)
-	scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+	roomEnv = new RoomEnvironment()
+	envRenderTarget = pmrem.fromScene(roomEnv, 0.04)
+	scene.environment = envRenderTarget.texture
 	;(scene as unknown as { environmentIntensity?: number }).environmentIntensity = 0.85
 	pmrem.dispose()
 
 	const ambientLight = new THREE.AmbientLight(0xffffff, 0.15)
 	scene.add(ambientLight)
 
-	const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.6)
+	dirLight1 = new THREE.DirectionalLight(0xffffff, 1.6)
 	dirLight1.position.set(1200, 2000, 2400)
 	dirLight1.castShadow = true
 	dirLight1.shadow.mapSize.width = 2048
@@ -2031,19 +2040,41 @@ onMounted(() => {
 	loadOutlines(true)
 })
 
+onBeforeUnmount(() => {
+	isUnmounted = true
+	outlineRequest++
+	stageEl.value?.removeEventListener('pointerdown', onPointerDown)
+})
+
 onUnmounted(() => {
+	isUnmounted = true
+	outlineRequest++
 	clearTimeout(rebuildTimer)
 	clearTimeout(outlineTimer)
 	clearTimeout(revealTimer)
 	if (animFrameId !== null) cancelAnimationFrame(animFrameId)
-	if (stageEl.value) stageEl.value.removeEventListener('pointerdown', onPointerDown)
+	stageEl.value?.removeEventListener('pointerdown', onPointerDown)
 	resizeObserver?.disconnect()
 
 	const root = scene?.getObjectByName('window-root')
 	if (root) disposeWindowObject(root)
-	for (const material of [frameMat, selectedFrameMat, glassMat, selectedGlassMat, gasketMat]) material?.dispose()
+	for (const material of [frameMat, selectedFrameMat, glassMat, selectedGlassMat, gasketMat, hardwareMat]) {
+		material?.dispose()
+	}
+	frameMat = selectedFrameMat = glassMat = selectedGlassMat = gasketMat = hardwareMat = null
+	if (scene) scene.environment = null
+	envRenderTarget?.dispose()
+	envRenderTarget = null
+	roomEnv?.dispose()
+	roomEnv = null
+	dirLight1?.shadow.map?.dispose()
+	dirLight1 = null
 	controls?.dispose()
+	controls = null
 	renderer?.dispose()
+	renderer = null
+	scene = null
+	camera = null
 	disposeV2Textures()
 
 	for (const geom of geometryCache.values()) {

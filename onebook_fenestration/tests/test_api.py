@@ -4,7 +4,12 @@ import unittest.mock
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from onebook_fenestration.api.design import compute_design, cross_section, get_fenestration_defaults, profile_catalog
+from onebook_fenestration.api.design import (
+	compute_design,
+	cross_section,
+	get_fenestration_defaults,
+	profile_catalog,
+)
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -38,8 +43,8 @@ class TestComputeDesignApi(IntegrationTestCase):
 		self.assertEqual(series["defaults"], {"limiter": False, "mesh": False})
 
 	def test_api_series_defaults_follow_constants(self):
-		from onebook_fenestration.series_studio.snapshot import get_snapshot
 		from onebook_fenestration.api.design import series_info
+		from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 		snap = get_snapshot(self.version)
 		snap.constants.update({"default_limiter": 1, "default_mesh": 0})
@@ -161,8 +166,20 @@ class TestCrossSectionApi(IntegrationTestCase):
 		self.assertEqual((result["axis"], result["at"], result["length"]), ("h", 610, 915))
 		frame = result["pieces"][0]
 		self.assertEqual(
-			frame,
-			{"kind": "profile", "code": "TSTCUT-F", "role": "frame", "panel": "F1", "start": 0, "end": 50, "mirrored": False, "thickness": 0},
+			{
+				k: frame[k]
+				for k in ("kind", "code", "role", "panel", "start", "end", "mirrored", "thickness")
+			},
+			{
+				"kind": "profile",
+				"code": "TSTCUT-F",
+				"role": "frame",
+				"panel": "F1",
+				"start": 0,
+				"end": 50,
+				"mirrored": False,
+				"thickness": 0,
+			},
 		)
 		self.assertEqual(out["outlines"], {"TSTCUT-F": {"svg": "M 0 0 L 50 0 L 50 70 Z", "width": 50, "depth": 70}})
 		missing = sorted(i["message"].split()[1] for i in result["issues"] if i["code"] == "no_section_width")

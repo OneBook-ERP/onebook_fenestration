@@ -508,10 +508,10 @@ const partnerBadgeLabel = computed(() => {
 	return 'Dealer · Turnkey Manufacturing'
 })
 const isSharedWithHilux = computed(() =>
-	Boolean(flowState.value?.shared_with_hilux || info.value?.fen_shared_with_hilux),
+	Boolean(flowState.value?.shared_with_hilux ?? info.value?.fen_shared_with_hilux),
 )
 const isDesignLocked = computed(() =>
-	Boolean(flowState.value?.design_locked || info.value?.fen_design_locked),
+	Boolean(flowState.value?.design_locked ?? info.value?.fen_design_locked),
 )
 const manufacturingStatus = computed(
 	() => flowState.value?.manufacturing_status || info.value?.fen_manufacturing_status || 'Private Draft',
@@ -553,8 +553,7 @@ async function handleUnlockDesigns() {
 	try {
 		await unlockProjectDesigns(props.project)
 		toast.success('Project designs unlocked for revision')
-		projectList.reload()
-		await loadFlow()
+		await Promise.all([projectList.reload(), loadFlow()])
 	} catch (e) {
 		toast.error(e instanceof Error ? e.message : 'Could not unlock designs')
 	} finally {

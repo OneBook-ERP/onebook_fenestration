@@ -97,6 +97,9 @@ def make_sales_order_from_project(project: str) -> dict:
 		return {"ok": False, "message": _("Create a Quotation for this project first.")}
 
 	docstatus = frappe.db.get_value("Quotation", quotation_name, "docstatus")
+	if docstatus is None:
+		return {"ok": False, "message": _("Quotation {0} no longer exists. Create a new Quotation first.").format(quotation_name)}
+	frappe.has_permission("Quotation", "read", quotation_name, throw=True)
 	if docstatus == 0:
 		return {
 			"ok": False,
@@ -111,6 +114,10 @@ def make_sales_order_from_project(project: str) -> dict:
 
 	so = make_sales_order(quotation_name)
 	so.fen_project = project
+	if so.meta.has_field("fen_partner_type") and not so.get("fen_partner_type"):
+		partner_type = frappe.db.get_value("Fenestration Project", project, "fen_partner_type")
+		if partner_type:
+			so.fen_partner_type = partner_type
 	if not so.delivery_date:
 		so.delivery_date = add_days(nowdate(), 14)
 	so.insert()
@@ -148,11 +155,13 @@ def _permitted_projects(project: str | None = None) -> list[dict]:
 
 
 def _quotes_pipeline(project_map: dict[str, dict]) -> dict:
+	if not frappe.has_permission("Quotation", "read"):
+		return {"stats": {"total": 0, "draft": 0, "submitted": 0, "ordered": 0, "total_value": 0.0}, "items": []}
 	names = list(project_map.keys())
 	design_stats = _aggregate_design_stats(names)
 	rows = frappe.get_list(
 		"Quotation",
-		filters={"fen_project": ["in", names]},
+		filters={"fen_project": ["in", names], "docstatus": ["!=", 2]},
 		fields=[
 			"name",
 			"fen_project",
@@ -249,10 +258,10 @@ def _production_pipeline(project_map: dict[str, dict]) -> dict:
 	mr_count = 0
 	po_count = 0
 
-	if so_names:
+	if so_names and frappe.has_permission("Work Order", "read"):
 		wos = frappe.get_list(
 			"Work Order",
-			filters={"sales_order": ["in", so_names]},
+			filters={"sales_order": ["in", so_names], "docstatus": ["!=", 2]},
 			fields=["name", "production_item", "item_name", "sales_order", "qty", "produced_qty", "status", "docstatus", "planned_start_date", "modified"],
 			order_by="modified desc",
 			limit_page_length=200,
@@ -281,12 +290,16 @@ def _production_pipeline(project_map: dict[str, dict]) -> dict:
 				}
 			)
 
-	mrs = frappe.get_list(
-		"Material Request",
-		filters={"fen_project": ["in", names]},
-		fields=["name", "fen_project", "material_request_type", "set_warehouse", "status", "docstatus", "per_ordered", "transaction_date", "modified"],
-		order_by="modified desc",
-		limit_page_length=200,
+	mrs = (
+		frappe.get_list(
+			"Material Request",
+			filters={"fen_project": ["in", names], "docstatus": ["!=", 2]},
+			fields=["name", "fen_project", "material_request_type", "set_warehouse", "status", "docstatus", "per_ordered", "transaction_date", "modified"],
+			order_by="modified desc",
+			limit_page_length=200,
+		)
+		if frappe.has_permission("Material Request", "read")
+		else []
 	)
 	for m in mrs:
 		mr_count += 1
@@ -307,12 +320,16 @@ def _production_pipeline(project_map: dict[str, dict]) -> dict:
 			}
 		)
 
-	pos = frappe.get_list(
-		"Purchase Order",
-		filters={"fen_project": ["in", names]},
-		fields=["name", "fen_project", "supplier_name", "supplier", "status", "docstatus", "per_received", "grand_total", "transaction_date", "modified"],
-		order_by="modified desc",
-		limit_page_length=200,
+	pos = (
+		frappe.get_list(
+			"Purchase Order",
+			filters={"fen_project": ["in", names], "docstatus": ["!=", 2]},
+			fields=["name", "fen_project", "supplier_name", "supplier", "status", "docstatus", "per_received", "grand_total", "transaction_date", "modified"],
+			order_by="modified desc",
+			limit_page_length=200,
+		)
+		if frappe.has_permission("Purchase Order", "read")
+		else []
 	)
 	for p in pos:
 		po_count += 1
@@ -366,10 +383,10 @@ def _install_pipeline(project_map: dict[str, dict]) -> dict:
 			if link["parent"] not in dn_to_proj and link["against_sales_order"] in so_project:
 				dn_to_proj[link["parent"]] = so_project[link["against_sales_order"]]
 
-		if dn_to_proj:
+		if dn_to_proj and frappe.has_permission("Delivery Note", "read"):
 			dns = frappe.get_list(
 				"Delivery Note",
-				filters={"name": ["in", list(dn_to_proj.keys())]},
+				filters={"name": ["in", list(dn_to_proj.keys())], "docstatus": ["!=", 2]},
 				fields=["name", "customer_name", "customer", "posting_date", "status", "docstatus", "total_qty", "per_installed", "modified"],
 				order_by="modified desc",
 				limit_page_length=200,
@@ -458,6 +475,8 @@ def _reports_pipeline(project_map: dict[str, dict]) -> dict:
 
 
 def _project_sales_orders(project_map: dict[str, dict]) -> list[dict]:
+	if not frappe.has_permission("Sales Order", "read"):
+		return []
 	names = list(project_map.keys())
 	quote_to_proj = {p["quotation"]: p["name"] for p in project_map.values() if p.get("quotation")}
 	so_names: set[str] = set()
@@ -466,7 +485,7 @@ def _project_sales_orders(project_map: dict[str, dict]) -> list[dict]:
 	if quote_to_proj:
 		so_items = frappe.get_all(
 			"Sales Order Item",
-			filters={"prevdoc_docname": ["in", list(quote_to_proj.keys())]},
+			filters={"prevdoc_docname": ["in", list(quote_to_proj.keys())], "docstatus": ["!=", 2]},
 			fields=["parent", "prevdoc_docname"],
 		)
 		for row in so_items:
@@ -476,7 +495,7 @@ def _project_sales_orders(project_map: dict[str, dict]) -> list[dict]:
 
 	direct_sos = frappe.get_list(
 		"Sales Order",
-		filters={"fen_project": ["in", names]},
+		filters={"fen_project": ["in", names], "docstatus": ["!=", 2]},
 		fields=["name"],
 		limit_page_length=200,
 	)
@@ -488,7 +507,7 @@ def _project_sales_orders(project_map: dict[str, dict]) -> list[dict]:
 
 	rows = frappe.get_list(
 		"Sales Order",
-		filters={"name": ["in", list(so_names)]},
+		filters={"name": ["in", list(so_names)], "docstatus": ["!=", 2]},
 		fields=[
 			"name",
 			"fen_project",

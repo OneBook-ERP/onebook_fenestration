@@ -400,7 +400,7 @@ function build_card_thumbnail_svg(p) {
 	return `
 		<svg viewBox="0 0 ${cw} ${ch}" style="max-width:100%;max-height:166px;width:100%;height:100%;display:block;" xmlns="http://www.w3.org/2000/svg">
 			<g transform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)}) scale(${s.toFixed(4)})">
-				<path d="${p.section_svg}" fill="#94a3b8" fill-opacity="0.85" stroke="#334155" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
+				<path d="${frappe.utils.escape_html(p.section_svg || "")}" fill="#94a3b8" fill-opacity="0.85" stroke="#334155" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
 			</g>
 			<g stroke="#64748b" stroke-width="1" stroke-linecap="square">
 				<line x1="${ox.toFixed(2)}" y1="${dimY.toFixed(2)}" x2="${(ox + dw).toFixed(2)}" y2="${dimY.toFixed(2)}" />
@@ -454,7 +454,7 @@ function open_profile_details_modal(p) {
 	const majorPx = minorPx * 5;
 
 	const d = new frappe.ui.Dialog({
-		title: `${(p.profile_code || p.name).replace("-CS400", "")} · ${p.profile_name}`,
+		title: `${frappe.utils.escape_html((p.profile_code || p.name).replace("-CS400", ""))} · ${frappe.utils.escape_html(p.profile_name || "")}`,
 		size: "large",
 		primary_action_label: __("Open Profile Form"),
 		primary_action() {
@@ -484,7 +484,7 @@ function open_profile_details_modal(p) {
 					</defs>
 					<rect x="0" y="0" width="${cw}" height="${ch}" fill="url(#modal-grid-maj)" />
 					<g transform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)}) scale(${s.toFixed(4)})">
-						<path d="${p.section_svg || ""}" fill="#94a3b8" fill-opacity="0.86" stroke="#1e293b" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
+						<path d="${frappe.utils.escape_html(p.section_svg || "")}" fill="#94a3b8" fill-opacity="0.86" stroke="#1e293b" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
 					</g>
 					<g stroke="#475569" stroke-width="1.15" stroke-linecap="square">
 						<line x1="${ox.toFixed(2)}" y1="${dimY.toFixed(2)}" x2="${(ox + dw).toFixed(2)}" y2="${dimY.toFixed(2)}" />

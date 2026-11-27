@@ -1,6 +1,12 @@
 import type { PipelineSection } from '@/api'
 import { formatMoney } from '@/money'
-import type { StatCardItem } from './PipelineStatGrid.vue'
+
+export interface StatCardItem {
+	label: string
+	value: string | number
+	sublabel: string
+	icon: string
+}
 
 export interface SectionMeta {
 	title: string

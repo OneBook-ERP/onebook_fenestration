@@ -4,7 +4,8 @@ import json
 import frappe
 from frappe import _
 
-from onebook_fenestration.engine import DesignError, RuleError, cross_section as cut_design
+from onebook_fenestration.engine import DesignError, RuleError
+from onebook_fenestration.engine import cross_section as cut_design
 from onebook_fenestration.engine.elevation_svg import generate_elevation_svg
 from onebook_fenestration.engine.engine import compute as compute_engine
 from onebook_fenestration.engine.layout import layout
@@ -13,13 +14,13 @@ from onebook_fenestration.fenestration.doctype.window_design.window_design impor
 	pricing_to_dict,
 	result_to_dict,
 )
-from onebook_fenestration.series_studio.outline import transform_path
-from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.pricing.rates import (
 	missing_defaults_message,
 	price_design,
 	resolve_pricing_defaults,
 )
+from onebook_fenestration.series_studio.outline import transform_path
+from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 
 @frappe.whitelist()
@@ -124,7 +125,7 @@ def window_assembly(design: dict | str, series_version: str) -> dict:
 			x, y, w, h = _pane_rect(pane, by_path[member.path], snapshot)
 			member_rows.append(_assembly_member(index, member, x, y, w, h, member.position in ("B", "T"), "mitre"))
 			continue
-		if member.role == "frame":
+		if member.role in ("frame", "threshold", "door_bottom_adaptor"):
 			member_rows.append(_assembly_member(index, member, 0, 0, design["width"], design["height"], member.position in ("B", "T"), "mitre"))
 			continue
 		if member.role in ("mullion", "transom"):
@@ -139,7 +140,7 @@ def window_assembly(design: dict | str, series_version: str) -> dict:
 			else:
 				member_rows.append(_assembly_member(index, member, bar.start + d_start, bar.at, member.length, 0, True, "butt"))
 			continue
-		if member.role == "sash":
+		if member.role in ("sash", "door_sash"):
 			cell = by_path.get(member.path)
 			if not cell:
 				continue
@@ -165,7 +166,7 @@ def profile_catalog(series_version: str = "", start: int = 0, page_length: int =
 	except (TypeError, ValueError):
 		return {"ok": False, "message": "start and page_length must be numbers"}
 	series = ""
-	if series_version:
+	if series_version and frappe.has_permission("Series Version", "read", series_version):
 		try:
 			series = get_snapshot(series_version).code
 		except (RuleError, frappe.DoesNotExistError):
@@ -175,7 +176,7 @@ def profile_catalog(series_version: str = "", start: int = 0, page_length: int =
 		rows = frappe.get_list("Fenestration Profile", fields=fields, order_by="profile_code asc", start=start, page_length=page_length)
 	except frappe.db.OperationalError:
 		rows = frappe.get_list("Fenestration Profile", fields=fields[:-2], order_by="profile_code asc", start=start, page_length=page_length)
-	count = frappe.db.count("Fenestration Profile")
+	count = len(frappe.get_list("Fenestration Profile", pluck="name", limit_page_length=0))
 	items = []
 	for row in rows:
 		d = row.as_dict() if callable(getattr(row, "as_dict", None)) else dict(row)
@@ -212,12 +213,17 @@ def _pane_rect(pane, cell, snapshot):
 
 def _outline(profile) -> dict:
 	"""The stored outline flipped and turned by the profile's defaults: face along x, bbox at 0,0."""
-	rot = int(profile.get("section_rotation") if isinstance(profile, dict) else getattr(profile, "section_rotation", 0) or 0)
-	fx = bool(int(profile.get("section_flip_x") if isinstance(profile, dict) else getattr(profile, "section_flip_x", 0) or 0))
-	fy = bool(int(profile.get("section_flip_y") if isinstance(profile, dict) else getattr(profile, "section_flip_y", 0) or 0))
-	svg_raw = profile.get("section_svg") if isinstance(profile, dict) else profile.section_svg
-	w_raw = profile.get("width_mm") if isinstance(profile, dict) else profile.width_mm
-	d_raw = profile.get("depth_mm") if isinstance(profile, dict) else profile.depth_mm
+	from frappe.utils import cint
+
+	def _get(key, default=None):
+		return profile.get(key, default) if isinstance(profile, dict) else getattr(profile, key, default)
+
+	rot = cint(_get("section_rotation", 0))
+	fx = bool(cint(_get("section_flip_x", 0)))
+	fy = bool(cint(_get("section_flip_y", 0)))
+	svg_raw = _get("section_svg")
+	w_raw = _get("width_mm")
+	d_raw = _get("depth_mm")
 	if not rot and not fx and not fy:
 		return {"svg": svg_raw, "width": w_raw, "depth": d_raw}
 	svg, width, depth = transform_path(svg_raw, rot, fx, fy)
@@ -291,7 +297,7 @@ def series_info(series_version: str) -> dict:
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_design(
 	project: str,
 	design_ref: str,
@@ -309,6 +315,7 @@ def save_design(
 	"""Insert a Window Design, or update `name`; results are recomputed by the doc's validate."""
 	frappe.has_permission("Window Design", "write" if name else "create", doc=name, throw=True)
 	frappe.has_permission("Fenestration Project", "write", project, throw=True)
+	frappe.has_permission("Series Version", "read", series_version, throw=True)
 	if isinstance(design, str):
 		try:
 			design = json.loads(design)
@@ -409,14 +416,26 @@ COPY_FIELDS = (
 )
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def copy_design(name: str) -> str:
 	"""Copy a design's inputs into a new, unlocked design in the same project and mark the original superseded by it;
 	returns the copy's name."""
-	frappe.has_permission("Window Design", "read", name, throw=True)
+	from frappe.utils import cint
+
+	frappe.has_permission("Window Design", "write", name, throw=True)
 	source = frappe.get_doc("Window Design", name)
 	frappe.has_permission("Fenestration Project", "write", source.project, throw=True)
 	frappe.has_permission("Window Design", "create", throw=True)
+	if (
+		source.project
+		and frappe.db.has_column("Fenestration Project", "fen_design_locked")
+		and cint(frappe.db.get_value("Fenestration Project", source.project, "fen_design_locked"))
+	):
+		frappe.throw(
+			_(
+				"Project {0} is locked for Hilux manufacturing. Unlock the project for revision before copying designs."
+			).format(source.project)
+		)
 	taken = set(frappe.get_all("Window Design", {"project": source.project}, pluck="design_ref"))
 	number = 1
 	while f"{source.design_ref}-R{number}" in taken:

@@ -1,6 +1,6 @@
 import json
-from unittest.mock import patch
 from collections import defaultdict
+from unittest.mock import patch
 
 import frappe
 from erpnext.selling.doctype.quotation.quotation import make_sales_order
@@ -15,7 +15,11 @@ from onebook_fenestration.pricing.rates import price_design
 from onebook_fenestration.production.bom import bom_rows
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.series_studio.snapshot import get_snapshot
-from onebook_fenestration.setup.install import open_window_deliveries, open_window_orders, setup_production_items
+from onebook_fenestration.setup.install import (
+	open_window_deliveries,
+	open_window_orders,
+	setup_production_items,
+)
 from onebook_fenestration.tests import test_quotation
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -240,7 +244,7 @@ class TestProductionBom(IntegrationTestCase):
 			("is_stock_item", "has_batch_no", "create_new_batch", "include_item_in_manufacturing"),
 		)
 		self.assertEqual(tuple(flags), (1, 1, 1, 0))
-		for code, expected in (("FEN-T-FRESH", "Kg"), ("FEN-T-USED", "Nos")):
+		for code, _expected in (("FEN-T-FRESH", "Kg"), ("FEN-T-USED", "Nos")):
 			frappe.get_doc(
 				{
 					"doctype": "Item",

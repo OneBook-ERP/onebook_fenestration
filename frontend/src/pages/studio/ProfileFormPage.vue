@@ -906,8 +906,6 @@ async function handleDxfFile(file: File) {
 			form.raw_width_mm = res.section.width_mm
 			form.raw_depth_mm = res.section.depth_mm
 			form.section_rotation = '0'
-	form.section_flip_x = false
-	form.section_flip_y = false
 			form.section_flip_x = false
 			form.section_flip_y = false
 			form.perimeter_mm = res.section.perimeter_mm

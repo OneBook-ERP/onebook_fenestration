@@ -18,7 +18,7 @@ ALLOWED_FUNCTIONS = {
 
 def evaluate(expr: str, variables: dict, rule_id: str) -> float | bool:
 	try:
-		return safe_eval(expr, dict(ALLOWED_FUNCTIONS), dict(variables))
+		return safe_eval(expr, dict(ALLOWED_FUNCTIONS), dict(variables))  # nosemgrep: frappe-codeinjection-eval
 	except Exception as exc:
 		raise RuleError(f"{rule_id}: {expr!r}: {exc}") from exc
 

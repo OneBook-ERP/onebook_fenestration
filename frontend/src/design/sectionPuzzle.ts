@@ -256,7 +256,7 @@ export function seatedDefaultTransform(
 	// Glass width and its endpoints come from the manufacturing layout. Only
 	// its depth may be fitted; shifting it sideways breaks the opposite rebate.
 	const alongRange = piece.kind === 'glass' ? 0 : Math.min(12, Math.max(2, (baseEnd - baseStart) / 8))
-	let best: { transform: SectionPieceTransform; score: number } | null = null
+	const bestRef: { current: { transform: SectionPieceTransform; score: number } | null } = { current: null }
 	const evaluate = (along: number, depth: number) => {
 		const roundedAlong = Math.round(along * 2) / 2 || 0
 		const roundedDepth = Math.round(depth * 2) / 2
@@ -266,10 +266,10 @@ export function seatedDefaultTransform(
 		const penalty = Math.abs(roundedAlong) * 0.02 + Math.abs(roundedDepth) * 0.001
 		// The bounding-box gap is a lower bound for the exact polygon distance.
 		// Skip expensive ring-to-ring distance work when it cannot beat the best fit.
-		if (best && Math.min(...obstacles.map((obstacle) => bboxDistance(shape.bbox, obstacle.bbox))) + penalty >= best.score) return
+		if (bestRef.current && Math.min(...obstacles.map((obstacle) => bboxDistance(shape.bbox, obstacle.bbox))) + penalty >= bestRef.current.score) return
 		const clearance = Math.min(...obstacles.map((obstacle) => shapeDistance(shape, obstacle)))
 		const score = clearance + penalty
-		if (!best || score < best.score) best = { transform, score }
+		if (!bestRef.current || score < bestRef.current.score) bestRef.current = { transform, score }
 	}
 	// A full 0.5 mm grid can mean several thousand polygon collision checks for
 	// each sash. Find the seating basin coarsely, then retain the original 0.5 mm
@@ -278,14 +278,14 @@ export function seatedDefaultTransform(
 	for (let depth = minDepth; depth <= maxDepth; depth += coarseStep) {
 		for (let along = -alongRange; along <= alongRange; along += coarseStep) evaluate(along, depth)
 	}
-	if (best) {
-		const centerAlong = best.transform.offsetAlong
-		const centerDepth = best.transform.offsetDepth
+	if (bestRef.current) {
+		const centerAlong = bestRef.current.transform.offsetAlong
+		const centerDepth = bestRef.current.transform.offsetDepth
 		for (let depth = Math.max(minDepth, centerDepth - coarseStep); depth <= Math.min(maxDepth, centerDepth + coarseStep); depth += 0.5) {
 			for (let along = Math.max(-alongRange, centerAlong - coarseStep); along <= Math.min(alongRange, centerAlong + coarseStep); along += 0.5) evaluate(along, depth)
 		}
 	}
-	const fitted = best?.transform ?? initial
+	const fitted = bestRef.current?.transform ?? initial
 	const shape = buildPlacedShape(movingIndex, piece, baseStart, baseEnd, outline, fitted)
 	const joined = magneticAutoJoin(shape, fitted, piece, obstacles, 0.55)
 	if (joined) {

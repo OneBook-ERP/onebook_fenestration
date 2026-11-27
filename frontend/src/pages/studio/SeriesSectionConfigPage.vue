@@ -436,7 +436,6 @@ import {
 	getTemplateMeta,
 	hasAxisTemplateData,
 	mirrorAxisTemplateData,
-	SECTION_TEMPLATE_LIST,
 	stripGlassFromSectionMap,
 	templatesForSupportedProducts,
 	type SectionTemplateMeta,

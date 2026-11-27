@@ -100,9 +100,25 @@ def get_snapshot(series_version: str) -> SeriesSnapshot:
 		return SeriesSnapshot.from_dict(_with_section_config(_with_all_profiles(build_snapshot_dict(series_version))))
 	data = frappe.cache.hget(CACHE_KEY, series_version)
 	if data is None:
-		data = frappe.parse_json(frappe.db.get_value("Series Version", series_version, "snapshot_json"))
+		raw_json = frappe.db.get_value("Series Version", series_version, "snapshot_json")
+		data = frappe.parse_json(raw_json) if raw_json else build_snapshot_dict(series_version)
 		frappe.cache.hset(CACHE_KEY, series_version, data)
 	return SeriesSnapshot.from_dict(_with_section_config(_with_all_profiles(with_legacy_gaskets(data))))
+
+
+def _safe_bar_lengths(raw: str | None, fallback: list[float] | None = None) -> list[float]:
+	out: list[float] = []
+	for part in (raw or "").replace(";", ",").split(","):
+		part = part.strip()
+		if not part:
+			continue
+		try:
+			val = float(part)
+		except ValueError:
+			continue
+		if val > 0:
+			out.append(val)
+	return out if out else (list(fallback) if fallback is not None else [])
 
 
 def _with_all_profiles(data: dict) -> dict:
@@ -137,7 +153,7 @@ def _all_profiles() -> dict:
 		p.profile_code: {
 			"name": p.profile_name,
 			"kg_per_m": (p.computed_kg_per_m if p.use_computed_weight and p.computed_kg_per_m else p.kg_per_m) or 0.0,
-			"bar_lengths": [float(part) for part in (p.bar_lengths or "").split(",") if part.strip()] or [6000.0],
+			"bar_lengths": _safe_bar_lengths(p.bar_lengths, [6000.0]),
 			"visible_perimeter_mm": p.visible_perimeter_mm or 0,
 			"total_perimeter_mm": p.total_perimeter_mm or 0,
 			"width_mm": p.width_mm or 0,
@@ -181,7 +197,7 @@ def _profiles(series: str, rule_profiles: set[str]) -> dict:
 		p.profile_code: {
 			"name": p.profile_name,
 			"kg_per_m": p.computed_kg_per_m if p.use_computed_weight and p.computed_kg_per_m else p.kg_per_m,
-			"bar_lengths": [float(part) for part in (p.bar_lengths or "").split(",") if part.strip()],
+			"bar_lengths": _safe_bar_lengths(p.bar_lengths),
 			"visible_perimeter_mm": p.visible_perimeter_mm or 0,
 			"total_perimeter_mm": p.total_perimeter_mm or 0,
 		}

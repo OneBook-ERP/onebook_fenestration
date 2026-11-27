@@ -479,15 +479,18 @@ export async function saveFenestrationGlass(
 	existingName?: string | null,
 ): Promise<string> {
 	if (existingName) {
+		const fieldname: Record<string, unknown> = {
+			glass_name: values.glass_name,
+			thickness_mm: values.thickness_mm,
+			item: values.item || null,
+		}
+		if (values.glazing_rules_json !== undefined) {
+			fieldname.glazing_rules_json = values.glazing_rules_json
+		}
 		await call('frappe.client.set_value', {
 			doctype: 'Fenestration Glass',
 			name: existingName,
-			fieldname: {
-				glass_name: values.glass_name,
-				thickness_mm: values.thickness_mm,
-				item: values.item || null,
-				glazing_rules_json: values.glazing_rules_json ?? null,
-			},
+			fieldname,
 		})
 		return existingName
 	}

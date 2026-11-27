@@ -38,19 +38,29 @@ def _d4_matrix(degrees: int, flip_x: bool, flip_y: bool) -> tuple[tuple[int, int
 	return ((r00 * sx, r01 * sy), (r10 * sx, r11 * sy))
 
 
+def _as_bool_flag(value) -> bool:
+	if isinstance(value, bool):
+		return value
+	if isinstance(value, (int, float)):
+		return bool(int(value))
+	return str(value or "").strip().lower() in ("1", "true", "yes")
+
+
 def compose_section_transform(
 	cur_degrees: int | str = 0,
-	cur_flip_x: bool | int = False,
-	cur_flip_y: bool | int = False,
+	cur_flip_x: bool | int | str = False,
+	cur_flip_y: bool | int | str = False,
 	delta_degrees: int | str = 0,
-	delta_flip_x: bool | int = False,
-	delta_flip_y: bool | int = False,
+	delta_flip_x: bool | int | str = False,
+	delta_flip_y: bool | int | str = False,
 ) -> tuple[int, int, int]:
 	"""Compose `M(delta) * M(current)` in the 2D dihedral group D4 -> canonical `(degrees, flip_x, flip_y)`."""
 	cur_d = _degrees(cur_degrees)
 	del_d = _degrees(delta_degrees)
-	a = _d4_matrix(del_d, bool(delta_flip_x), bool(delta_flip_y))
-	b = _d4_matrix(cur_d, bool(cur_flip_x), bool(cur_flip_y))
+	cur_fx = _as_bool_flag(cur_flip_x)
+	cur_fy = _as_bool_flag(cur_flip_y)
+	a = _d4_matrix(del_d, _as_bool_flag(delta_flip_x), _as_bool_flag(delta_flip_y))
+	b = _d4_matrix(cur_d, cur_fx, cur_fy)
 	target = (
 		(a[0][0] * b[0][0] + a[0][1] * b[1][0], a[0][0] * b[0][1] + a[0][1] * b[1][1]),
 		(a[1][0] * b[0][0] + a[1][1] * b[1][0], a[1][0] * b[0][1] + a[1][1] * b[1][1]),
@@ -58,19 +68,19 @@ def compose_section_transform(
 	for rot, fx, fy in _CANONICAL_D4:
 		if _d4_matrix(rot, bool(fx), bool(fy)) == target:
 			return rot, fx, fy
-	return cur_d, int(bool(cur_flip_x)), int(bool(cur_flip_y))
+	return cur_d, int(cur_fx), int(cur_fy)
 
 
 def transform_path(
 	d: str,
 	degrees: int | str = 0,
-	flip_x: bool | int = False,
-	flip_y: bool | int = False,
+	flip_x: bool | int | str = False,
+	flip_y: bool | int | str = False,
 ) -> tuple[str, float, float]:
 	"""(transformed path, width, depth): flip first (`flip_x`, `flip_y`), then turn CW by `degrees`, renormalised to 0,0."""
 	degrees = _degrees(degrees)
-	fx = bool(flip_x)
-	fy = bool(flip_y)
+	fx = _as_bool_flag(flip_x)
+	fy = _as_bool_flag(flip_y)
 	commands = _parse(d)
 	if degrees == 0 and not fx and not fy:
 		return d, *_extents(commands)
@@ -79,6 +89,8 @@ def transform_path(
 		for cmd, groups in commands
 	]
 	xs, ys = _coords(transformed)
+	if not xs:
+		return d, 0, 0
 	min_x, min_y = min(xs), min(ys)
 	shifted = [(cmd, [_shift_args(cmd, args, min_x, min_y) for args in groups]) for cmd, groups in transformed]
 	return _format(shifted), _round(max(xs) - min_x), _round(max(ys) - min_y)

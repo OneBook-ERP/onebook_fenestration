@@ -1,9 +1,14 @@
+import re
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import cint
 
 from onebook_fenestration.engine import SectionError, analyze_dxf
 from onebook_fenestration.series_studio.outline import transform_path
+
+_SAFE_SVG_PATH_RE = re.compile(r"^[0-9eE.+\-,\sMLAZmlazHVCSQThvcsqt]*$")
 
 SECTION_FIELDS = (
 	"area_mm2",
@@ -31,6 +36,8 @@ class FenestrationHardware(Document):
 			return
 		if self.rotation_changed():
 			self.apply_section_rotation()
+		if self.section_svg and not _SAFE_SVG_PATH_RE.match(self.section_svg):
+			frappe.throw(_("Section SVG contains unsupported characters."), title=_("Section outline"))
 
 	def rotation_changed(self) -> bool:
 		if self.is_new():
@@ -52,11 +59,14 @@ class FenestrationHardware(Document):
 			_svg, self.width_mm, self.depth_mm = transform_path(
 				self.section_svg,
 				self.section_rotation,
-				getattr(self, "section_flip_x", 0),
-				getattr(self, "section_flip_y", 0),
+				cint(getattr(self, "section_flip_x", 0)),
+				cint(getattr(self, "section_flip_y", 0)),
 			)
 		except ValueError as exc:
-			frappe.throw(_("Could not rotate the hardware section outline: {0}").format(exc), title=_("Section outline"))
+			frappe.throw(
+				_("Could not rotate the hardware section outline: {0}").format(str(exc)),
+				title=_("Section outline"),
+			)
 
 	def clear_section(self):
 		for fieldname in SECTION_FIELDS:
@@ -65,9 +75,14 @@ class FenestrationHardware(Document):
 	def fill_section_from_dxf(self):
 		try:
 			file_doc = frappe.get_doc("File", {"file_url": self.dxf_file})
+			file_doc.check_permission("read")
 			section = analyze_dxf(file_doc.get_full_path())
-		except (SectionError, frappe.DoesNotExistError, OSError) as exc:
-			frappe.throw(_("Could not read section from DXF: {0}").format(exc), title=_("DXF error"))
+		except frappe.PermissionError:
+			raise
+		except OSError:
+			frappe.throw(_("Could not read the attached DXF file from storage."), title=_("DXF error"))
+		except (SectionError, frappe.DoesNotExistError) as exc:
+			frappe.throw(_("Could not read section from DXF: {0}").format(str(exc)), title=_("DXF error"))
 
 		self.area_mm2 = round(section.area_mm2, 1)
 		self.width_mm = round(section.width_mm, 1)

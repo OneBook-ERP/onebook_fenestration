@@ -159,7 +159,7 @@ def read_sections(dxf_path: str) -> dict[str, Outline]:
 	headers = [e for text, e in texts if text.casefold() == SECTION_HEADER]
 	if not headers:
 		raise SectionSheetError('no "Section Drawing" header')
-	shapes = [shape for shape in map(_shape, _geometry(msp)) if shape]
+	shapes = [shape for entity in _geometry(msp) if (shape := _shape(entity))]
 	outlines = {}
 	for header in headers:
 		for code, cell in _rows(header, texts):

@@ -40,7 +40,7 @@ def design_rows(doc) -> list[dict]:
 
 
 def _project_designs(doc) -> list:
-	return frappe.get_all("Window Design", {"project": doc.name}, DESIGN_FIELDS, order_by="design_ref")
+	return current_designs(doc.name, DESIGN_FIELDS)
 
 
 POSITION_ORDER = "BTLRHW"
@@ -49,7 +49,7 @@ POSITION_ORDER = "BTLRHW"
 def assembly_summary(doc) -> list[dict]:
 	"""Current designs of a project grouped by width x height, largest first, for the Assembly Summary format."""
 	groups: dict[tuple, dict] = {}
-	for row in map(_row, current_designs(doc.name, DESIGN_FIELDS)):
+	for row in [_row(d) for d in current_designs(doc.name, DESIGN_FIELDS)]:
 		group = groups.setdefault(
 			(row["width"], row["height"]),
 			{
@@ -157,6 +157,15 @@ def _position_rank(position: str) -> int:
 	return POSITION_ORDER.index(position) if position in POSITION_ORDER else len(POSITION_ORDER)
 
 
+def _safe_logo_url(url: str | None) -> str:
+	raw = str(url or "").strip()
+	if not raw:
+		return ""
+	if raw.startswith(("/", "http://", "https://")):
+		return escape_html(raw)
+	return ""
+
+
 def company_header(company: str | None) -> dict:
 	"""Name, logo, contact and address lines of the company, for print formats."""
 	company = company or frappe.defaults.get_global_default("company")
@@ -174,7 +183,7 @@ def company_header(company: str | None) -> dict:
 	addr_meta = _address_details(address) if address else {}
 	return {
 		"name": escape_html(company or ""),
-		"logo": comp.get("company_logo"),
+		"logo": _safe_logo_url(comp.get("company_logo")),
 		"address": escape_html(addr_meta.get("line") or ""),
 		"phone": escape_html(comp.get("phone_no") or addr_meta.get("phone") or ""),
 		"email": escape_html(comp.get("email") or addr_meta.get("email_id") or ""),

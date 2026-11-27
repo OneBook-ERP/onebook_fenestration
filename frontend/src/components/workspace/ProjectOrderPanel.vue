@@ -90,7 +90,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { getWorkspacePipeline, makeSalesOrder, type FlowAction, type PipelineOrderRow, type ProjectFlowState } from '@/api'
 import { formatMoney } from '@/money'
 import FlowDocActions from './FlowDocActions.vue'
-import PipelineStatGrid, { type StatCardItem } from './PipelineStatGrid.vue'
+import PipelineStatGrid from './PipelineStatGrid.vue'
+import type { StatCardItem } from './pipelineConfig'
 import { deskDocUrl, statusBadgeClass } from './statusStyle'
 
 const props = defineProps<{ project: string; quotation?: string | null; flow?: ProjectFlowState | null }>()

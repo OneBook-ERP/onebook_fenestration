@@ -1,6 +1,6 @@
 import json
-from unittest.mock import patch
 from collections import defaultdict
+from unittest.mock import patch
 
 import frappe
 from erpnext.selling.doctype.quotation.quotation import make_sales_order
@@ -10,7 +10,12 @@ from frappe.utils import add_days, nowdate
 from onebook_fenestration.engine import compute
 from onebook_fenestration.engine.cutting import Piece, optimize, wastage
 from onebook_fenestration.fenestration.quotation import make_quotation
-from onebook_fenestration.production.cutting_plan import build_plan, collect_pieces, parse_bar_lengths, stored_value
+from onebook_fenestration.production.cutting_plan import (
+	build_plan,
+	collect_pieces,
+	parse_bar_lengths,
+	stored_value,
+)
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.setup.install import setup_production_items
@@ -150,7 +155,7 @@ class TestCuttingPlan(IntegrationTestCase):
 		for key in ("bar_count", "pieces", "cut_mm", "rest_mm", "waste_mm", "kg_bars", "kg_used",
 			"waste_pct_incl_rest", "waste_pct_excl_rest", "kg_per_m"):
 			self.assertAlmostEqual(row.get(key), expected[key], places=3, msg=key)
-		self.assertEqual(row.bars, ", ".join(f"{k:g} × {v}" for k, v in sorted(expected["bars"].items())))
+		self.assertEqual(row.bars, ", ".join(f"{k:g} × {v}" for k, v in sorted(expected["bars"].items())))  # noqa: RUF001
 		self.assertEqual(plan.unplaced_count, 0)
 
 	def test_unplaced_piece_is_reported(self):

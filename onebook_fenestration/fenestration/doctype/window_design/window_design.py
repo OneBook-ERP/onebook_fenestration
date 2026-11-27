@@ -75,22 +75,27 @@ class WindowDesign(Document):
 		if self.design_svg and (self.is_new() or self.has_value_changed("design_svg")):
 			self.design_svg = sanitize_svg(self.design_svg)
 
-	def check_not_locked(self):
-		if self.is_new():
-			return
-		if not (self.flags.force_reprice or any(self.has_value_changed(f) for f in LOCKED_FIELDS)):
-			return
-		if (
+	def _is_project_design_locked(self) -> bool:
+		return bool(
 			self.project
 			and frappe.db.has_column("Fenestration Project", "fen_design_locked")
 			and cint(frappe.db.get_value("Fenestration Project", self.project, "fen_design_locked"))
+		)
+
+	def check_not_locked(self):
+		if self._is_project_design_locked() and (
+			self.is_new() or self.flags.force_reprice or any(self.has_value_changed(f) for f in LOCKED_FIELDS)
 		):
 			frappe.throw(
 				_(
 					"{0} is locked because project {1} was shared with Hilux for manufacturing. "
-					"Unlock the project for revision or copy the design."
-				).format(self.design_ref, self.project)
+					"Unlock the project for revision before modifying designs."
+				).format(self.design_ref or self.name or _("Project"), self.project)
 			)
+		if self.is_new():
+			return
+		if not (self.flags.force_reprice or any(self.has_value_changed(f) for f in LOCKED_FIELDS)):
+			return
 		lock = locking_document(self.name)
 		if lock:
 			frappe.throw(
@@ -98,15 +103,35 @@ class WindowDesign(Document):
 			)
 
 	def on_trash(self):
+		if self._is_project_design_locked():
+			frappe.throw(
+				_(
+					"{0} cannot be deleted because project {1} is locked for Hilux manufacturing."
+				).format(self.design_ref or self.name, self.project)
+			)
+		lock = locking_document(self.name)
+		if lock:
+			frappe.throw(
+				_("{0} cannot be deleted because it is on {1} {2}.").format(self.design_ref or self.name, *lock)
+			)
 		# A draft quotation line must not block deleting its design; the next make_quotation drops the line.
 		drafts = frappe.get_all("Quotation", {"fen_project": self.project, "docstatus": 0}, pluck="name")
 		if drafts:
-			frappe.db.set_value(
+			linked_drafts = frappe.get_all(
 				"Quotation Item",
 				{"parent": ("in", drafts), "fen_window_design": self.name},
-				"fen_window_design",
-				None,
+				pluck="parent",
+				distinct=True,
 			)
+			for draft in linked_drafts:
+				frappe.has_permission("Quotation", "write", draft, throw=True)
+			if linked_drafts:
+				frappe.db.set_value(
+					"Quotation Item",
+					{"parent": ("in", linked_drafts), "fen_window_design": self.name},
+					"fen_window_design",
+					None,
+				)
 
 	def set_pricing_defaults(self):
 		self.finish, self.price_structure = resolve_pricing_defaults(self.finish, self.price_structure)

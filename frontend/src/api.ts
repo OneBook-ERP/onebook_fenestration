@@ -198,6 +198,8 @@ export interface SectionPiece {
 		clearance_mm?: number
 		inner_gasket_item?: string
 		outer_gasket_item?: string
+		glazing_gaskets?: Record<string, any> | null
+		raycast?: Record<string, any> | null
 	} | null
 }
 export interface SectionDim {

@@ -108,6 +108,6 @@ def _split_bounds(path: str, at: list, span: float, child_count: int) -> list[fl
 	if child_count < 2 or len(at) != child_count - 1:
 		raise DesignError(f"{path}: split needs at least 2 children and len(at) == children - 1")
 	bounds = [0, *at, span]
-	if any(not (a < b) for a, b in zip(bounds, bounds[1:])):
+	if any(not (bounds[i] < bounds[i + 1]) for i in range(len(bounds) - 1)):
 		raise DesignError(f"{path}: split positions {at} must increase strictly inside (0, {span})")
 	return bounds

@@ -90,7 +90,7 @@ function draw_series_cards(frm, $wrapper, profiles, state) {
 
 			const svg = hasSvg
 				? `<svg viewBox="${(-padL).toFixed(2)} ${(-padT).toFixed(2)} ${(w + padL + padR).toFixed(2)} ${(h + padT + padB).toFixed(2)}" style="max-width:100%;max-height:155px;width:100%;height:100%;display:block;" xmlns="http://www.w3.org/2000/svg">
-						<path d="${p.section_svg}" fill="#94a3b8" fill-opacity="0.85" stroke="#334155" stroke-width="${strokeW.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
+						<path d="${frappe.utils.escape_html(p.section_svg || "")}" fill="#94a3b8" fill-opacity="0.85" stroke="#334155" stroke-width="${strokeW.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
 						<text x="${(w / 2).toFixed(2)}" y="${(h + dimOffset + fontSize * 0.85).toFixed(2)}" text-anchor="middle" fill="#0f172a" font-size="${fontSize.toFixed(2)}" font-weight="600">${Number(p.width_mm).toFixed(1)}</text>
 						<text x="${(-dimOffset - fontSize * 0.35).toFixed(2)}" y="${(h / 2).toFixed(2)}" text-anchor="middle" fill="#0f172a" font-size="${fontSize.toFixed(2)}" font-weight="600" transform="rotate(-90 ${(-dimOffset - fontSize * 0.35).toFixed(2)} ${(h / 2).toFixed(2)})">${Number(p.depth_mm).toFixed(1)}</text>
 					</svg>`

@@ -100,7 +100,8 @@ class TestImportMasters(IntegrationTestCase):
 	def test_reimport_creates_new_version(self):
 		data = load_fixture("cs400_snapshot.json")
 		first = import_test_series(data)
-		rows = lambda name: [r.as_dict(no_default_fields=True) for r in frappe.get_doc("Series Version", name).hardware_rules]
+		def rows(name):
+			return [r.as_dict(no_default_fields=True) for r in frappe.get_doc("Series Version", name).hardware_rules]
 		before = rows(first)
 		changed = {**data, "hardware_rules": [{**r, "qty": "99"} for r in data["hardware_rules"]]}
 		second = import_test_series(changed)
@@ -162,7 +163,8 @@ class TestImportHiluxSeries(IntegrationTestCase):
 		first = import_hilux_series()
 		self.addCleanup(lambda: [frappe.cache.hdel("fen_snapshot", v) for v in first.values()])
 		self.assertEqual(set(first), {"CS400", "CS4800"})
-		count = lambda: frappe.db.count("Series Version", {"series": ("in", ("CS400", "CS4800")), "docstatus": 1})
+		def count():
+			return frappe.db.count("Series Version", {"series": ("in", ("CS400", "CS4800")), "docstatus": 1})
 		before = count()
 		self.assertEqual(import_hilux_series(), {})
 		self.assertEqual(count(), before)

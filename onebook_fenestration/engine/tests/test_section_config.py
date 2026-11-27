@@ -773,6 +773,40 @@ class TestSectionConfig(unittest.TestCase):
 		self.assertEqual(door_mul["template"], "openable_door_mullion")
 		self.assertEqual(door_mul["offsetDepth"], 10.0)
 
+	def test_global_glazing_gasket_length_deducts_both_ends(self):
+		raw_fixture = json.loads(FIXTURE.read_text())
+		glass_code = next(iter(raw_fixture["glasses"].keys()))
+		glass_t = raw_fixture["glasses"][glass_code]["thickness_mm"]
+		gasket_ded = float(raw_fixture.get("deductions", {}).get("glazing_gasket", 0.0))
+		raw_fixture["global_glazing_rules"] = normalize_global_glazing_rules(
+			[
+				{
+					"id": "g1",
+					"label": "Gasket deduction check",
+					"min_glass_mm": max(0.0, glass_t - 0.5),
+					"max_glass_mm": glass_t + 0.5,
+					"host": "both",
+					"bead_profile": "",
+					"bead_side": "inside",
+					"inner_gasket_hardware": "G23",
+					"inner_gasket_item": "G23",
+					"inner_gasket_name": "3mm Glazing Gasket",
+					"outer_gasket_hardware": "G22",
+					"outer_gasket_item": "G22",
+					"outer_gasket_name": "2mm Glazing Gasket",
+				}
+			]
+		)
+		snap = SeriesSnapshot.from_dict(raw_fixture)
+		design = {"width": 1200, "height": 1000, "root": {"type": "fixed", "glass": glass_code, "bead": False}}
+		res = compute(design, snap)
+		pane = res.glass[0]
+		gasket_lines = [b for b in res.bom if b.group == "Gasket" and b.item == "G23"]
+		self.assertEqual(len(gasket_lines), 4)
+		by_pos = {b.position: b.length for b in gasket_lines}
+		self.assertAlmostEqual(by_pos["W"], max(0.0, round(pane.width - 2 * gasket_ded, 1)))
+		self.assertAlmostEqual(by_pos["H"], max(0.0, round(pane.height - 2 * gasket_ded, 1)))
+
 
 if __name__ == "__main__":
 	unittest.main()

@@ -39,7 +39,6 @@ import {
 	DEFAULT_PROFILE_DEPTH_MM,
 	defaultTransformForPiece,
 	getTwinTag,
-	MIRROR_OF,
 	GLASS_REF_THICKNESS_MM,
 	instancePieceKey,
 	isPieceMoveable,

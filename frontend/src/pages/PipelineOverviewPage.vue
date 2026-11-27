@@ -280,19 +280,24 @@ const activeFilter = computed(() => String(route.query.filter || 'all'))
 const meta = computed(() => SECTION_META[props.section])
 const statCards = computed(() => buildStatCards(props.section, stats.value))
 
+let loadSeq = 0
+
 async function load() {
+	const seq = ++loadSeq
 	loading.value = true
 	try {
 		const res = await getWorkspacePipeline(props.section)
+		if (seq !== loadSeq) return
 		items.value = res.items ?? []
 		pendingOrders.value = res.pending_orders ?? []
 		stats.value = res.stats ?? {}
 	} catch {
+		if (seq !== loadSeq) return
 		items.value = []
 		pendingOrders.value = []
 		stats.value = {}
 	} finally {
-		loading.value = false
+		if (seq === loadSeq) loading.value = false
 	}
 }
 

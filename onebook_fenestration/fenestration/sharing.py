@@ -46,34 +46,42 @@ def is_partner_only(user: str | None = None) -> bool:
 
 def project_permission_query(user: str | None = None) -> str:
 	"""Scope Fenestration Project visibility:
-	- Dealers / Fabrication Partners only see their own (or explicitly shared) projects.
 	- Hilux staff see internal projects + any Dealer project shared with Hilux (not unshared dealer private drafts).
+	- Partners and other roles only see their own (or explicitly shared) projects.
 	"""
 	user = user or frappe.session.user
 	if user == "Administrator" or "System Manager" in frappe.get_roles(user):
 		return ""
 
 	escaped = frappe.db.escape(user)
-	if is_partner_only(user):
+	if is_hilux_staff(user):
 		return (
-			f"(`tabFenestration Project`.owner = {escaped} "
-			f"OR EXISTS (SELECT 1 FROM `tabDocShare` ds "
-			f"WHERE ds.share_doctype = 'Fenestration Project' "
-			f"AND ds.share_name = `tabFenestration Project`.name "
-			f"AND ds.user = {escaped} AND ds.read = 1))"
+			f"(IFNULL(`tabFenestration Project`.fen_is_dealer_private, 0) = 0 "
+			f"OR IFNULL(`tabFenestration Project`.fen_shared_with_hilux, 0) = 1 "
+			f"OR `tabFenestration Project`.owner = {escaped})"
 		)
 
 	return (
-		f"(IFNULL(`tabFenestration Project`.fen_is_dealer_private, 0) = 0 "
-		f"OR IFNULL(`tabFenestration Project`.fen_shared_with_hilux, 0) = 1 "
-		f"OR `tabFenestration Project`.owner = {escaped})"
+		f"(`tabFenestration Project`.owner = {escaped} "
+		f"OR EXISTS (SELECT 1 FROM `tabDocShare` ds "
+		f"WHERE ds.share_doctype = 'Fenestration Project' "
+		f"AND ds.share_name = `tabFenestration Project`.name "
+		f"AND ds.user = {escaped} AND ds.read = 1))"
 	)
 
 
-def project_has_permission(doc, ptype: str | None = None, user: str | None = None) -> bool | None:
+def _docshare_perm_field(ptype: str | None) -> str | None:
+	if ptype in (None, "read", "select", "print", "report", "email", "export"):
+		return "read"
+	if ptype in ("write", "share", "submit"):
+		return ptype
+	return None
+
+
+def project_has_permission(doc, ptype: str | None = None, user: str | None = None) -> bool:
 	user = user or frappe.session.user
 	if user == "Administrator" or "System Manager" in frappe.get_roles(user):
-		return None
+		return True
 
 	if isinstance(doc, str):
 		doc = frappe.db.get_value(
@@ -83,20 +91,23 @@ def project_has_permission(doc, ptype: str | None = None, user: str | None = Non
 			as_dict=True,
 		)
 		if not doc:
-			return None
-
-	if is_partner_only(user):
-		if doc.get("owner") == user:
 			return True
-		shared = frappe.db.exists(
-			"DocShare",
-			{"share_doctype": "Fenestration Project", "share_name": doc.get("name"), "user": user, "read": 1},
-		)
-		return bool(shared)
 
-	if cint(doc.get("fen_is_dealer_private")) and not cint(doc.get("fen_shared_with_hilux")) and doc.get("owner") != user:
+	if is_hilux_staff(user):
+		if cint(doc.get("fen_is_dealer_private")) and not cint(doc.get("fen_shared_with_hilux")) and doc.get("owner") != user:
+			return False
+		return True
+
+	if doc.get("owner") == user:
+		return True
+	share_col = _docshare_perm_field(ptype)
+	if not share_col:
 		return False
-	return None
+	shared = frappe.db.exists(
+		"DocShare",
+		{"share_doctype": "Fenestration Project", "share_name": doc.get("name"), "user": user, share_col: 1},
+	)
+	return bool(shared)
 
 
 def design_permission_query(user: str | None = None) -> str:
@@ -105,30 +116,38 @@ def design_permission_query(user: str | None = None) -> str:
 		return ""
 
 	escaped = frappe.db.escape(user)
-	if is_partner_only(user):
+	if is_hilux_staff(user):
 		return (
-			f"(`tabWindow Design`.owner = {escaped} "
-			f"OR EXISTS (SELECT 1 FROM `tabFenestration Project` p "
-			f"WHERE p.name = `tabWindow Design`.project AND p.owner = {escaped}))"
+			f"EXISTS (SELECT 1 FROM `tabFenestration Project` p "
+			f"WHERE p.name = `tabWindow Design`.project "
+			f"AND (IFNULL(p.fen_is_dealer_private, 0) = 0 "
+			f"OR IFNULL(p.fen_shared_with_hilux, 0) = 1 "
+			f"OR p.owner = {escaped}))"
 		)
 
 	return (
-		f"EXISTS (SELECT 1 FROM `tabFenestration Project` p "
-		f"WHERE p.name = `tabWindow Design`.project "
-		f"AND (IFNULL(p.fen_is_dealer_private, 0) = 0 "
-		f"OR IFNULL(p.fen_shared_with_hilux, 0) = 1 "
-		f"OR p.owner = {escaped}))"
+		f"(`tabWindow Design`.owner = {escaped} "
+		f"OR EXISTS (SELECT 1 FROM `tabFenestration Project` p "
+		f"WHERE p.name = `tabWindow Design`.project AND p.owner = {escaped}) "
+		f"OR EXISTS (SELECT 1 FROM `tabDocShare` ds "
+		f"WHERE ds.share_doctype = 'Fenestration Project' "
+		f"AND ds.share_name = `tabWindow Design`.project "
+		f"AND ds.user = {escaped} AND ds.read = 1) "
+		f"OR EXISTS (SELECT 1 FROM `tabDocShare` ds "
+		f"WHERE ds.share_doctype = 'Window Design' "
+		f"AND ds.share_name = `tabWindow Design`.name "
+		f"AND ds.user = {escaped} AND ds.read = 1))"
 	)
 
 
-def design_has_permission(doc, ptype: str | None = None, user: str | None = None) -> bool | None:
+def design_has_permission(doc, ptype: str | None = None, user: str | None = None) -> bool:
 	user = user or frappe.session.user
 	if user == "Administrator" or "System Manager" in frappe.get_roles(user):
-		return None
+		return True
 
 	project_name = doc.get("project") if not isinstance(doc, str) else frappe.db.get_value("Window Design", doc, "project")
 	if not project_name:
-		return None
+		return True
 	return project_has_permission(project_name, ptype=ptype, user=user)
 
 
@@ -139,6 +158,7 @@ def share_project_with_hilux(
 ) -> dict:
 	"""Share a Dealer's Fenestration Project, designs, and reports with Hilux for manufacturing."""
 	frappe.has_permission("Fenestration Project", "write", project, throw=True)
+	frappe.has_permission("Fenestration Project", "share", project, throw=True)
 	doc = frappe.get_doc("Fenestration Project", project)
 
 	partner_type = resolve_project_partner_type(doc)
@@ -202,7 +222,7 @@ def share_project_with_hilux(
 		"manufacturing_status": updates.get("fen_manufacturing_status") or doc.fen_manufacturing_status,
 		"design_count": len(designs),
 		"window_qty": sum(max(cint(d.qty), 1) for d in designs),
-		"shared_with_users": shared_users,
+		"shared_user_count": len(shared_users),
 	}
 
 
@@ -276,13 +296,16 @@ def _grant_hilux_docshares(project: str, design_names: list[str]) -> list[str]:
 	for user in active_users:
 		if user in ("Administrator", frappe.session.user):
 			continue
+		can_write_proj = 1 if frappe.has_permission("Fenestration Project", "write", user=user) else 0
+		can_share_proj = 1 if frappe.has_permission("Fenestration Project", "share", user=user) else 0
+		can_write_design = 1 if frappe.has_permission("Window Design", "write", user=user) else 0
 		frappe.share.add_docshare(
 			"Fenestration Project",
 			project,
 			user,
 			read=1,
-			write=1,
-			share=1,
+			write=can_write_proj,
+			share=can_share_proj,
 			flags={"ignore_share_permission": True},
 		)
 		for design_name in design_names:
@@ -291,7 +314,7 @@ def _grant_hilux_docshares(project: str, design_names: list[str]) -> list[str]:
 				design_name,
 				user,
 				read=1,
-				write=1,
+				write=can_write_design,
 				flags={"ignore_share_permission": True},
 			)
 		shared.append(user)
@@ -323,5 +346,8 @@ def _notify_hilux_team(project_doc, designs: list[dict], users: list[str], notes
 				}
 			).insert(ignore_permissions=True)
 		except Exception:
-			frappe.log_error(frappe.get_traceback(), f"Failed notifying {user} for shared project {project_doc.name}")
+			frappe.log_error(
+				title=f"Failed notifying {user} for shared project {project_doc.name}",
+				message=frappe.get_traceback(),
+			)
 

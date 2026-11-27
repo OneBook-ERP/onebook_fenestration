@@ -1,7 +1,7 @@
 """DXF profile cross-section analyzer: area, inertia, weight and SVG outline."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 import ezdxf
 from ezdxf.acis import sab as acis_sab
@@ -116,7 +116,7 @@ def _read_raw_loops(modelspace, layer) -> tuple[list[list[tuple[float, float]]],
 				open_polylines.append(pts)
 		elif dtype == "SPLINE":
 			pts = _flatten_entity(entity)
-			if (entity.closed or _dist(pts[0], pts[-1]) < 0.1) and len(pts) >= 3:
+			if len(pts) >= 3 and (entity.closed or _dist(pts[0], pts[-1]) < 0.1):
 				loops.append(pts if entity.closed else _strip_closing_point(pts, tol=0.05))
 			elif len(pts) >= 2:
 				raw_edges.append(pts)
@@ -178,7 +178,7 @@ def _deduplicate_edges(raw_edges: list[list[tuple[float, float]]]) -> list[list[
 			continue
 		pm = pts[len(pts) // 2] if len(pts) > 2 else ((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2)
 		ends = tuple(sorted([(round(p0[0], 3), round(p0[1], 3)), (round(p1[0], 3), round(p1[1], 3))]))
-		key = ends + (round(pm[0], 2), round(pm[1], 2))
+		key = (*ends, round(pm[0], 2), round(pm[1], 2))
 		if key not in seen:
 			seen.add(key)
 			unique.append(pts)

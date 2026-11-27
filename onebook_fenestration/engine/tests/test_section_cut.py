@@ -66,7 +66,7 @@ class TestSectionCut(unittest.TestCase):
 				("profile", "CS4801"),
 			],
 		)
-		frame_b, bead_b, glass, bead_t, frame_t = section.pieces
+		_frame_b, bead_b, glass, bead_t, frame_t = section.pieces
 		self.assertEqual((glass.start, glass.end), (29.5, 1470.5))
 		self.assertEqual(glass.end - glass.start, 1441)
 		self.assertEqual((bead_b.start, bead_b.end, bead_b.role, bead_b.panel), (25.5, 45.5, "bead", "F1"))

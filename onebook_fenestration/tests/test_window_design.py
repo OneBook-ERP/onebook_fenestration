@@ -6,7 +6,6 @@ from frappe.tests import IntegrationTestCase
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import import_cs400, load
 
-
 PRICE_LIST = "Fen Test Cost"
 
 

@@ -1,10 +1,10 @@
 """Clean, reconciled Cut Optimisation / Cutting Sheet builder and SVG diagram renderer."""
 
 import base64
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
 import frappe
@@ -68,8 +68,9 @@ def project_cutting_sheet(doc) -> dict:
 def render_cutting_sheet(doc, mode: str = "window", no_letterhead: bool = False, footer: str = "") -> str:
 	"""Render the shared Cutting Sheet HTML for either Window Design or Fenestration Project."""
 	cs = project_cutting_sheet(doc) if mode == "project" else window_cutting_sheet(doc)
+	# Bundled static Jinja template from this package (never user-supplied).
 	template = TEMPLATE_PATH.read_text(encoding="utf-8")
-	return frappe.render_template(
+	return frappe.render_template(  # nosemgrep: frappe-ssti
 		template,
 		{
 			"doc": doc,
@@ -244,15 +245,23 @@ def _build_cutting_sheet(design_docs: list, project: dict) -> dict:
 
 
 def _collect_cut_specs(design_docs: list, default_finish: str) -> dict[tuple[str, str], list[CutSpec]]:
+	from onebook_fenestration.engine import DesignError, RuleError
+
 	groups: dict[tuple[str, str], list[CutSpec]] = {}
 	seq = 0
 	snapshots = {}
 	for design in design_docs:
 		sv = design.series_version
 		if sv not in snapshots:
-			snapshots[sv] = get_snapshot(sv)
+			try:
+				snapshots[sv] = get_snapshot(sv)
+			except (RuleError, frappe.DoesNotExistError):
+				continue
 		spec = json.loads(design.design_json or "{}") if isinstance(design.design_json, str) else (design.design_json or {})
-		computed = compute(spec, snapshots[sv])
+		try:
+			computed = compute(spec, snapshots[sv])
+		except (DesignError, RuleError):
+			continue
 		finish = design.finish or default_finish or ""
 		ref = design.design_ref or design.name or ""
 		qty = max(1, int(flt(design.qty) or 1))
@@ -286,8 +295,8 @@ def _parse_angles(angles) -> tuple[int, int]:
 				return (45 if parts[0] == 135 else parts[0]), (45 if parts[1] == 135 else parts[1])
 			return (90, 90)
 	if isinstance(angles, (list, tuple)) and len(angles) >= 2:
-		a1 = int(round(flt(angles[0])))
-		a2 = int(round(flt(angles[1])))
+		a1 = round(flt(angles[0]))
+		a2 = round(flt(angles[1]))
 		return (45 if a1 == 135 else a1), (45 if a2 == 135 else a2)
 	return (90, 90)
 
@@ -342,14 +351,14 @@ def _safe_bar_lengths(raw: str | None, profile_code: str) -> list[float]:
 def _format_stock_summary(bars_map: dict[float, int]) -> str:
 	if not bars_map:
 		return "0 Pcs."
-	return ", ".join(f"{count} × {length:,.0f} mm" for length, count in sorted(bars_map.items()))
+	return ", ".join(f"{count} × {length:,.0f} mm" for length, count in sorted(bars_map.items()))  # noqa: RUF001
 
 
 def _accumulate_residuals(residuals_map, bars, profile, profile_name, finish, finish_color):
 	for bar in bars:
 		if not bar.is_rest:
 			continue
-		rem = int(round(bar.remainder_mm))
+		rem = round(bar.remainder_mm)
 		key = (profile, finish, rem)
 		if key not in residuals_map:
 			residuals_map[key] = {
@@ -458,7 +467,7 @@ def _section_svg_uri(
 	svg = (
 		f'<svg xmlns="http://www.w3.org/2000/svg" '
 		f'viewBox="{min_x - pad:.2f} {min_y - pad:.2f} {w + 2 * pad:.2f} {h + 2 * pad:.2f}">'
-		f'<path d="{xml_escape(path_d)}" fill="#E2E8F0" fill-rule="evenodd" '
+		f'<path d="{xml_escape(path_d, {chr(34): "&quot;"})}" fill="#E2E8F0" fill-rule="evenodd" '
 		f'stroke="#0F172A" stroke-width="{stroke_w:.2f}" stroke-linejoin="round"/>'
 		f"</svg>"
 	)
@@ -493,10 +502,13 @@ def _bar_diagram_svg_uri(
 	svg_h = 60.0
 	scale = draw_w / bar_length
 
+	bar_bg = (
+		f'<rect x="{pad_x:.1f}" y="{bar_y:.1f}" width="{draw_w:.1f}" height="{bar_h:.1f}" rx="2" '
+		f'fill="#F8FAFC" stroke="#CBD5E1" stroke-width="0.9"/>'
+	)
 	parts = [
 		f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_w:.0f} {svg_h:.0f}">',
-		f'<rect x="{pad_x:.1f}" y="{bar_y:.1f}" width="{draw_w:.1f}" height="{bar_h:.1f}" rx="2" '
-		f'fill="#F8FAFC" stroke="#CBD5E1" stroke-width="0.9"/>',
+		bar_bg,
 	]
 
 	cursor = pad_x

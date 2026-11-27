@@ -19,7 +19,12 @@ GASKET_GROUP = "Gasket"
 DEFAULT_CONSTANTS = ("default_butt_hinge", "default_single_point_handle", "default_limiter", "default_mesh")
 # Any panel other than the frame is a sash for pane_side rules (in_sash).
 PROBE_SASH = "S1"
-MEMBER_ROLES = {"frame_member": "frame", "sash_member": "sash", "mullion": "mullion", "transom_member": "transom"}
+MEMBER_ROLES = {
+	"frame_member": ("frame", "threshold", "door_bottom_adaptor"),
+	"sash_member": ("sash", "door_sash"),
+	"mullion": ("mullion",),
+	"transom_member": ("transom",),
+}
 
 
 def hardware_bom(
@@ -90,7 +95,7 @@ def hardware_bom(
 			if not item_code:
 				continue
 			for position, side_len in (("W", p.width), ("W", p.width), ("H", p.height), ("H", p.height)):
-				length = max(0.0, round(side_len + gasket_ded, 1))
+				length = max(0.0, round(side_len - 2 * gasket_ded, 1))
 				bom.append(BomLine(item_code, item_name or item_code, 1.0, "Meter", p.panel, position, length, GASKET_GROUP))
 			emitted = True
 		if emitted:
@@ -157,7 +162,7 @@ def _contexts(per, members, panes, sash_sizes, shutter_kg, window_vars, snapshot
 	"""Yield (panel, position, variables) for every place a rule of this kind iterates."""
 	if per in MEMBER_ROLES:
 		for m in members:
-			if m.role == MEMBER_ROLES[per]:
+			if m.role in MEMBER_ROLES[per]:
 				yield m.panel, m.position, {"len": m.length, "position": m.position, "role": m.role}
 	elif per == "frame_side":
 		frame_meta = {k: window_vars[k] for k in ("frame_profile", "frame_depth", "frame_face", "frame_config") if k in window_vars}

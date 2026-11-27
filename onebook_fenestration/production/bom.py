@@ -124,6 +124,8 @@ def keep_design_boms_off_default(doc, method=None) -> None:
 
 
 def clear_design_defaults() -> None:
+	if not frappe.db.has_column("BOM", "fen_window_design"):
+		return
 	for name in frappe.get_all(
 		"BOM", {"item": WINDOW_ITEM, "fen_window_design": ("is", "set"), "is_default": 1}, pluck="name"
 	):
