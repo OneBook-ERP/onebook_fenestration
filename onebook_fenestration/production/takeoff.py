@@ -178,11 +178,11 @@ def _prepare_procurement_lines(
 	if not selected:
 		frappe.throw(_("No items found in {0} for category {1}.").format(project_name, category))
 
-	missing = [r["label"] for r in selected if not r["item_code"] or not frappe.db.exists("Item", r["item_code"])]
+	missing = [
+		r["label"] for r in selected if not r["item_code"] or not frappe.db.exists("Item", r["item_code"])
+	]
 	if missing:
-		frappe.throw(
-			_("Missing ERP Item master for: {0}").format(", ".join(sorted(set(missing))))
-		)
+		frappe.throw(_("Missing ERP Item master for: {0}").format(", ".join(sorted(set(missing)))))
 
 	lines = []
 	for row in selected:
@@ -302,7 +302,9 @@ def _build_window_entry(design: dict, meta: "_MasterLookup") -> tuple[dict, list
 	)
 
 
-def _collect_window_profiles(design, design_qty: int, result, snapshot, meta: "_MasterLookup") -> tuple[list[dict], list[str]]:
+def _collect_window_profiles(
+	design, design_qty: int, result, snapshot, meta: "_MasterLookup"
+) -> tuple[list[dict], list[str]]:
 	problems: list[str] = []
 	by_profile: dict[str, dict] = {}
 	cuts_map: dict[tuple[str, float, str, str], dict] = {}
@@ -311,15 +313,22 @@ def _collect_window_profiles(design, design_qty: int, result, snapshot, meta: "_
 		code = member.profile
 		p_info = meta.profile(code)
 		if not p_info["item_code"]:
-			problems.append(_("{0}: missing Item on profile {1}").format(design.design_ref or design.name, code))
-		kg_per_m = flt(snapshot.profiles[code].kg_per_m) if code in snapshot.profiles else flt(p_info["kg_per_m"])
+			problems.append(
+				_("{0}: missing Item on profile {1}").format(design.design_ref or design.name, code)
+			)
+		kg_per_m = (
+			flt(snapshot.profiles[code].kg_per_m) if code in snapshot.profiles else flt(p_info["kg_per_m"])
+		)
 		cut_mm = round(flt(member.length), 1)
 		cut_kg = cut_mm / 1000.0 * kg_per_m
 
 		item_info = meta.item(p_info["item_code"]) if p_info["item_code"] else None
 		uom = (
 			item_info["stock_uom"]
-			if item_info and item_info["exists"] and "Kg" not in item_info["valid_uoms"] and item_info["stock_uom"]
+			if item_info
+			and item_info["exists"]
+			and "Kg" not in item_info["valid_uoms"]
+			and item_info["stock_uom"]
 			else "Kg"
 		)
 		grp = by_profile.setdefault(
@@ -367,7 +376,9 @@ def _collect_window_profiles(design, design_qty: int, result, snapshot, meta: "_
 	return out, problems
 
 
-def _collect_window_glass(design, design_qty: int, result, meta: "_MasterLookup") -> tuple[list[dict], list[str]]:
+def _collect_window_glass(
+	design, design_qty: int, result, meta: "_MasterLookup"
+) -> tuple[list[dict], list[str]]:
 	problems: list[str] = []
 	by_glass: dict[str, dict] = {}
 	panes_map: dict[tuple[str, float, float, str], dict] = {}
@@ -383,7 +394,9 @@ def _collect_window_glass(design, design_qty: int, result, meta: "_MasterLookup"
 		code = pane.glass
 		g_info = meta.glass(code)
 		if not g_info["item_code"]:
-			problems.append(_("{0}: missing Item on glass {1}").format(design.design_ref or design.name, code))
+			problems.append(
+				_("{0}: missing Item on glass {1}").format(design.design_ref or design.name, code)
+			)
 		w = round(flt(pane.width), 1)
 		h = round(flt(pane.height), 1)
 		area = w * h / 1e6
@@ -391,7 +404,10 @@ def _collect_window_glass(design, design_qty: int, result, meta: "_MasterLookup"
 		item_info = meta.item(g_info["item_code"]) if g_info["item_code"] else None
 		uom = (
 			item_info["stock_uom"]
-			if item_info and item_info["exists"] and "Square Meter" not in item_info["valid_uoms"] and item_info["stock_uom"]
+			if item_info
+			and item_info["exists"]
+			and "Square Meter" not in item_info["valid_uoms"]
+			and item_info["stock_uom"]
 			else "Square Meter"
 		)
 		grp = by_glass.setdefault(
@@ -436,7 +452,9 @@ def _collect_window_glass(design, design_qty: int, result, meta: "_MasterLookup"
 	return out, problems
 
 
-def _collect_window_hardware(design, design_qty: int, result, meta: "_MasterLookup") -> tuple[list[dict], list[str]]:
+def _collect_window_hardware(
+	design, design_qty: int, result, meta: "_MasterLookup"
+) -> tuple[list[dict], list[str]]:
 	problems: list[str] = []
 	by_item: dict[tuple[str, str, str], dict] = {}
 
@@ -584,9 +602,12 @@ class _MasterLookup:
 
 	def profile(self, code: str) -> dict:
 		if code not in self._profiles:
-			row = frappe.db.get_value(
-				"Fenestration Profile", code, ["item", "profile_name", "kg_per_m"], as_dict=True
-			) or {}
+			row = (
+				frappe.db.get_value(
+					"Fenestration Profile", code, ["item", "profile_name", "kg_per_m"], as_dict=True
+				)
+				or {}
+			)
 			item_code = row.get("item") or ""
 			item_info = self.item(item_code) if item_code else {"item_name": "", "default_supplier": None}
 			self._profiles[code] = {

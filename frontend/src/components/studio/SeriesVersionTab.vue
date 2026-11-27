@@ -1,6 +1,10 @@
 <template>
 	<div>
-		<div class="mb-4 flex flex-wrap gap-1.5 border-b border-outline-gray-2 pb-2" role="group" aria-label="Filter versions by series">
+		<div
+			class="mb-4 flex flex-wrap gap-1.5 border-b border-outline-gray-2 pb-2"
+			role="group"
+			aria-label="Filter versions by series"
+		>
 			<button
 				v-for="s in seriesTabs"
 				:key="s.key"
@@ -19,7 +23,11 @@
 		</div>
 
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter versions by status">
+			<div
+				class="flex flex-wrap items-center gap-2"
+				role="group"
+				aria-label="Filter versions by status"
+			>
 				<button
 					v-for="st in statusFilters"
 					:key="st.id"
@@ -44,11 +52,7 @@
 					aria-label="Search versions"
 					class="w-60"
 				/>
-				<Button
-					variant="solid"
-					data-testid="new-version-btn"
-					:route="newVersionRoute"
-				>
+				<Button variant="solid" data-testid="new-version-btn" :route="newVersionRoute">
 					New series version
 				</Button>
 			</div>
@@ -83,7 +87,7 @@
 						<Badge :theme="statusBadge(v).theme" :label="statusBadge(v).label" />
 						<Badge v-if="isActivePublished(v)" theme="blue" label="Active" />
 					</div>
-					<span class="truncate text-ink-gray-6">{{ v.version_note || '—' }}</span>
+					<span class="truncate text-ink-gray-6">{{ v.version_note || "—" }}</span>
 					<div class="flex items-center justify-end gap-2">
 						<Button
 							variant="outline"
@@ -95,10 +99,7 @@
 					</div>
 				</li>
 
-				<li
-					v-if="!filtered.length"
-					class="px-4 py-8 text-center text-sm text-ink-gray-5"
-				>
+				<li v-if="!filtered.length" class="px-4 py-8 text-center text-sm text-ink-gray-5">
 					No series versions found.
 				</li>
 			</ul>
@@ -107,87 +108,87 @@
 </template>
 
 <script setup lang="ts">
-import { Badge, Button, FormControl } from 'frappe-ui'
-import { computed, ref, watch } from 'vue'
-import type { ProfileSeriesRow, SeriesVersionRow } from '@/studio/api'
+import { Badge, Button, FormControl } from "frappe-ui";
+import { computed, ref, watch } from "vue";
+import type { ProfileSeriesRow, SeriesVersionRow } from "@/studio/api";
 
 const props = defineProps<{
-	versions: SeriesVersionRow[]
-	seriesList: ProfileSeriesRow[]
-	initialSeries?: string
-}>()
+	versions: SeriesVersionRow[];
+	seriesList: ProfileSeriesRow[];
+	initialSeries?: string;
+}>();
 
 defineEmits<{
-	(e: 'reload'): void
-}>()
+	(e: "reload"): void;
+}>();
 
-const selectedSeries = ref<string>(props.initialSeries || 'ALL')
-const selectedStatus = ref<'ALL' | 'published' | 'draft'>('ALL')
-const search = ref('')
+const selectedSeries = ref<string>(props.initialSeries || "ALL");
+const selectedStatus = ref<"ALL" | "published" | "draft">("ALL");
+const search = ref("");
 
 watch(
 	() => props.initialSeries,
 	(val) => {
-		if (val) selectedSeries.value = val
-	},
-)
+		if (val) selectedSeries.value = val;
+	}
+);
 
 const newVersionRoute = computed(() =>
-	selectedSeries.value !== 'ALL'
+	selectedSeries.value !== "ALL"
 		? `/series-studio/versions/new?series=${encodeURIComponent(selectedSeries.value)}`
-		: '/series-studio/versions/new',
-)
+		: "/series-studio/versions/new"
+);
 
 const statusFilters = [
-	{ id: 'ALL' as const, label: 'All statuses' },
-	{ id: 'published' as const, label: 'Published' },
-	{ id: 'draft' as const, label: 'Draft' },
-]
+	{ id: "ALL" as const, label: "All statuses" },
+	{ id: "published" as const, label: "Published" },
+	{ id: "draft" as const, label: "Draft" },
+];
 
 const seriesTabs = computed(() => {
-	const counts = new Map<string, number>()
+	const counts = new Map<string, number>();
 	for (const v of props.versions) {
-		counts.set(v.series, (counts.get(v.series) || 0) + 1)
+		counts.set(v.series, (counts.get(v.series) || 0) + 1);
 	}
 	const keys = new Set<string>([
 		...props.seriesList.map((s) => s.series_code || s.name),
 		...counts.keys(),
-	])
+	]);
 	return [
-		{ key: 'ALL', label: `All Versions · ${props.versions.length}` },
+		{ key: "ALL", label: `All Versions · ${props.versions.length}` },
 		...Array.from(keys).map((k) => ({ key: k, label: `${k} · ${counts.get(k) || 0}` })),
-	]
-})
+	];
+});
 
 const publishedBySeries = computed(() => {
-	const map = new Map<string, string>()
+	const map = new Map<string, string>();
 	for (const s of props.seriesList) {
-		if (s.published_version) map.set(s.series_code || s.name, s.published_version)
+		if (s.published_version) map.set(s.series_code || s.name, s.published_version);
 	}
-	return map
-})
+	return map;
+});
 
 function isActivePublished(v: SeriesVersionRow): boolean {
-	return publishedBySeries.value.get(v.series) === v.name
+	return publishedBySeries.value.get(v.series) === v.name;
 }
 
-function statusBadge(v: SeriesVersionRow): { label: string; theme: 'green' | 'amber' | 'red' } {
-	if (v.docstatus === 1) return { label: 'Published', theme: 'green' }
-	if (v.docstatus === 2) return { label: 'Cancelled', theme: 'red' }
-	return { label: 'Draft', theme: 'amber' }
+function statusBadge(v: SeriesVersionRow): { label: string; theme: "green" | "amber" | "red" } {
+	if (v.docstatus === 1) return { label: "Published", theme: "green" };
+	if (v.docstatus === 2) return { label: "Cancelled", theme: "red" };
+	return { label: "Draft", theme: "amber" };
 }
 
 const filtered = computed(() => {
-	const q = search.value.trim().toLowerCase()
+	const q = search.value.trim().toLowerCase();
 	return props.versions.filter((v) => {
-		if (selectedSeries.value !== 'ALL' && v.series !== selectedSeries.value) return false
-		if (selectedStatus.value === 'published' && v.docstatus !== 1) return false
-		if (selectedStatus.value === 'draft' && v.docstatus !== 0) return false
+		if (selectedSeries.value !== "ALL" && v.series !== selectedSeries.value) return false;
+		if (selectedStatus.value === "published" && v.docstatus !== 1) return false;
+		if (selectedStatus.value === "draft" && v.docstatus !== 0) return false;
 		if (q) {
-			const hay = `${v.name} ${v.series} ${v.version_note || ''}`.toLowerCase()
-			if (!hay.includes(q)) return false
+			const hay = `${v.name} ${v.series} ${v.version_note || ""}`.toLowerCase();
+			if (!hay.includes(q)) return false;
 		}
-		return true
-	})
-})
+		return true;
+	});
+});
 </script>

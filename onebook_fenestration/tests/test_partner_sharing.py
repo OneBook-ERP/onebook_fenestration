@@ -112,7 +112,14 @@ class TestPartnerSharing(FrappeTestCase):
 		)
 		with patch.object(sharing.frappe, "get_roles", return_value=["System Manager"]):
 			self.assertIs(sharing.project_has_permission(doc, ptype="write", user="admin@example.com"), True)
-			self.assertIs(sharing.design_has_permission(frappe._dict(name="WD-1", owner="dealer@example.com", project="FP-TEST-1"), ptype="write", user="admin@example.com"), True)
+			self.assertIs(
+				sharing.design_has_permission(
+					frappe._dict(name="WD-1", owner="dealer@example.com", project="FP-TEST-1"),
+					ptype="write",
+					user="admin@example.com",
+				),
+				True,
+			)
 
 		with patch.object(sharing.frappe, "get_roles", return_value=["Fenestration Engineer"]):
 			self.assertIs(sharing.project_has_permission(doc, ptype="read", user="eng@hilux.com"), True)
@@ -133,8 +140,12 @@ class TestPartnerSharing(FrappeTestCase):
 			),
 		):
 			self.assertIs(sharing.project_has_permission(doc, ptype="read", user="dealer@example.com"), True)
-			self.assertIs(sharing.project_has_permission(doc, ptype="write", user="dealer@example.com"), False)
-			self.assertIs(sharing.project_has_permission(doc, ptype="delete", user="dealer@example.com"), False)
+			self.assertIs(
+				sharing.project_has_permission(doc, ptype="write", user="dealer@example.com"), False
+			)
+			self.assertIs(
+				sharing.project_has_permission(doc, ptype="delete", user="dealer@example.com"), False
+			)
 
 	def test_share_project_requires_share_permission_and_hides_staff_emails(self):
 		fake_project = frappe._dict(
@@ -175,5 +186,3 @@ class TestPartnerSharing(FrappeTestCase):
 			result = sharing.share_project_with_hilux("FP-TEST-DEALER")
 			self.assertEqual(result["shared_user_count"], 1)
 			self.assertNotIn("shared_users", result)
-
-

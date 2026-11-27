@@ -92,10 +92,12 @@ def _ensure_crm_partner_type_layouts():
 			continue
 		try:
 			parsed = json.loads(raw)
-		except (TypeError, ValueError):
+		except TypeError, ValueError:
 			continue
 		if _append_field_to_layout_section(parsed, section_name, "fen_partner_type"):
-			frappe.db.set_value("CRM Fields Layout", layout_name, "layout", json.dumps(parsed), update_modified=False)
+			frappe.db.set_value(
+				"CRM Fields Layout", layout_name, "layout", json.dumps(parsed), update_modified=False
+			)
 
 
 def _append_field_to_layout_section(nodes: list, section_name: str, fieldname: str) -> bool:
@@ -198,7 +200,9 @@ def _seed_settings():
 		stored = stored_value(fieldname)
 		if stored in (None, ""):
 			frappe.db.set_single_value(
-				"Fenestration Settings", fieldname, frappe.get_meta("Fenestration Settings").get_field(fieldname).default
+				"Fenestration Settings",
+				fieldname,
+				frappe.get_meta("Fenestration Settings").get_field(fieldname).default,
 			)
 
 
@@ -238,7 +242,9 @@ STANDARD_TERMS_LINES = (
 def seed_quote_masters():
 	"""Generic quote items with their HSN codes and the standard terms; never overwrites existing records."""
 	if not frappe.db.exists("UOM", "Nos"):
-		frappe.get_doc({"doctype": "UOM", "uom_name": "Nos", "must_be_whole_number": 1}).insert(ignore_permissions=True)
+		frappe.get_doc({"doctype": "UOM", "uom_name": "Nos", "must_be_whole_number": 1}).insert(
+			ignore_permissions=True
+		)
 	item_group = _quote_item_group()
 	has_hsn = frappe.db.exists("DocType", "GST HSN Code") and frappe.get_meta("Item").has_field(
 		"gst_hsn_code"
@@ -416,7 +422,9 @@ def _restock(item_code: str, uom: str) -> None:
 	if not any(row.uom == uom for row in item.uoms):
 		item.append("uoms", {"uom": uom, "conversion_factor": 1})
 	item.save(ignore_permissions=True)
-	for price in frappe.get_all("Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"):
+	for price in frappe.get_all(
+		"Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"
+	):
 		frappe.db.set_value("Item Price", price, "uom", uom)
 
 

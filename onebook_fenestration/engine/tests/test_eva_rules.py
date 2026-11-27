@@ -21,13 +21,36 @@ def cs4800_door_snapshot() -> SeriesSnapshot:
 		MemberRule("m_thresh", "threshold", "CS4814", (90, 90), "span - 99"),
 		MemberRule("m_dsash", "door_sash", "CS4804", (45, 45), "span"),
 		MemberRule("m_badapt", "door_bottom_adaptor", "CS4813", (45, 45), "span - 37"),
-		MemberRule("m_bead_thin", "bead", "HSL3409", (45, 45), "opening_w if position in 'BT' else opening_h", "glass_t <= 12"),
+		MemberRule(
+			"m_bead_thin",
+			"bead",
+			"HSL3409",
+			(45, 45),
+			"opening_w if position in 'BT' else opening_h",
+			"glass_t <= 12",
+		),
 	)
 	hardware_rules = (
 		*base.hardware_rules,
-		HardwareRule("h_door_hinge", "H415", "DOOR HINGE 3 WING", "sash", "hinge_count", when="sash_config == 'door'"),
-		HardwareRule("h_door_lock", "H420", "DOOR HANDLE SET", "sash", "1", when="sash_config == 'door' and active_leaf"),
-		HardwareRule("h_win_hinge", "H412", "WINDOW BUTT HINGE", "sash", "hinge_count", when="sash_config == 'window' and hinge_stay == 'hinges'"),
+		HardwareRule(
+			"h_door_hinge", "H415", "DOOR HINGE 3 WING", "sash", "hinge_count", when="sash_config == 'door'"
+		),
+		HardwareRule(
+			"h_door_lock",
+			"H420",
+			"DOOR HANDLE SET",
+			"sash",
+			"1",
+			when="sash_config == 'door' and active_leaf",
+		),
+		HardwareRule(
+			"h_win_hinge",
+			"H412",
+			"WINDOW BUTT HINGE",
+			"sash",
+			"hinge_count",
+			when="sash_config == 'window' and hinge_stay == 'hinges'",
+		),
 	)
 	constants = {**base.constants, "glass_clearance": 4.0}
 	return SeriesSnapshot(
@@ -45,10 +68,17 @@ def cs4800_door_snapshot() -> SeriesSnapshot:
 
 class TestEvaPhase1Rules(unittest.TestCase):
 	def test_3_side_frame_omits_bottom_and_squares_jambs(self):
-		d = {"width": 1500, "height": 1500, "frameConfig": "3-side", "root": {"type": "fixed", "glass": "6CTG"}}
+		d = {
+			"width": 1500,
+			"height": 1500,
+			"frameConfig": "3-side",
+			"root": {"type": "fixed", "glass": "6CTG"},
+		}
 		res = compute(d, cs4800_door_snapshot())
 		frame_cuts = [(m.position, m.length, m.angles) for m in res.members if m.role == "frame"]
-		self.assertEqual(sorted(frame_cuts), [("L", 1500.0, (90, 45)), ("R", 1500.0, (45, 90)), ("T", 1500.0, (45, 45))])
+		self.assertEqual(
+			sorted(frame_cuts), [("L", 1500.0, (90, 45)), ("R", 1500.0, (45, 90)), ("T", 1500.0, (45, 45))]
+		)
 
 	def test_w6_3_side_low_threshold_and_active_passive_door(self):
 		d = {
@@ -61,13 +91,29 @@ class TestEvaPhase1Rules(unittest.TestCase):
 				"dir": "v",
 				"at": [750],
 				"children": [
-					{"type": "sash", "glass": "6CTG", "sashConfig": "door", "activeLeaf": False, "hinge": "left"},
-					{"type": "sash", "glass": "6CTG", "sashConfig": "door", "activeLeaf": True, "hinge": "right"},
+					{
+						"type": "sash",
+						"glass": "6CTG",
+						"sashConfig": "door",
+						"activeLeaf": False,
+						"hinge": "left",
+					},
+					{
+						"type": "sash",
+						"glass": "6CTG",
+						"sashConfig": "door",
+						"activeLeaf": True,
+						"hinge": "right",
+					},
 				],
 			},
 		}
 		res = compute(d, cs4800_door_snapshot())
-		frame_cuts = [(m.position, m.profile, m.length, m.angles) for m in res.members if m.role in ("frame", "threshold")]
+		frame_cuts = [
+			(m.position, m.profile, m.length, m.angles)
+			for m in res.members
+			if m.role in ("frame", "threshold")
+		]
 		self.assertEqual(
 			sorted(frame_cuts),
 			[
@@ -109,25 +155,94 @@ class TestEvaPhase1Rules(unittest.TestCase):
 			profiles=profiles,
 			member_rules=(
 				*[r for r in base.member_rules if r.role != "bead"],
-				MemberRule("m_b40", "bead", "B40_THIN", (45, 45), "opening_w if position in 'BT' else opening_h", "frame_depth <= 42 and glass_t <= 8"),
-				MemberRule("m_b48", "bead", "B48_THIN", (45, 45), "opening_w if position in 'BT' else opening_h", "frame_depth > 42 and glass_t <= 12"),
+				MemberRule(
+					"m_b40",
+					"bead",
+					"B40_THIN",
+					(45, 45),
+					"opening_w if position in 'BT' else opening_h",
+					"frame_depth <= 42 and glass_t <= 8",
+				),
+				MemberRule(
+					"m_b48",
+					"bead",
+					"B48_THIN",
+					(45, 45),
+					"opening_w if position in 'BT' else opening_h",
+					"frame_depth > 42 and glass_t <= 12",
+				),
 			),
 			hardware_rules=(
 				*[r for r in base.hardware_rules if r.group != "Gasket"],
-				HardwareRule("g_3mm", "G23", "GASKET 3MM", "pane_side", "1", "m", "glass_t <= 6", "side_len / 1000", "Gasket"),
-				HardwareRule("g_2mm", "G22", "GASKET 2MM", "pane_side", "1", "m", "glass_t > 6", "side_len / 1000", "Gasket"),
-				HardwareRule("g_f48", "G21-48", "FRAME GASKET 48MM", "frame_side", "1", "m", "frame_depth > 42", "side_len / 1000", "Gasket"),
-				HardwareRule("g_f40", "G21-40", "FRAME GASKET 40MM", "frame_side", "1", "m", "frame_depth <= 42", "side_len / 1000", "Gasket"),
+				HardwareRule(
+					"g_3mm",
+					"G23",
+					"GASKET 3MM",
+					"pane_side",
+					"1",
+					"m",
+					"glass_t <= 6",
+					"side_len / 1000",
+					"Gasket",
+				),
+				HardwareRule(
+					"g_2mm",
+					"G22",
+					"GASKET 2MM",
+					"pane_side",
+					"1",
+					"m",
+					"glass_t > 6",
+					"side_len / 1000",
+					"Gasket",
+				),
+				HardwareRule(
+					"g_f48",
+					"G21-48",
+					"FRAME GASKET 48MM",
+					"frame_side",
+					"1",
+					"m",
+					"frame_depth > 42",
+					"side_len / 1000",
+					"Gasket",
+				),
+				HardwareRule(
+					"g_f40",
+					"G21-40",
+					"FRAME GASKET 40MM",
+					"frame_side",
+					"1",
+					"m",
+					"frame_depth <= 42",
+					"side_len / 1000",
+					"Gasket",
+				),
 			),
 			validation_rules=base.validation_rules,
 			glasses=base.glasses,
 			constants=base.constants,
 		)
-		res_f40 = compute({"width": 1200, "height": 1200, "frameProfileId": "F40", "root": {"type": "fixed", "glass": "6CTG"}}, snap)
-		res_f48 = compute({"width": 1200, "height": 1200, "frameProfileId": "F48", "root": {"type": "fixed", "glass": "6CTG"}}, snap)
+		res_f40 = compute(
+			{
+				"width": 1200,
+				"height": 1200,
+				"frameProfileId": "F40",
+				"root": {"type": "fixed", "glass": "6CTG"},
+			},
+			snap,
+		)
+		res_f48 = compute(
+			{
+				"width": 1200,
+				"height": 1200,
+				"frameProfileId": "F48",
+				"root": {"type": "fixed", "glass": "6CTG"},
+			},
+			snap,
+		)
 		self.assertEqual({m.profile for m in res_f40.members if m.role == "bead"}, {"B40_THIN"})
 		self.assertEqual({m.profile for m in res_f48.members if m.role == "bead"}, {"B48_THIN"})
 		self.assertIn("G21-40", {b.item for b in res_f40.bom})
 		self.assertIn("G21-48", {b.item for b in res_f48.bom})
 		self.assertIn("G23", {b.item for b in res_f48.bom})
-

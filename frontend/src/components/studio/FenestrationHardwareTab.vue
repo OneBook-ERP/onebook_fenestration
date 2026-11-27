@@ -59,7 +59,9 @@
 				class="flex flex-col overflow-hidden rounded-xl border border-outline-gray-2 bg-surface-white transition-shadow hover:shadow-sm"
 			>
 				<!-- CAD Section Preview -->
-				<div class="flex h-44 items-center justify-center border-b border-outline-gray-1 bg-[#f6f6f4] p-3">
+				<div
+					class="flex h-44 items-center justify-center border-b border-outline-gray-1 bg-[#f6f6f4] p-3"
+				>
 					<svg
 						v-if="hw.section_svg && hw.width_mm && hw.depth_mm"
 						:viewBox="cardViewBox(hw)"
@@ -71,7 +73,12 @@
 								fill="#94a3b8"
 								fill-opacity="0.85"
 								stroke="#1e293b"
-								:stroke-width="Math.max(0.25, Math.max(Number(hw.width_mm), Number(hw.depth_mm)) * 0.014)"
+								:stroke-width="
+									Math.max(
+										0.25,
+										Math.max(Number(hw.width_mm), Number(hw.depth_mm)) * 0.014
+									)
+								"
 								stroke-linejoin="round"
 								fill-rule="evenodd"
 							/>
@@ -90,9 +97,12 @@
 							<h3 class="truncate text-sm font-semibold text-ink-gray-9">
 								{{ hw.hardware_code || hw.name }} · {{ hw.hardware_name }}
 							</h3>
-							<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-gray-5">
+							<div
+								class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-gray-5"
+							>
 								<span v-if="hw.width_mm && hw.depth_mm">
-									{{ Number(hw.width_mm).toFixed(1) }} × {{ Number(hw.depth_mm).toFixed(1) }} mm
+									{{ Number(hw.width_mm).toFixed(1) }} ×
+									{{ Number(hw.depth_mm).toFixed(1) }} mm
 								</span>
 								<span v-if="hw.thickness_mm">
 									Gap/Thk: {{ Number(hw.thickness_mm) }} mm
@@ -104,7 +114,7 @@
 					</div>
 
 					<div class="mt-3 flex items-center justify-between text-xs text-ink-gray-5">
-						<span class="truncate font-mono">{{ hw.item || 'No ERPNext Item' }}</span>
+						<span class="truncate font-mono">{{ hw.item || "No ERPNext Item" }}</span>
 						<span v-if="hw.weight_kg" class="shrink-0 font-semibold text-ink-gray-8">
 							{{ Number(hw.weight_kg).toFixed(3) }} kg
 						</span>
@@ -129,7 +139,8 @@
 			>
 				<div class="text-sm font-semibold text-ink-gray-8">+ Add Hardware</div>
 				<p class="mt-1 max-w-[220px] text-xs text-ink-gray-5">
-					Import gaskets (G22–G25), beadings, handles, hinges, locks, or rollers with optional DXF CAD geometry.
+					Import gaskets (G22–G25), beadings, handles, hinges, locks, or rollers with
+					optional DXF CAD geometry.
 				</p>
 			</router-link>
 		</div>
@@ -137,49 +148,52 @@
 </template>
 
 <script setup lang="ts">
-import { Badge, Button, FormControl } from 'frappe-ui'
-import { computed, ref } from 'vue'
-import { HARDWARE_CATEGORIES, type FenestrationHardwareRow } from '@/studio/api'
-import { profileRotationTransform } from '@/studio/sectionSvg'
+import { Badge, Button, FormControl } from "frappe-ui";
+import { computed, ref } from "vue";
+import { HARDWARE_CATEGORIES, type FenestrationHardwareRow } from "@/studio/api";
+import { profileRotationTransform } from "@/studio/sectionSvg";
 
 const props = defineProps<{
-	hardwareList: FenestrationHardwareRow[]
-}>()
+	hardwareList: FenestrationHardwareRow[];
+}>();
 
 defineEmits<{
-	(e: 'reload'): void
-}>()
+	(e: "reload"): void;
+}>();
 
-const search = ref('')
-const selectedCategory = ref<string>('all')
+const search = ref("");
+const selectedCategory = ref<string>("all");
 
 const categoryCounts = computed(() => {
-	const counts = new Map<string, number>()
+	const counts = new Map<string, number>();
 	for (const hw of props.hardwareList) {
-		const cat = hw.category || 'Accessory'
-		counts.set(cat, (counts.get(cat) ?? 0) + 1)
+		const cat = hw.category || "Accessory";
+		counts.set(cat, (counts.get(cat) ?? 0) + 1);
 	}
 	return HARDWARE_CATEGORIES.filter((c) => counts.has(c)).map((c) => ({
 		name: c,
 		count: counts.get(c) ?? 0,
-	}))
-})
+	}));
+});
 
 const filtered = computed(() => {
-	const q = search.value.trim().toLowerCase()
+	const q = search.value.trim().toLowerCase();
 	return props.hardwareList.filter((hw) => {
-		if (selectedCategory.value !== 'all' && hw.category !== selectedCategory.value) return false
-		if (!q) return true
-		const hay = `${hw.hardware_code || ''} ${hw.hardware_name || ''} ${hw.category || ''} ${hw.item || ''}`.toLowerCase()
-		return hay.includes(q)
-	})
-})
+		if (selectedCategory.value !== "all" && hw.category !== selectedCategory.value)
+			return false;
+		if (!q) return true;
+		const hay = `${hw.hardware_code || ""} ${hw.hardware_name || ""} ${hw.category || ""} ${
+			hw.item || ""
+		}`.toLowerCase();
+		return hay.includes(q);
+	});
+});
 
 function cardViewBox(hw: FenestrationHardwareRow): string {
-	const w = Math.max(4, Number(hw.width_mm || 10))
-	const d = Math.max(4, Number(hw.depth_mm || 10))
-	const pad = Math.max(w, d) * 0.16
-	return `${-pad} ${-pad} ${w + pad * 2} ${d + pad * 2}`
+	const w = Math.max(4, Number(hw.width_mm || 10));
+	const d = Math.max(4, Number(hw.depth_mm || 10));
+	const pad = Math.max(w, d) * 0.16;
+	return `${-pad} ${-pad} ${w + pad * 2} ${d + pad * 2}`;
 }
 
 function cardRotationTransform(hw: FenestrationHardwareRow): string {
@@ -189,7 +203,6 @@ function cardRotationTransform(hw: FenestrationHardwareRow): string {
 		section_flip_y: hw.section_flip_y,
 		width_mm: hw.width_mm,
 		depth_mm: hw.depth_mm,
-	})
+	});
 }
 </script>
-

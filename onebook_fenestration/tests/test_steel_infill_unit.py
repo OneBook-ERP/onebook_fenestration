@@ -1,4 +1,5 @@
 """Steel infill must never be procured or charged as its previous glass selection."""
+
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -24,7 +25,12 @@ class TestSteelInfill(unittest.TestCase):
 		doc = SimpleNamespace(name="TEST", series_version="SV1", design_json=self.design())
 		db = MagicMock()
 		db.get_value.return_value = "ITEM"
-		with patch.object(bom, "get_snapshot", return_value=snapshot()), patch.object(bom.frappe, "db", db, create=True), patch.object(bom, "_unit_problem", return_value=None), patch.object(bom, "_", side_effect=lambda s: s):
+		with (
+			patch.object(bom, "get_snapshot", return_value=snapshot()),
+			patch.object(bom.frappe, "db", db, create=True),
+			patch.object(bom, "_unit_problem", return_value=None),
+			patch.object(bom, "_", side_effect=lambda s: s),
+		):
 			rows, problems = bom.collect_rows(doc)
 		self.assertTrue(any("steel sheet 1.2 mm (F1)" in p for p in problems))
 		self.assertFalse(any(c.args[0] == "Fenestration Glass" for c in db.get_value.call_args_list))

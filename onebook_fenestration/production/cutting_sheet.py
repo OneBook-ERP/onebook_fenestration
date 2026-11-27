@@ -113,7 +113,9 @@ def _build_cutting_sheet(design_docs: list, project: dict) -> dict:
 		series = escape_html(p_meta.get("series") or "")
 
 		patterns = _group_bar_patterns(result.bars, spec_by_key, kerf_mm)
-		_accumulate_residuals(residuals_map, result.bars, profile_code, profile_name, finish_name, finish_color)
+		_accumulate_residuals(
+			residuals_map, result.bars, profile_code, profile_name, finish_name, finish_color
+		)
 
 		bar_mm = round(stats["bar_mm"], 1)
 		cut_mm = round(stats["cut_mm"], 1)
@@ -255,12 +257,16 @@ def _collect_cut_specs(design_docs: list, default_finish: str) -> dict[tuple[str
 		if sv not in snapshots:
 			try:
 				snapshots[sv] = get_snapshot(sv)
-			except (RuleError, frappe.DoesNotExistError):
+			except RuleError, frappe.DoesNotExistError:
 				continue
-		spec = json.loads(design.design_json or "{}") if isinstance(design.design_json, str) else (design.design_json or {})
+		spec = (
+			json.loads(design.design_json or "{}")
+			if isinstance(design.design_json, str)
+			else (design.design_json or {})
+		)
 		try:
 			computed = compute(spec, snapshots[sv])
-		except (DesignError, RuleError):
+		except DesignError, RuleError:
 			continue
 		finish = design.finish or default_finish or ""
 		ref = design.design_ref or design.name or ""
@@ -317,14 +323,20 @@ def _fetch_profiles_meta(profile_codes: list[str]) -> dict[str, dict]:
 	]
 	rot_fields = ["section_rotation", "section_flip_x", "section_flip_y"]
 	try:
-		rows = frappe.get_all("Fenestration Profile", filters={"name": ("in", profile_codes)}, fields=base_fields + rot_fields)
+		rows = frappe.get_all(
+			"Fenestration Profile", filters={"name": ("in", profile_codes)}, fields=base_fields + rot_fields
+		)
 	except frappe.db.OperationalError:
 		try:
 			rows = frappe.get_all(
-				"Fenestration Profile", filters={"name": ("in", profile_codes)}, fields=[*base_fields, "section_rotation"]
+				"Fenestration Profile",
+				filters={"name": ("in", profile_codes)},
+				fields=[*base_fields, "section_rotation"],
 			)
 		except frappe.db.OperationalError:
-			rows = frappe.get_all("Fenestration Profile", filters={"name": ("in", profile_codes)}, fields=base_fields)
+			rows = frappe.get_all(
+				"Fenestration Profile", filters={"name": ("in", profile_codes)}, fields=base_fields
+			)
 	return {r.name: r for r in rows}
 
 

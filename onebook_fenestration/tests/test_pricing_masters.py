@@ -56,7 +56,10 @@ class TestPricingMasters(IntegrationTestCase):
 	def test_valid_structure_and_single_default(self):
 		doc = structure(
 			"TPS Ok",
-			[head("a", "Formula", formula="profile_cost"), head("b", "Percentage", rate=5, base="a", condition="finish_type == 'Mill'")],
+			[
+				head("a", "Formula", formula="profile_cost"),
+				head("b", "Percentage", rate=5, base="a", condition="finish_type == 'Mill'"),
+			],
 		).insert()
 		doc.is_default = 1
 		doc.save()
@@ -95,4 +98,6 @@ class TestPricingMasters(IntegrationTestCase):
 
 	def test_cost_price_list_description(self):
 		field = frappe.get_meta("Fenestration Settings").get_field("cost_price_list")
-		self.assertIn("profile rate per kg, glass per m², gaskets per m, hardware per unit", field.description)
+		self.assertIn(
+			"profile rate per kg, glass per m², gaskets per m, hardware per unit", field.description
+		)

@@ -2,7 +2,8 @@
 	<div>
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 			<div class="text-sm text-ink-gray-6">
-				Showing <strong class="text-ink-gray-9">{{ filtered.length }}</strong> of {{ glassList.length }} glass specifications
+				Showing <strong class="text-ink-gray-9">{{ filtered.length }}</strong> of
+				{{ glassList.length }} glass specifications
 			</div>
 
 			<div class="flex flex-wrap items-center gap-2.5">
@@ -66,7 +67,9 @@
 					<div>
 						<Badge theme="blue" :label="`${Number(g.thickness_mm || 0)} mm`" />
 					</div>
-					<span class="truncate font-mono text-xs text-ink-gray-6">{{ g.item || '—' }}</span>
+					<span class="truncate font-mono text-xs text-ink-gray-6">{{
+						g.item || "—"
+					}}</span>
 					<div class="flex items-center justify-end">
 						<Button
 							variant="outline"
@@ -78,10 +81,7 @@
 					</div>
 				</li>
 
-				<li
-					v-if="!filtered.length"
-					class="px-4 py-8 text-center text-sm text-ink-gray-5"
-				>
+				<li v-if="!filtered.length" class="px-4 py-8 text-center text-sm text-ink-gray-5">
 					No fenestration glass records found.
 				</li>
 			</ul>
@@ -90,26 +90,28 @@
 </template>
 
 <script setup lang="ts">
-import { Badge, Button, FormControl } from 'frappe-ui'
-import { computed, ref } from 'vue'
-import type { FenestrationGlassRow } from '@/studio/api'
+import { Badge, Button, FormControl } from "frappe-ui";
+import { computed, ref } from "vue";
+import type { FenestrationGlassRow } from "@/studio/api";
 
 const props = defineProps<{
-	glassList: FenestrationGlassRow[]
-}>()
+	glassList: FenestrationGlassRow[];
+}>();
 
 defineEmits<{
-	(e: 'reload'): void
-}>()
+	(e: "reload"): void;
+}>();
 
-const search = ref('')
+const search = ref("");
 
 const filtered = computed(() => {
-	const q = search.value.trim().toLowerCase()
-	if (!q) return props.glassList
+	const q = search.value.trim().toLowerCase();
+	if (!q) return props.glassList;
 	return props.glassList.filter((g) => {
-		const hay = `${g.glass_code || ''} ${g.glass_name || ''} ${g.thickness_mm || ''} ${g.item || ''}`.toLowerCase()
-		return hay.includes(q)
-	})
-})
+		const hay = `${g.glass_code || ""} ${g.glass_name || ""} ${g.thickness_mm || ""} ${
+			g.item || ""
+		}`.toLowerCase();
+		return hay.includes(q);
+	});
+});
 </script>

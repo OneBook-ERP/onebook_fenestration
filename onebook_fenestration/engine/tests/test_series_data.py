@@ -18,15 +18,93 @@ TYPOLOGIES = ("fixed", "fixed_mullion", "single", "double", "triple")
 # Hardware and gasket codes from the Hilux sheets, typed in from the sheets (glass rows are the glass catalogue).
 SHEET_CODES = {
 	"CS400": {
-		"H401", "H266", "H407", "H408", "H411", "H412", "H413", "H416", "H417", "H422A", "H422B", "H422C", "H423", "H425",
-		"H426", "H428", "H429", "G21", "G22", "G23", "G24", "G25", "G27", "G29", "H901", "H902", "H903", "H904", "H905",
-		"H906", "H910", "H911", "H912", "H913", "H914", "H915",
+		"H401",
+		"H266",
+		"H407",
+		"H408",
+		"H411",
+		"H412",
+		"H413",
+		"H416",
+		"H417",
+		"H422A",
+		"H422B",
+		"H422C",
+		"H423",
+		"H425",
+		"H426",
+		"H428",
+		"H429",
+		"G21",
+		"G22",
+		"G23",
+		"G24",
+		"G25",
+		"G27",
+		"G29",
+		"H901",
+		"H902",
+		"H903",
+		"H904",
+		"H905",
+		"H906",
+		"H910",
+		"H911",
+		"H912",
+		"H913",
+		"H914",
+		"H915",
 	},
 	"CS4800": {
-		"H401", "H402", "H403", "H404", "H405", "H266", "H407", "H409", "H410", "H411", "H412", "H413", "H414", "H415",
-		"H416", "H417", "H418", "H419", "H420", "H421", "H422A", "H422B", "H422C", "H423", "H424", "H425", "H426", "H427",
-		"H428", "H429", "G21", "G22", "G23", "G24", "G25", "G27", "G29", "H901", "H902", "H903", "H904", "H905", "H906",
-		"H910", "H911", "H912", "H913", "H914", "H915",
+		"H401",
+		"H402",
+		"H403",
+		"H404",
+		"H405",
+		"H266",
+		"H407",
+		"H409",
+		"H410",
+		"H411",
+		"H412",
+		"H413",
+		"H414",
+		"H415",
+		"H416",
+		"H417",
+		"H418",
+		"H419",
+		"H420",
+		"H421",
+		"H422A",
+		"H422B",
+		"H422C",
+		"H423",
+		"H424",
+		"H425",
+		"H426",
+		"H427",
+		"H428",
+		"H429",
+		"G21",
+		"G22",
+		"G23",
+		"G24",
+		"G25",
+		"G27",
+		"G29",
+		"H901",
+		"H902",
+		"H903",
+		"H904",
+		"H905",
+		"H906",
+		"H910",
+		"H911",
+		"H912",
+		"H913",
+		"H914",
+		"H915",
 	},
 }
 DOOR_CODES = {"H402", "H415", "H418", "H419", "H420", "H421", "H424"}
@@ -62,7 +140,11 @@ SHEET_COUNTS = {
 # CS400 keeps EvA where the two disagree (CLAUDE.md golden rule); CS4800 follows the sheet unless no plain rule fits.
 SHEET_DEVIATIONS = {
 	("CS4800", "H410", "triple"): (6, "Q2.4"),
-	**{(series, "H913", t): (3, "Q7.3") for series in ("CS400", "CS4800") for t in ("single", "double", "triple")},
+	**{
+		(series, "H913", t): (3, "Q7.3")
+		for series in ("CS400", "CS4800")
+		for t in ("single", "double", "triple")
+	},
 	**{("CS400", "H914", t): (1.6, "Q7.4") for t in TYPOLOGIES},
 	**{("CS400", "H407", t): (0, "Q2.5") for t in TYPOLOGIES},
 	**{("CS400", "H408", t): (0, "Q2.6") for t in ("single", "double", "triple")},
@@ -74,8 +156,24 @@ FASTENER_ITEMS = {"H901", "H902", "H903", "H904", "H911", "H912"}
 
 # EvA W01 golden totals (test_hardware.test_w01_hardware_totals / test_w01_consumables on the v1 fixture); CS400 v2 must match all.
 EVA_W01 = {
-	"H401": 12, "H266": 12, "H912": 10, "H913": 2, "H904": 10, "H903": 10, "H902": 6, "H901": 6, "H911": 10, "H412": 4,
-	"H411": 2, "H416": 2, "H429": 12, "H425": 2, "H422C": 2, "H423": 4, "H905": 16, "H914": 1.423,
+	"H401": 12,
+	"H266": 12,
+	"H912": 10,
+	"H913": 2,
+	"H904": 10,
+	"H903": 10,
+	"H902": 6,
+	"H901": 6,
+	"H911": 10,
+	"H412": 4,
+	"H411": 2,
+	"H416": 2,
+	"H429": 12,
+	"H425": 2,
+	"H422C": 2,
+	"H423": 4,
+	"H905": 16,
+	"H914": 1.423,
 }
 
 
@@ -102,7 +200,12 @@ def reference_design(typology: str, size: float = 1200, **sash_options) -> dict:
 		root = leaves[0]
 	else:
 		step = size / len(leaves)
-		root = {"type": "split", "dir": "v", "at": [step * i for i in range(1, len(leaves))], "children": leaves}
+		root = {
+			"type": "split",
+			"dir": "v",
+			"at": [step * i for i in range(1, len(leaves))],
+			"children": leaves,
+		}
 	return {"width": size, "height": size, "root": root}
 
 
@@ -142,7 +245,10 @@ class TestSeriesData(unittest.TestCase):
 		for series in FILES:
 			with self.subTest(series=series):
 				self.assertEqual(
-					{code: (g.name, g.thickness_mm, g.glass_mm) for code, g in series_snapshot(series).glasses.items()},
+					{
+						code: (g.name, g.thickness_mm, g.glass_mm)
+						for code, g in series_snapshot(series).glasses.items()
+					},
 					{g["code"]: (g["name"], g["thickness_mm"], g["glass_mm"]) for g in catalogue},
 				)
 
@@ -171,7 +277,9 @@ class TestSeriesData(unittest.TestCase):
 		for rule in door:
 			self.assertEqual((rule.when, rule.note), ("False", "door — no door typology yet"), rule.id)
 		for typology in TYPOLOGIES:
-			self.assertFalse(DOOR_CODES & {b.item for b in compute(reference_design(typology), snap).bom}, typology)
+			self.assertFalse(
+				DOOR_CODES & {b.item for b in compute(reference_design(typology), snap).bom}, typology
+			)
 
 	def test_cs4800_v2_has_no_placeholders(self):
 		data = series_data("CS4800")
@@ -263,7 +371,9 @@ class TestEvaGoldenOnCs400V2(unittest.TestCase):
 
 	def assertSameItemSet(self, design: str):
 		v1, v2 = self.compute_both(design)
-		self.assertEqual({b.item for b in v2.bom} ^ {b.item for b in v1.bom}, EVA_ITEM_SET_DIFFERENCES, design)
+		self.assertEqual(
+			{b.item for b in v2.bom} ^ {b.item for b in v1.bom}, EVA_ITEM_SET_DIFFERENCES, design
+		)
 		return v1, v2
 
 	def test_w01_golden_on_cs400_v2(self):

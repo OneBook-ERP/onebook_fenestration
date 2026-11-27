@@ -26,7 +26,9 @@ class TestDesignLock(IntegrationTestCase):
 		for name in STATIC_HELPERS:
 			setattr(cls, name, staticmethod(getattr(test_quotation.TestQuotation, name)))
 		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
-		cls.project = frappe.get_doc({"doctype": "Fenestration Project", "project_title": "Lock Test"}).insert()
+		cls.project = frappe.get_doc(
+			{"doctype": "Fenestration Project", "project_title": "Lock Test"}
+		).insert()
 		cls.set_up_prices()
 		cls.set_up_parties()
 
@@ -69,7 +71,9 @@ class TestDesignLock(IntegrationTestCase):
 		doc.design_name = "Porch window"
 		doc.save()
 		self.assertEqual(frappe.db.get_value("Window Design", design.name, "location"), "Porch")
-		self.assertEqual(get_design(design.name)["locked_by"], {"doctype": "Quotation", "name": quotation.name})
+		self.assertEqual(
+			get_design(design.name)["locked_by"], {"doctype": "Quotation", "name": quotation.name}
+		)
 
 	def test_lost_quotation_does_not_lock(self):
 		_project, design, quotation = self.submitted_quotation()
@@ -108,9 +112,13 @@ class TestDesignLock(IntegrationTestCase):
 		copy = copy_design(design.name)
 		self.assertEqual(frappe.db.get_value("Window Design", design.name, "superseded_by"), copy)
 		self.assertIsNone(frappe.db.get_value("Window Design", copy, "superseded_by"))
-		frappe.db.set_value("Window Design", copy, "pricing_warning_count", 0)  # fixture prices only a few items
+		frappe.db.set_value(
+			"Window Design", copy, "pricing_warning_count", 0
+		)  # fixture prices only a few items
 		quotation = frappe.get_doc("Quotation", make_quotation(project.name))
-		self.assertEqual([line.fen_window_design for line in quotation.items if line.fen_window_design], [copy])
+		self.assertEqual(
+			[line.fen_window_design for line in quotation.items if line.fen_window_design], [copy]
+		)
 
 	def test_copy_design_requires_project_write(self):
 		_project, design, _quotation = self.submitted_quotation()

@@ -99,7 +99,9 @@ def set_profile_orientation(
 			frappe.throw(_("Rotation must be 0, 90, 180, or 270 degrees."))
 		rot_int, fx_int, fy_int = compose_section_transform(cur_rot, cur_fx, cur_fy, d_rot, d_fx, d_fy)
 	else:
-		rot_int = (((int(rotation if rotation is not None and str(rotation).strip() else cur_rot)) % 360) + 360) % 360
+		rot_int = (
+			((int(rotation if rotation is not None and str(rotation).strip() else cur_rot)) % 360) + 360
+		) % 360
 		if rot_int not in (0, 90, 180, 270):
 			frappe.throw(_("Rotation must be 0, 90, 180, or 270 degrees."))
 		fx_int = int(_as_bool(flip_x) if flip_x is not None else cur_fx)
@@ -254,7 +256,13 @@ def set_hardware_orientation(
 	"""Set default CAD section orientation on a Fenestration Hardware record."""
 	frappe.has_permission("Fenestration Hardware", "write", throw=True)
 	doc = frappe.get_doc("Fenestration Hardware", hardware_name)
-	rot_int = (((int(rotation if rotation is not None and str(rotation).strip() else (doc.section_rotation or 0))) % 360) + 360) % 360
+	rot_int = (
+		(
+			(int(rotation if rotation is not None and str(rotation).strip() else (doc.section_rotation or 0)))
+			% 360
+		)
+		+ 360
+	) % 360
 	if rot_int not in (0, 90, 180, 270):
 		frappe.throw(_("Rotation must be 0, 90, 180, or 270 degrees."))
 	fx_int = int(_as_bool(flip_x) if flip_x is not None else bool(int(doc.section_flip_x or 0)))
@@ -279,8 +287,14 @@ def get_global_glazing_rules() -> dict:
 	"""Return global & per-series Bead & Gasket rules, auto-width config, available beads, gaskets, glasses, and series."""
 	frappe.has_permission("Fenestration Glass", "read", throw=True)
 	has_settings = frappe.db.exists("DocType", "Fenestration Glazing Settings")
-	raw_rules = frappe.db.get_single_value("Fenestration Glazing Settings", "rules_json") if has_settings else None
-	raw_auto = frappe.db.get_single_value("Fenestration Glazing Settings", "auto_config_json") if has_settings else None
+	raw_rules = (
+		frappe.db.get_single_value("Fenestration Glazing Settings", "rules_json") if has_settings else None
+	)
+	raw_auto = (
+		frappe.db.get_single_value("Fenestration Glazing Settings", "auto_config_json")
+		if has_settings
+		else None
+	)
 	rules = normalize_global_glazing_rules(raw_rules)
 	auto_config = normalize_glazing_auto_config(raw_auto)
 
@@ -389,6 +403,3 @@ def save_global_glazing_rules(rules: list | str, auto_config: dict | str | None 
 		if normalized_auto is not None
 		else normalize_glazing_auto_config(getattr(doc, "auto_config_json", None)),
 	}
-
-
-

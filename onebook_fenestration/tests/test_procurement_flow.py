@@ -31,6 +31,16 @@ class TestProcurementFlow(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		if not frappe.db.exists("Company", COMPANY):
+			frappe.get_doc(
+				{
+					"doctype": "Company",
+					"company_name": COMPANY,
+					"abbr": "OF",
+					"default_currency": "INR",
+					"country": "India",
+				}
+			).insert()
 		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
 		test_quotation.TestQuotation.set_up_prices()
 		setup_production_items()
@@ -61,13 +71,17 @@ class TestProcurementFlow(IntegrationTestCase):
 	def _make_customer(self, name=TEST_CUSTOMER):
 		if frappe.db.exists("Customer", name):
 			return name
-		return frappe.get_doc(
-			{
-				"doctype": "Customer",
-				"customer_name": name,
-				"customer_type": "Company",
-			}
-		).insert().name
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Customer",
+					"customer_name": name,
+					"customer_type": "Company",
+				}
+			)
+			.insert()
+			.name
+		)
 
 	def _make_project_with_design(self, refs=("W01",)):
 		customer = self._make_customer()
@@ -117,7 +131,9 @@ class TestProcurementFlow(IntegrationTestCase):
 		self.assertTrue(frappe.db.exists("Supplier", "Hilux Hardware & Gaskets"))
 		self.assertTrue(frappe.db.exists("Payment Terms Template", "Net 30"))
 		self.assertTrue(frappe.db.exists("Payment Terms Template", "50% Advance + Balance Net 7"))
-		self.assertGreater(flt(frappe.db.get_single_value("Stock Settings", "over_delivery_receipt_allowance")), 0)
+		self.assertGreater(
+			flt(frappe.db.get_single_value("Stock Settings", "over_delivery_receipt_allowance")), 0
+		)
 		self.assertGreater(flt(frappe.db.get_single_value("Accounts Settings", "over_billing_allowance")), 0)
 
 		e104 = frappe.get_doc("Item", "E104156")
@@ -166,7 +182,9 @@ class TestProcurementFlow(IntegrationTestCase):
 		po_from_mr.insert()
 		self.assertTrue(all(row.fen_cut_length_mm > 0 for row in po_from_mr.items))
 
-		po_res = make_project_purchase_order(project.name, supplier=supplier, category="Profile", warehouse=main_wh)
+		po_res = make_project_purchase_order(
+			project.name, supplier=supplier, category="Profile", warehouse=main_wh
+		)
 		po = frappe.get_doc("Purchase Order", po_res["purchase_order"])
 		self.assertEqual(po.fen_project, project.name)
 		self.assertTrue(all(row.fen_cut_length_mm > 0 and row.fen_piece_count > 0 for row in po.items))

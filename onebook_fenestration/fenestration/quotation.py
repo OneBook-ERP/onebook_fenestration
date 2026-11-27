@@ -232,7 +232,7 @@ def _ungasketed_glasses(design) -> list[str]:
 
 
 def _missing_items_suffix(design) -> str:
-	"""": G21, G23" from the design's no_rate pricing issues, or "" when none are recorded."""
+	""" ": G21, G23" from the design's no_rate pricing issues, or "" when none are recorded."""
 	pricing = json.loads(design.pricing_json or "{}")
 	codes = [
 		issue["message"].removesuffix(": no rate").split(" (")[0]  # "G21 (Price List): no rate"
@@ -286,8 +286,7 @@ class QuotationBuilder:
 			raise QuoteNotReady(_("No raw aluminium profiles or materials found in project BOM takeoff."))
 
 		price_list = (
-			frappe.db.get_single_value("Fenestration Settings", "cost_price_list")
-			or "Standard Selling"
+			frappe.db.get_single_value("Fenestration Settings", "cost_price_list") or "Standard Selling"
 		)
 		missing_items = []
 		for row in rows:
@@ -306,10 +305,14 @@ class QuotationBuilder:
 
 		if missing_items:
 			raise QuoteNotReady(
-				_("Link ERP Items for these materials before quoting: {0}").format(", ".join(dict.fromkeys(missing_items)))
+				_("Link ERP Items for these materials before quoting: {0}").format(
+					", ".join(dict.fromkeys(missing_items))
+				)
 			)
 		if not self.quotation.items:
-			raise QuoteNotReady(_("No ERP Items linked to the project's profiles/materials for material quoting."))
+			raise QuoteNotReady(
+				_("No ERP Items linked to the project's profiles/materials for material quoting.")
+			)
 
 	def set_header(self):
 		quotation, project = self.quotation, self.project

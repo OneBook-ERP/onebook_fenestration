@@ -59,7 +59,9 @@ class TestRotatePath(unittest.TestCase):
 		self.assertEqual(svg_extents(""), (0, 0))
 
 	def test_transform_path_flip_and_arc_sweep(self):
-		d, width, depth = transform_path("M 0 0 L 40 0 L 40 60 M 10 20 A 5 3 15 0 1 20 20", degrees=0, flip_x=True)
+		d, width, depth = transform_path(
+			"M 0 0 L 40 0 L 40 60 M 10 20 A 5 3 15 0 1 20 20", degrees=0, flip_x=True
+		)
 		self.assertEqual((width, depth), (40, 60))
 		self.assertTrue(d.startswith("M 40 0 L 0 0 L 0 60 M 30 20"))
 		arc = re.search(r"A ([^A-Za-z]+)", d).group(1).split()

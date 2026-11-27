@@ -13,7 +13,9 @@
 				</div>
 				<div class="mt-0.5 truncate text-[11px] text-gray-500">{{ card.sublabel }}</div>
 			</div>
-			<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+			<div
+				class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"
+			>
 				<span :class="[card.icon, 'size-4']" />
 			</div>
 		</div>
@@ -21,8 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import type { StatCardItem } from './pipelineConfig'
+import type { StatCardItem } from "./pipelineConfig";
 
-defineProps<{ cards: StatCardItem[] }>()
+defineProps<{ cards: StatCardItem[] }>();
 </script>
-

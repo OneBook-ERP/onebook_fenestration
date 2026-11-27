@@ -105,7 +105,7 @@ def _num(value: Any, default: float = 0.0) -> float:
 	try:
 		v = float(value)
 		return v if math.isfinite(v) else default
-	except (TypeError, ValueError):
+	except TypeError, ValueError:
 		return default
 
 
@@ -115,7 +115,7 @@ def _int_rot(value: Any) -> int:
 		if not math.isfinite(v):
 			return 0
 		r = (((int(v)) % 360) + 360) % 360
-	except (TypeError, ValueError, OverflowError):
+	except TypeError, ValueError, OverflowError:
 		return 0
 	return r if r in VALID_ROTATIONS else 0
 
@@ -394,8 +394,12 @@ def normalize_glazing_auto_config(raw: Any) -> dict:
 
 	return {
 		"enabled": _bool(raw.get("enabled")) if "enabled" in raw else True,
-		"max_compression_mm": round(max(0.0, _num(raw.get("max_compression_mm"), DEFAULT_MAX_GASKET_COMPRESSION_MM)), 2),
-		"loose_tolerance_mm": round(max(0.0, _num(raw.get("loose_tolerance_mm"), DEFAULT_LOOSE_TOLERANCE_MM)), 3),
+		"max_compression_mm": round(
+			max(0.0, _num(raw.get("max_compression_mm"), DEFAULT_MAX_GASKET_COMPRESSION_MM)), 2
+		),
+		"loose_tolerance_mm": round(
+			max(0.0, _num(raw.get("loose_tolerance_mm"), DEFAULT_LOOSE_TOLERANCE_MM)), 3
+		),
 		"thicker_gasket_side": thicker,
 		"gasket_pool": gasket_pool,
 		"channels": channels,
@@ -636,7 +640,9 @@ def _normalize_gasket_slot(raw: Any, default_side: str = "outside") -> dict:
 		"gasket_item": _str(d.get("gasket_item")),
 		"gasket_name": _str(d.get("gasket_name")),
 		"thickness_mm": max(0.0, round(_num(d.get("thickness_mm"), 3.0), 2)),
-		"configured": bool(d.get("configured")) or bool(_str(d.get("gasket_item"))) or (x != 0.0 or y != 0.0 or w > 0.0 or h > 0.0),
+		"configured": bool(d.get("configured"))
+		or bool(_str(d.get("gasket_item")))
+		or (x != 0.0 or y != 0.0 or w > 0.0 or h > 0.0),
 	}
 
 
@@ -817,7 +823,11 @@ def _normalize_glass_domain(raw: Any) -> dict:
 	inset_low = round(_num(d.get("insetLow"), 0.0), 2)
 	inset_high = round(_num(d.get("insetHigh"), inset_low), 2)
 	raw_mullion = d.get("insetMullion")
-	inset_mullion = round(_num(raw_mullion, 0.0), 2) if raw_mullion is not None and str(raw_mullion).strip() != "" else None
+	inset_mullion = (
+		round(_num(raw_mullion, 0.0), 2)
+		if raw_mullion is not None and str(raw_mullion).strip() != ""
+		else None
+	)
 	align = str(d.get("align") or "center").strip().lower()
 	if align not in VALID_GLASS_DOMAIN_ALIGNS:
 		align = "center"
@@ -956,12 +966,14 @@ def _candidate_template_keys(
 				f"fixed_{other_app}_mullion",
 			]
 		if role in ("frame", "mullion", "transom"):
-			keys.extend([
-				f"openable_{app}_mullion",
-				f"openable_{app}",
-				f"openable_{other_app}_mullion",
-				f"openable_{other_app}",
-			])
+			keys.extend(
+				[
+					f"openable_{app}_mullion",
+					f"openable_{app}",
+					f"openable_{other_app}_mullion",
+					f"openable_{other_app}",
+				]
+			)
 	# Deduplicate while preserving priority order
 	seen: set[str] = set()
 	ordered: list[str] = []
@@ -1121,7 +1133,11 @@ def resolve_template_glass_domain(
 			eff_high = (
 				inset_mullion
 				if high_side in ("mullion", "transom")
-				else (inset_frame if high_side == "frame" and low_side in ("mullion", "transom") else inset_other)
+				else (
+					inset_frame
+					if high_side == "frame" and low_side in ("mullion", "transom")
+					else inset_other
+				)
 			)
 			align = str(gd.get("align") or "center").strip().lower()
 			if align not in VALID_GLASS_DOMAIN_ALIGNS:
@@ -1140,7 +1156,9 @@ def resolve_template_glass_domain(
 			if raycast:
 				p_frame = raycast["pocketInsetLow"]
 				p_other = raycast["pocketInsetHigh"]
-				p_mul = raycast["pocketInsetMullion"] if raycast["pocketInsetMullion"] is not None else p_other
+				p_mul = (
+					raycast["pocketInsetMullion"] if raycast["pocketInsetMullion"] is not None else p_other
+				)
 				eff_p_low = p_mul if low_side in ("mullion", "transom") else p_frame
 				eff_p_high = (
 					p_mul
@@ -1189,12 +1207,16 @@ def resolve_pane_glazing_gaskets(
 	)
 	rule = auto_res if (auto_res and auto_res.get("ok")) else None
 	if not rule:
-		rule = match_global_glazing_rule(getattr(snapshot, "global_glazing_rules", ()), glass_t, host, application)
+		rule = match_global_glazing_rule(
+			getattr(snapshot, "global_glazing_rules", ()), glass_t, host, application
+		)
 	if not rule and glass_code:
 		glasses = getattr(snapshot, "glasses", {}) or {}
 		gspec = glasses.get(glass_code)
 		if gspec is not None:
-			rule = match_glass_glazing_rule(getattr(gspec, "glazing_rules", None), getattr(snapshot, "code", ""), host)
+			rule = match_glass_glazing_rule(
+				getattr(gspec, "glazing_rules", None), getattr(snapshot, "code", ""), host
+			)
 	if not rule and getattr(snapshot, "section_config", None):
 		rule = match_bead_gasket_rule(snapshot.section_config, opening_type, application, glass_t, host)
 	if not rule:
@@ -1266,8 +1288,14 @@ def resolve_template_placement(
 			transform = _lookup_axis_role_transform(ax_data, role, code, adjacent)
 			if not transform:
 				continue
-			beads = ax_data.get("beadByCode") if isinstance(ax_data, dict) and isinstance(ax_data.get("beadByCode"), dict) else {}
-			adj = "mullion" if adjacent in ("mullion", "transom") else ("frame" if adjacent == "frame" else "")
+			beads = (
+				ax_data.get("beadByCode")
+				if isinstance(ax_data, dict) and isinstance(ax_data.get("beadByCode"), dict)
+				else {}
+			)
+			adj = (
+				"mullion" if adjacent in ("mullion", "transom") else ("frame" if adjacent == "frame" else "")
+			)
 			matched_code = bool(code and (f"{code}:{adj}" in beads or code in beads))
 			along = _num(transform.get("offsetAlong"), 0.0)
 			depth = _num(transform.get("offsetDepth"), 0.0)
@@ -1290,14 +1318,24 @@ def resolve_template_placement(
 	return None
 
 
-def detect_design_context(design: dict | None, cell_node: dict | None = None, is_sash_pane: bool = False) -> tuple[str, str]:
+def detect_design_context(
+	design: dict | None, cell_node: dict | None = None, is_sash_pane: bool = False
+) -> tuple[str, str]:
 	"""Infer `(opening_type, application)` from design & optional cell/sash node."""
 	design = design if isinstance(design, dict) else {}
 	node = cell_node if isinstance(cell_node, dict) else {}
 	is_sliding = bool(design.get("isSliding")) or str(node.get("type") or "").lower() == "sliding"
 	sash_cfg = str(node.get("sashConfig") or "").strip().lower()
 	frame_cfg = str(design.get("frameConfig") or "").strip().lower()
-	application = "door" if (sash_cfg == "door" or frame_cfg in ("3-side", "3-side-threshold", "3sideouterframe", "3 side outer with low threshold")) else "window"
+	application = (
+		"door"
+		if (
+			sash_cfg == "door"
+			or frame_cfg
+			in ("3-side", "3-side-threshold", "3sideouterframe", "3 side outer with low threshold")
+		)
+		else "window"
+	)
 	if is_sliding:
 		return "sliding", application
 	if is_sash_pane or str(node.get("type") or "").lower() == "sash":
@@ -1377,8 +1415,14 @@ def resolve_piece_config_placement(
 		}
 
 	if role == "sash":
-		rebate_g = sash_cfg.get("rebate_gasket_slot") if isinstance(sash_cfg.get("rebate_gasket_slot"), dict) else {}
-		glazing_g = sash_cfg.get("glazing_gasket_slot") if isinstance(sash_cfg.get("glazing_gasket_slot"), dict) else {}
+		rebate_g = (
+			sash_cfg.get("rebate_gasket_slot") if isinstance(sash_cfg.get("rebate_gasket_slot"), dict) else {}
+		)
+		glazing_g = (
+			sash_cfg.get("glazing_gasket_slot")
+			if isinstance(sash_cfg.get("glazing_gasket_slot"), dict)
+			else {}
+		)
 		bead = sash_cfg.get("bead_slot") if isinstance(sash_cfg.get("bead_slot"), dict) else {}
 		glass = sash_cfg.get("glass_slot") if isinstance(sash_cfg.get("glass_slot"), dict) else {}
 		along = _num(sash_cfg.get("seat_offset_along"), 0.0)
@@ -1454,4 +1498,3 @@ def resolve_piece_config_placement(
 		}
 
 	return None
-

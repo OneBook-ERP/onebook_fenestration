@@ -39,13 +39,25 @@ class TestSectionConfig(unittest.TestCase):
 			self.assertIsInstance(p["bead_gasket_rules"], list)
 
 	def test_detect_design_context_for_fixed_openable_sliding_and_door(self):
-		self.assertEqual(detect_design_context({"width": 1200, "height": 1200}, {"type": "fixed"}), ("fixed", "window"))
-		self.assertEqual(detect_design_context({"width": 1200, "height": 1200}, {"type": "sash"}, is_sash_pane=True), ("openable", "window"))
 		self.assertEqual(
-			detect_design_context({"width": 1200, "height": 2100, "frameConfig": "3-side-threshold"}, {"type": "sash", "sashConfig": "door"}, is_sash_pane=True),
+			detect_design_context({"width": 1200, "height": 1200}, {"type": "fixed"}), ("fixed", "window")
+		)
+		self.assertEqual(
+			detect_design_context({"width": 1200, "height": 1200}, {"type": "sash"}, is_sash_pane=True),
+			("openable", "window"),
+		)
+		self.assertEqual(
+			detect_design_context(
+				{"width": 1200, "height": 2100, "frameConfig": "3-side-threshold"},
+				{"type": "sash", "sashConfig": "door"},
+				is_sash_pane=True,
+			),
 			("openable", "door"),
 		)
-		self.assertEqual(detect_design_context({"width": 1800, "height": 1500, "isSliding": True}, {"type": "fixed"}), ("sliding", "window"))
+		self.assertEqual(
+			detect_design_context({"width": 1800, "height": 1500, "isSliding": True}, {"type": "fixed"}),
+			("sliding", "window"),
+		)
 
 	def test_match_bead_gasket_rule_by_glass_thickness_and_host(self):
 		cfg = normalize_section_config(
@@ -88,7 +100,10 @@ class TestSectionConfig(unittest.TestCase):
 	def test_engine_auto_selects_configured_bead_gasket_and_section_placement(self):
 		raw_fixture = json.loads(FIXTURE.read_text())
 		profile_codes = list(raw_fixture["profiles"].keys())
-		bead_code = next((c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()), profile_codes[0])
+		bead_code = next(
+			(c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()),
+			profile_codes[0],
+		)
 		glass_code = next(iter(raw_fixture["glasses"].keys()))
 		glass_t = raw_fixture["glasses"][glass_code]["thickness_mm"]
 
@@ -98,9 +113,26 @@ class TestSectionConfig(unittest.TestCase):
 					"fixed:window": {
 						"frame": {
 							"profile": profile_codes[0],
-							"gasket_slot": {"x": 14.5, "y": 10.0, "side": "outside", "gasket_item": "GSK-OUT", "thickness_mm": 3.0},
-							"bead_slot": {"x": 20.0, "y": 24.0, "side": "inside", "rotation": 90, "flip_x": True},
-							"glass_slot": {"x": 22.0, "y": 18.0, "rebate_depth_mm": 14.0, "clearance_mm": 4.0},
+							"gasket_slot": {
+								"x": 14.5,
+								"y": 10.0,
+								"side": "outside",
+								"gasket_item": "GSK-OUT",
+								"thickness_mm": 3.0,
+							},
+							"bead_slot": {
+								"x": 20.0,
+								"y": 24.0,
+								"side": "inside",
+								"rotation": 90,
+								"flip_x": True,
+							},
+							"glass_slot": {
+								"x": 22.0,
+								"y": 18.0,
+								"rebate_depth_mm": 14.0,
+								"clearance_mm": 4.0,
+							},
 						},
 						"bead_gasket_rules": [
 							{
@@ -149,11 +181,13 @@ class TestSectionConfig(unittest.TestCase):
 		self.assertTrue(glass_pieces and glass_pieces[0].config_placement is not None)
 		self.assertEqual(glass_pieces[0].config_placement["rebate_depth_mm"], 14.0)
 
-
 	def test_glass_glazing_rules_drive_auto_bead_and_gaskets(self):
 		raw_fixture = json.loads(FIXTURE.read_text())
 		profile_codes = list(raw_fixture["profiles"].keys())
-		bead_code = next((c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()), profile_codes[0])
+		bead_code = next(
+			(c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()),
+			profile_codes[0],
+		)
 		glass_code = next(iter(raw_fixture["glasses"].keys()))
 		raw_fixture["glasses"][glass_code]["glazing_rules"] = [
 			{
@@ -186,13 +220,43 @@ class TestSectionConfig(unittest.TestCase):
 						"glass": "6CTG",
 						"axis_h": {
 							"roleTransforms": {
-								"frame": {"offsetAlong": 0, "offsetDepth": 0, "rotation": 0, "flipX": False, "flipY": False},
-								"mullion": {"offsetAlong": 0, "offsetDepth": -2.0, "rotation": 0, "flipX": False, "flipY": False},
-								"bead_frame": {"offsetAlong": 3.5, "offsetDepth": 18.0, "rotation": 90, "flipX": True, "flipY": False},
-								"bead_mullion": {"offsetAlong": 1.5, "offsetDepth": 17.5, "rotation": 90, "flipX": True, "flipY": False},
+								"frame": {
+									"offsetAlong": 0,
+									"offsetDepth": 0,
+									"rotation": 0,
+									"flipX": False,
+									"flipY": False,
+								},
+								"mullion": {
+									"offsetAlong": 0,
+									"offsetDepth": -2.0,
+									"rotation": 0,
+									"flipX": False,
+									"flipY": False,
+								},
+								"bead_frame": {
+									"offsetAlong": 3.5,
+									"offsetDepth": 18.0,
+									"rotation": 90,
+									"flipX": True,
+									"flipY": False,
+								},
+								"bead_mullion": {
+									"offsetAlong": 1.5,
+									"offsetDepth": 17.5,
+									"rotation": 90,
+									"flipX": True,
+									"flipY": False,
+								},
 							},
 							"beadByCode": {
-								"CS4807:frame": {"offsetAlong": 4.0, "offsetDepth": 19.0, "rotation": 90, "flipX": True, "flipY": False},
+								"CS4807:frame": {
+									"offsetAlong": 4.0,
+									"offsetDepth": 19.0,
+									"rotation": 90,
+									"flipX": True,
+									"flipY": False,
+								},
 							},
 						},
 					}
@@ -205,7 +269,15 @@ class TestSectionConfig(unittest.TestCase):
 
 		# Low-side frame bead resolves beadByCode[code:frame]
 		left_bead = resolve_template_placement(
-			cfg, "fixed", "window", "h", "bead", code="CS4807", mirrored=False, has_mullion=True, adjacent="frame"
+			cfg,
+			"fixed",
+			"window",
+			"h",
+			"bead",
+			code="CS4807",
+			mirrored=False,
+			has_mullion=True,
+			adjacent="frame",
 		)
 		self.assertIsNotNone(left_bead)
 		self.assertEqual(left_bead["source"], "series_section_template")
@@ -216,7 +288,15 @@ class TestSectionConfig(unittest.TestCase):
 
 		# Mirrored right-side frame bead negates offsetAlong and keeps canonical rotation/flipX
 		right_bead = resolve_template_placement(
-			cfg, "fixed", "window", "h", "bead", code="CS4807", mirrored=True, has_mullion=True, adjacent="frame"
+			cfg,
+			"fixed",
+			"window",
+			"h",
+			"bead",
+			code="CS4807",
+			mirrored=True,
+			has_mullion=True,
+			adjacent="frame",
 		)
 		self.assertEqual(right_bead["offsetAlong"], -4.0)
 		self.assertEqual(right_bead["rotation"], 90)
@@ -224,7 +304,15 @@ class TestSectionConfig(unittest.TestCase):
 
 		# Mullion-side bead uses bead_mullion transform
 		mullion_bead = resolve_template_placement(
-			cfg, "fixed", "window", "h", "bead", code="OTHER", mirrored=False, has_mullion=True, adjacent="mullion"
+			cfg,
+			"fixed",
+			"window",
+			"h",
+			"bead",
+			code="OTHER",
+			mirrored=False,
+			has_mullion=True,
+			adjacent="mullion",
 		)
 		self.assertEqual(mullion_bead["offsetAlong"], 1.5)
 		self.assertEqual(mullion_bead["offsetDepth"], 17.5)
@@ -242,7 +330,10 @@ class TestSectionConfig(unittest.TestCase):
 	def test_cross_section_applies_series_section_template_to_profiles_leaving_glass_auto(self):
 		raw_fixture = json.loads(FIXTURE.read_text())
 		profile_codes = list(raw_fixture["profiles"].keys())
-		bead_code = next((c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()), profile_codes[0])
+		bead_code = next(
+			(c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()),
+			profile_codes[0],
+		)
 		glass_code = next(iter(raw_fixture["glasses"].keys()))
 		cfg = normalize_section_config(
 			{
@@ -252,8 +343,20 @@ class TestSectionConfig(unittest.TestCase):
 						"glass": glass_code,
 						"axis_h": {
 							"roleTransforms": {
-								"frame": {"offsetAlong": 0, "offsetDepth": 1.5, "rotation": 0, "flipX": False, "flipY": False},
-								"bead": {"offsetAlong": 2.5, "offsetDepth": 16.0, "rotation": 90, "flipX": False, "flipY": True},
+								"frame": {
+									"offsetAlong": 0,
+									"offsetDepth": 1.5,
+									"rotation": 0,
+									"flipX": False,
+									"flipY": False,
+								},
+								"bead": {
+									"offsetAlong": 2.5,
+									"offsetDepth": 16.0,
+									"rotation": 90,
+									"flipX": False,
+									"flipY": True,
+								},
 							}
 						},
 					}
@@ -261,7 +364,11 @@ class TestSectionConfig(unittest.TestCase):
 			}
 		)
 		snap = _load_snapshot(cfg)
-		design = {"width": 1200, "height": 1200, "root": {"type": "fixed", "glass": glass_code, "bead": True, "beadProfileId": bead_code}}
+		design = {
+			"width": 1200,
+			"height": 1200,
+			"root": {"type": "fixed", "glass": glass_code, "bead": True, "beadProfileId": bead_code},
+		}
 		cut = cross_section(design, snap, "h")
 		frames = [p for p in cut.pieces if p.role == "frame"]
 		beads = [p for p in cut.pieces if p.role == "bead"]
@@ -353,7 +460,10 @@ class TestSectionConfig(unittest.TestCase):
 	def test_global_glazing_rules_select_bead_and_gaskets_across_any_series_by_thickness(self):
 		raw_fixture = json.loads(FIXTURE.read_text())
 		profile_codes = list(raw_fixture["profiles"].keys())
-		bead_code = next((c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()), profile_codes[0])
+		bead_code = next(
+			(c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()),
+			profile_codes[0],
+		)
 		glass_code = next(iter(raw_fixture["glasses"].keys()))
 		glass_t = raw_fixture["glasses"][glass_code]["thickness_mm"]
 
@@ -392,7 +502,10 @@ class TestSectionConfig(unittest.TestCase):
 	def test_global_glazing_rules_respect_profile_type_specificity_and_no_bead_for_sash(self):
 		raw_fixture = json.loads(FIXTURE.read_text())
 		profile_codes = list(raw_fixture["profiles"].keys())
-		bead_code = next((c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()), profile_codes[0])
+		bead_code = next(
+			(c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()),
+			profile_codes[0],
+		)
 		glass_code = next(iter(raw_fixture["glasses"].keys()))
 		glass_t = raw_fixture["glasses"][glass_code]["thickness_mm"]
 
@@ -434,9 +547,13 @@ class TestSectionConfig(unittest.TestCase):
 		)
 		self.assertEqual(match_global_glazing_rule(rules, glass_t, "frame", "window")["id"], "shared_frame")
 		self.assertEqual(match_global_glazing_rule(rules, glass_t, "frame", "door")["id"], "shared_frame")
-		self.assertEqual(match_global_glazing_rule(rules, glass_t, "sash", "window")["id"], "win_sash_no_bead")
+		self.assertEqual(
+			match_global_glazing_rule(rules, glass_t, "sash", "window")["id"], "win_sash_no_bead"
+		)
 		self.assertTrue(match_global_glazing_rule(rules, glass_t, "sash", "window")["no_bead"])
-		self.assertEqual(match_global_glazing_rule(rules, glass_t, "sash", "door")["id"], "door_sash_with_bead")
+		self.assertEqual(
+			match_global_glazing_rule(rules, glass_t, "sash", "door")["id"], "door_sash_with_bead"
+		)
 
 		# Window sash with no_bead emits gaskets (G24) and NO glass_adaptor/bead members
 		raw_fixture["global_glazing_rules"] = rules
@@ -444,7 +561,14 @@ class TestSectionConfig(unittest.TestCase):
 		win_sash_design = {
 			"width": 1000,
 			"height": 1200,
-			"root": {"type": "sash", "opening": "out", "hinge": "left", "sashConfig": "window", "glass": glass_code, "bead": True},
+			"root": {
+				"type": "sash",
+				"opening": "out",
+				"hinge": "left",
+				"sashConfig": "window",
+				"glass": glass_code,
+				"bead": True,
+			},
 		}
 		res_win = compute(win_sash_design, snap)
 		self.assertEqual([m for m in res_win.members if m.role in ("bead", "glass_adaptor")], [])
@@ -458,7 +582,10 @@ class TestSectionConfig(unittest.TestCase):
 
 		raw_fixture = json.loads(FIXTURE.read_text())
 		profile_codes = list(raw_fixture["profiles"].keys())
-		bead_code = next((c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()), profile_codes[0])
+		bead_code = next(
+			(c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()),
+			profile_codes[0],
+		)
 		glass_code = next(iter(raw_fixture["glasses"].keys()))
 		glass_t = raw_fixture["glasses"][glass_code]["thickness_mm"]
 
@@ -483,7 +610,14 @@ class TestSectionConfig(unittest.TestCase):
 		win_sash = {
 			"width": 1000,
 			"height": 1200,
-			"root": {"type": "sash", "opening": "out", "hinge": "left", "sashConfig": "window", "glass": glass_code, "bead": True},
+			"root": {
+				"type": "sash",
+				"opening": "out",
+				"hinge": "left",
+				"sashConfig": "window",
+				"glass": glass_code,
+				"bead": True,
+			},
 		}
 		res_win = compute(win_sash, snap)
 		self.assertEqual([m for m in res_win.members if m.role in ("bead", "glass_adaptor")], [])
@@ -493,7 +627,14 @@ class TestSectionConfig(unittest.TestCase):
 			"width": 1000,
 			"height": 2100,
 			"frameConfig": "3-side-threshold",
-			"root": {"type": "sash", "opening": "out", "hinge": "left", "sashConfig": "door", "glass": glass_code, "bead": True},
+			"root": {
+				"type": "sash",
+				"opening": "out",
+				"hinge": "left",
+				"sashConfig": "door",
+				"glass": glass_code,
+				"bead": True,
+			},
 		}
 		res_door = compute(door_sash, snap)
 		self.assertTrue(any(m.role == "glass_adaptor" and m.profile == bead_code for m in res_door.members))
@@ -562,14 +703,14 @@ class TestSectionConfig(unittest.TestCase):
 		)
 
 		expected_cases = [
-			(5.0, "HSL3409", False, "G24", "G23"),   # R=7.01 -> Outer 4, Inner 3
-			(6.0, "HSL3409", False, "G23", "G23"),   # R=6.01 -> Outer 3, Inner 3
-			(8.0, "HSL3409", False, "G22", "G22"),   # R=4.01 -> Outer 2, Inner 2
+			(5.0, "HSL3409", False, "G24", "G23"),  # R=7.01 -> Outer 4, Inner 3
+			(6.0, "HSL3409", False, "G23", "G23"),  # R=6.01 -> Outer 3, Inner 3
+			(8.0, "HSL3409", False, "G22", "G22"),  # R=4.01 -> Outer 2, Inner 2
 			(12.0, "HSL3410", False, "G23", "G23"),  # R=6.01 -> step up to 18.01, Outer 3, Inner 3
 			(13.0, "HSL3410", False, "G23", "G22"),  # R=5.01 -> Outer 3, Inner 2
 			(13.5, "HSL3410", False, "G23", "G22"),  # R=4.51 -> rejects 2+2 (loose), picks 3+2 (+0.49 tight)
 			(15.0, "HSL3410", False, "G22", "G22"),  # R=3.01 -> picks 2+2 (+0.99 tight <= 1mm)
-			(24.0, "", True, "G22", "G22"),          # No Bead 28mm -> R=4.0 -> Outer 2, Inner 2
+			(24.0, "", True, "G22", "G22"),  # No Bead 28mm -> R=4.0 -> Outer 2, Inner 2
 		]
 		for gt, exp_bead, exp_no_bead, exp_outer, exp_inner in expected_cases:
 			res = resolve_glazing_by_width(auto_cfg, gaskets, gt, "CS4800", "frame", "window")
@@ -597,7 +738,10 @@ class TestSectionConfig(unittest.TestCase):
 		raw_fixture = json.loads(FIXTURE.read_text())
 		series_code = raw_fixture["code"]
 		profile_codes = list(raw_fixture["profiles"].keys())
-		bead_code = next((c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()), profile_codes[0])
+		bead_code = next(
+			(c for c in profile_codes if "bead" in raw_fixture["profiles"][c]["name"].lower()),
+			profile_codes[0],
+		)
 		raw_fixture["glasses"]["5TEST"] = {"name": "5mm Test Glass", "thickness_mm": 5.0}
 		raw_fixture["glasses"]["29TEST"] = {"name": "29mm Oversized", "thickness_mm": 29.0}
 		raw_fixture["gasket_catalog"] = gaskets
@@ -621,7 +765,9 @@ class TestSectionConfig(unittest.TestCase):
 			}
 		)
 		snap = SeriesSnapshot.from_dict(raw_fixture)
-		res_ok = compute({"width": 1200, "height": 1200, "root": {"type": "fixed", "glass": "5TEST", "bead": True}}, snap)
+		res_ok = compute(
+			{"width": 1200, "height": 1200, "root": {"type": "fixed", "glass": "5TEST", "bead": True}}, snap
+		)
 		bead_members = [m for m in res_ok.members if m.role == "bead"]
 		self.assertEqual(len(bead_members), 4)
 		self.assertTrue(all(m.profile == bead_code for m in bead_members))
@@ -629,7 +775,9 @@ class TestSectionConfig(unittest.TestCase):
 		self.assertIn("G24", gasket_items)
 		self.assertIn("G23", gasket_items)
 
-		res_warn = compute({"width": 1200, "height": 1200, "root": {"type": "fixed", "glass": "29TEST", "bead": True}}, snap)
+		res_warn = compute(
+			{"width": 1200, "height": 1200, "root": {"type": "fixed", "glass": "29TEST", "bead": True}}, snap
+		)
 		self.assertTrue(any(i.code == "glazing_width_mismatch" for i in res_warn.issues))
 
 		# Verify raycast pocket metadata & glazing_gaskets round-trip through normalize_section_config and cross_section
@@ -641,7 +789,13 @@ class TestSectionConfig(unittest.TestCase):
 						"configured": True,
 						"axis_h": {
 							"beadByCode": {
-								bead_code: {"offsetAlong": 1.5, "offsetDepth": 4.0, "rotation": 90, "flipX": False, "flipY": False}
+								bead_code: {
+									"offsetAlong": 1.5,
+									"offsetDepth": 4.0,
+									"rotation": 90,
+									"flipX": False,
+									"flipY": False,
+								}
 							},
 							"glassDomain": {
 								"configured": True,
@@ -798,7 +952,11 @@ class TestSectionConfig(unittest.TestCase):
 			]
 		)
 		snap = SeriesSnapshot.from_dict(raw_fixture)
-		design = {"width": 1200, "height": 1000, "root": {"type": "fixed", "glass": glass_code, "bead": False}}
+		design = {
+			"width": 1200,
+			"height": 1000,
+			"root": {"type": "fixed", "glass": glass_code, "bead": False},
+		}
 		res = compute(design, snap)
 		pane = res.glass[0]
 		gasket_lines = [b for b in res.bom if b.group == "Gasket" and b.item == "G23"]

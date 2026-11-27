@@ -6,7 +6,10 @@
 			class="group flex h-[30px] w-full items-center rounded-[7px] px-2 text-left text-[13px] font-normal text-ink-gray-7 transition-colors duration-150 hover:bg-surface-gray-2/80 hover:text-ink-gray-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-outline-gray-3"
 			@click="expanded = !expanded"
 		>
-			<span v-if="icon" class="grid size-4 shrink-0 place-items-center text-ink-gray-6 group-hover:text-ink-gray-8">
+			<span
+				v-if="icon"
+				class="grid size-4 shrink-0 place-items-center text-ink-gray-6 group-hover:text-ink-gray-8"
+			>
 				<span :class="[icon, 'size-4']" />
 			</span>
 			<span class="min-w-0 flex-1 truncate" :class="icon ? 'ml-2' : ''">{{ label }}</span>
@@ -34,18 +37,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref } from "vue";
 
 const props = withDefaults(
 	defineProps<{
-		label: string
-		icon?: string
-		defaultOpen?: boolean
+		label: string;
+		icon?: string;
+		defaultOpen?: boolean;
 	}>(),
 	{
 		defaultOpen: true,
-	},
-)
+	}
+);
 
-const expanded = ref(props.defaultOpen)
+const expanded = ref(props.defaultOpen);
 </script>

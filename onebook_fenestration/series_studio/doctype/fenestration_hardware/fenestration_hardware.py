@@ -90,4 +90,3 @@ class FenestrationHardware(Document):
 		self.perimeter_mm = round(section.perimeter_mm, 1)
 		self.section_svg = section.svg_path
 		self.section_warnings = ", ".join(section.warnings)
-

@@ -1,33 +1,41 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { CutAxis } from '@/api'
-import type { DynamicDomainState, GasketPlacement, PocketProbeResult } from '@/design/pocketRaycast'
-import type { Point } from '@/design/sectionPuzzle'
+import { computed } from "vue";
+import type { CutAxis } from "@/api";
+import type {
+	DynamicDomainState,
+	GasketPlacement,
+	PocketProbeResult,
+} from "@/design/pocketRaycast";
+import type { Point } from "@/design/sectionPuzzle";
 
 const props = withDefaults(
 	defineProps<{
-		axis: CutAxis
-		raycastMode: boolean
-		hoverPoint: Point | null
-		hoverProbe: PocketProbeResult | null
-		showAnchors: boolean
-		dynamicStates: DynamicDomainState[]
-		gaskets: GasketPlacement[]
-		mmPerPx?: number
+		axis: CutAxis;
+		raycastMode: boolean;
+		hoverPoint: Point | null;
+		hoverProbe: PocketProbeResult | null;
+		showAnchors: boolean;
+		dynamicStates: DynamicDomainState[];
+		gaskets: GasketPlacement[];
+		mmPerPx?: number;
 	}>(),
-	{ mmPerPx: 0.25 },
-)
+	{ mmPerPx: 0.25 }
+);
 
-const r1 = (n: number) => Math.round(n * 10) / 10
-const lockedDotR = computed(() => Math.min(0.55, Math.max(0.18, props.mmPerPx * 2.4)))
-const hoverDotR = computed(() => Math.min(0.68, Math.max(0.22, props.mmPerPx * 2.8)))
-const reticleR = computed(() => Math.min(0.85, Math.max(0.28, props.mmPerPx * 3.4)))
+const r1 = (n: number) => Math.round(n * 10) / 10;
+const lockedDotR = computed(() => Math.min(0.55, Math.max(0.18, props.mmPerPx * 2.4)));
+const hoverDotR = computed(() => Math.min(0.68, Math.max(0.22, props.mmPerPx * 2.8)));
+const reticleR = computed(() => Math.min(0.85, Math.max(0.28, props.mmPerPx * 3.4)));
 </script>
 
 <template>
 	<g data-testid="section-raycast-overlay" pointer-events="none">
 		<!-- 1. Seated Outer & Inner Glazing Gaskets centered on Vertical Ray Anchors (hidden while aiming in Raycast Mode) -->
-		<g v-if="!raycastMode && gaskets.length" data-testid="section-gasket-layer" pointer-events="auto">
+		<g
+			v-if="!raycastMode && gaskets.length"
+			data-testid="section-gasket-layer"
+			pointer-events="auto"
+		>
 			<g v-for="g in gaskets" :key="g.id" :data-testid="`section-gasket-${g.id}`">
 				<title>{{ g.code }} ({{ g.nominalMm }} mm {{ g.face }} gasket)</title>
 				<rect
@@ -235,7 +243,9 @@ const reticleR = computed(() => Math.min(0.85, Math.max(0.28, props.mmPerPx * 3.
 					fill="#0369A1"
 					:transform="
 						axis === 'v'
-							? `rotate(90 ${(hoverProbe.leftWallX + hoverProbe.rightWallX) / 2} ${hoverProbe.pocketMinY - 3.2})`
+							? `rotate(90 ${(hoverProbe.leftWallX + hoverProbe.rightWallX) / 2} ${
+									hoverProbe.pocketMinY - 3.2
+							  })`
 							: undefined
 					"
 				>
@@ -258,4 +268,3 @@ const reticleR = computed(() => Math.min(0.85, Math.max(0.28, props.mmPerPx * 3.
 		</g>
 	</g>
 </template>
-

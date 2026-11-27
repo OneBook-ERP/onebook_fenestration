@@ -81,7 +81,9 @@ def _loop_bbox(pts: list[tuple[float, float]]) -> tuple[float, float, float, flo
 	return (min(xs), min(ys), max(xs), max(ys))
 
 
-def _filter_primary_cluster(loops: list[list[tuple[float, float]]]) -> tuple[list[list[tuple[float, float]]], bool]:
+def _filter_primary_cluster(
+	loops: list[list[tuple[float, float]]],
+) -> tuple[list[list[tuple[float, float]]], bool]:
 	"""If a DXF contains stray reference blocks far from the primary section, keep the primary cluster."""
 	if len(loops) <= 1:
 		return loops, False
@@ -260,7 +262,11 @@ def _extract_region_loops(entity) -> list[list[tuple[float, float]]]:
 	r0, r1, tx, ty = (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.0, 0.0
 	for ent in builder.entities:
 		if ent.name == "transform":
-			vecs = [t.value for t in ent.data if hasattr(t, "tag") and acis_sab.Tags(t.tag).name == "DIRECTION_VEC"]
+			vecs = [
+				t.value
+				for t in ent.data
+				if hasattr(t, "tag") and acis_sab.Tags(t.tag).name == "DIRECTION_VEC"
+			]
 			if len(vecs) >= 4:
 				r0, r1, tx, ty = vecs[0], vecs[1], vecs[3][0], vecs[3][1]
 			break
@@ -323,9 +329,19 @@ def _sab_edge_points(edge_ent, to_2d) -> list[tuple[float, float]]:
 		return []
 	seg_pts = [to_2d(p0), to_2d(p1)]
 	if c_ents and c_ents[0].name == "ellipse-curve" and len(e_dbls) >= 2:
-		locs = [t.value for t in c_ents[0].data if hasattr(t, "tag") and acis_sab.Tags(t.tag).name == "LOCATION_VEC"]
-		dirs = [t.value for t in c_ents[0].data if hasattr(t, "tag") and acis_sab.Tags(t.tag).name == "DIRECTION_VEC"]
-		c_dbls = [t.value for t in c_ents[0].data if hasattr(t, "tag") and acis_sab.Tags(t.tag).name == "DOUBLE"]
+		locs = [
+			t.value
+			for t in c_ents[0].data
+			if hasattr(t, "tag") and acis_sab.Tags(t.tag).name == "LOCATION_VEC"
+		]
+		dirs = [
+			t.value
+			for t in c_ents[0].data
+			if hasattr(t, "tag") and acis_sab.Tags(t.tag).name == "DIRECTION_VEC"
+		]
+		c_dbls = [
+			t.value for t in c_ents[0].data if hasattr(t, "tag") and acis_sab.Tags(t.tag).name == "DOUBLE"
+		]
 		if locs and len(dirs) >= 2:
 			center, norm, maj = locs[0], dirs[0], dirs[1]
 			ratio = c_dbls[0] if c_dbls else 1.0
@@ -340,9 +356,15 @@ def _sab_edge_points(edge_ent, to_2d) -> list[tuple[float, float]]:
 			seg_pts = [
 				to_2d(
 					(
-						center[0] + math.cos(t0 + (t1 - t0) * k / steps) * maj[0] + math.sin(t0 + (t1 - t0) * k / steps) * min_v[0],
-						center[1] + math.cos(t0 + (t1 - t0) * k / steps) * maj[1] + math.sin(t0 + (t1 - t0) * k / steps) * min_v[1],
-						center[2] + math.cos(t0 + (t1 - t0) * k / steps) * maj[2] + math.sin(t0 + (t1 - t0) * k / steps) * min_v[2],
+						center[0]
+						+ math.cos(t0 + (t1 - t0) * k / steps) * maj[0]
+						+ math.sin(t0 + (t1 - t0) * k / steps) * min_v[0],
+						center[1]
+						+ math.cos(t0 + (t1 - t0) * k / steps) * maj[1]
+						+ math.sin(t0 + (t1 - t0) * k / steps) * min_v[1],
+						center[2]
+						+ math.cos(t0 + (t1 - t0) * k / steps) * maj[2]
+						+ math.sin(t0 + (t1 - t0) * k / steps) * min_v[2],
 					)
 				)
 				for k in range(steps + 1)

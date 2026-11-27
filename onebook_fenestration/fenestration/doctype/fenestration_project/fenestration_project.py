@@ -62,7 +62,9 @@ class FenestrationProject(Document):
 		if not self.fen_partner_type:
 			self.fen_partner_type = resolve_project_partner_type(self)
 		if not self.fen_manufacturing_status:
-			self.fen_manufacturing_status = "Shared with Hilux" if self.fen_shared_with_hilux else "Private Draft"
+			self.fen_manufacturing_status = (
+				"Shared with Hilux" if self.fen_shared_with_hilux else "Private Draft"
+			)
 
 
 def default_company() -> str | None:

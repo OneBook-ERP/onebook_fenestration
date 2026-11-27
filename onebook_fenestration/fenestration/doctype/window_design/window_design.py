@@ -67,7 +67,9 @@ class WindowDesign(Document):
 			self.line_total = round(flt(self.unit_price) * cint(self.qty), 2)
 		if not self.design_svg and self.design_json:
 			try:
-				d_dict = json.loads(self.design_json) if isinstance(self.design_json, str) else self.design_json
+				d_dict = (
+					json.loads(self.design_json) if isinstance(self.design_json, str) else self.design_json
+				)
 				f_color = frappe.db.get_value("Profile Finish", self.finish, "color") if self.finish else None
 				self.design_svg = generate_elevation_svg(d_dict, f_color or "#8A8F98")
 			except Exception:
@@ -98,21 +100,21 @@ class WindowDesign(Document):
 			return
 		lock = locking_document(self.name)
 		if lock:
-			frappe.throw(
-				_("{0} is on {1} {2}. Copy the design to change it.").format(self.design_ref, *lock)
-			)
+			frappe.throw(_("{0} is on {1} {2}. Copy the design to change it.").format(self.design_ref, *lock))
 
 	def on_trash(self):
 		if self._is_project_design_locked():
 			frappe.throw(
-				_(
-					"{0} cannot be deleted because project {1} is locked for Hilux manufacturing."
-				).format(self.design_ref or self.name, self.project)
+				_("{0} cannot be deleted because project {1} is locked for Hilux manufacturing.").format(
+					self.design_ref or self.name, self.project
+				)
 			)
 		lock = locking_document(self.name)
 		if lock:
 			frappe.throw(
-				_("{0} cannot be deleted because it is on {1} {2}.").format(self.design_ref or self.name, *lock)
+				_("{0} cannot be deleted because it is on {1} {2}.").format(
+					self.design_ref or self.name, *lock
+				)
 			)
 		# A draft quotation line must not block deleting its design; the next make_quotation drops the line.
 		drafts = frappe.get_all("Quotation", {"fen_project": self.project, "docstatus": 0}, pluck="name")

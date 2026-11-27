@@ -1,8 +1,13 @@
 <template>
 	<div class="mx-auto max-w-6xl p-6">
-		<header class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4">
+		<header
+			class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4"
+		>
 			<div>
-				<nav aria-label="Breadcrumb" class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5">
+				<nav
+					aria-label="Breadcrumb"
+					class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5"
+				>
 					<router-link to="/series-studio" class="hover:text-ink-gray-8">
 						Series Studio
 					</router-link>
@@ -11,14 +16,33 @@
 						Profile Series
 					</router-link>
 					<span aria-hidden="true">/</span>
-					<span class="font-medium text-ink-gray-8">{{ isEdit ? form.series_code : 'New Profile Series' }}</span>
+					<span class="font-medium text-ink-gray-8">{{
+						isEdit ? form.series_code : "New Profile Series"
+					}}</span>
 				</nav>
 				<div class="flex flex-wrap items-center gap-3">
 					<h1 class="text-xl font-semibold text-ink-gray-9">
-						{{ isEdit ? `${form.series_code} · ${form.series_title || 'Series'}` : (form.series_title || 'New Profile Series') }}
+						{{
+							isEdit
+								? `${form.series_code} · ${form.series_title || "Series"}`
+								: form.series_title || "New Profile Series"
+						}}
 					</h1>
-					<Badge :theme="form.system_type === 'Casement' ? 'blue' : form.system_type === 'Sliding' ? 'amber' : 'gray'" :label="form.system_type" />
-					<Badge v-if="form.published_version" theme="green" :label="`Published: ${form.published_version}`" />
+					<Badge
+						:theme="
+							form.system_type === 'Casement'
+								? 'blue'
+								: form.system_type === 'Sliding'
+								? 'amber'
+								: 'gray'
+						"
+						:label="form.system_type"
+					/>
+					<Badge
+						v-if="form.published_version"
+						theme="green"
+						:label="`Published: ${form.published_version}`"
+					/>
 					<Badge v-else theme="gray" label="Unpublished" />
 				</div>
 			</div>
@@ -82,7 +106,10 @@
 										data-testid="supported-products-trigger"
 										class="flex min-h-9 w-full flex-wrap items-center justify-between gap-1.5 rounded-lg border border-outline-gray-2 bg-surface-gray-2/70 px-2.5 py-1.5 text-left text-sm transition-colors hover:border-outline-gray-3 focus:border-outline-gray-4 focus:outline-none"
 									>
-										<span v-if="!form.supported_products.length" class="text-xs text-ink-gray-5">
+										<span
+											v-if="!form.supported_products.length"
+											class="text-xs text-ink-gray-5"
+										>
 											Select Window, Door, Sliding Window, Sliding Door…
 										</span>
 										<span v-else class="flex flex-wrap items-center gap-1">
@@ -108,7 +135,9 @@
 										</span>
 										<span
 											class="ml-auto size-4 shrink-0 text-ink-gray-5 transition-transform"
-											:class="open ? 'lucide-chevron-up' : 'lucide-chevron-down'"
+											:class="
+												open ? 'lucide-chevron-up' : 'lucide-chevron-down'
+											"
 										/>
 									</button>
 								</template>
@@ -121,13 +150,19 @@
 											v-for="opt in SUPPORTED_PRODUCT_OPTIONS"
 											:key="opt.value"
 											type="button"
-											:data-testid="`supported-product-opt-${opt.value.toLowerCase().replace(/\s+/g, '-')}`"
+											:data-testid="`supported-product-opt-${opt.value
+												.toLowerCase()
+												.replace(/\s+/g, '-')}`"
 											class="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-surface-gray-1"
 											@click="toggleSupportedProduct(opt.value)"
 										>
 											<div class="min-w-0">
-												<div class="text-xs font-semibold text-ink-gray-9">{{ opt.label }}</div>
-												<div class="text-[11px] text-ink-gray-5">{{ opt.hint }}</div>
+												<div class="text-xs font-semibold text-ink-gray-9">
+													{{ opt.label }}
+												</div>
+												<div class="text-[11px] text-ink-gray-5">
+													{{ opt.hint }}
+												</div>
 											</div>
 											<span
 												class="flex size-4 shrink-0 items-center justify-center rounded border text-[11px]"
@@ -144,7 +179,8 @@
 								</template>
 							</Popover>
 							<p class="mt-1 text-[11px] text-ink-gray-5">
-								Only selected product types appear in Section Templates; Designer warns if an unsupported type is used.
+								Only selected product types appear in Section Templates; Designer
+								warns if an unsupported type is used.
 							</p>
 						</div>
 					</div>
@@ -164,7 +200,9 @@
 							/>
 							<div v-if="form.published_version" class="mt-1.5">
 								<router-link
-									:to="`/series-studio/versions/${encodeURIComponent(form.published_version)}`"
+									:to="`/series-studio/versions/${encodeURIComponent(
+										form.published_version
+									)}`"
 									class="text-xs font-medium text-blue-600 hover:underline"
 								>
 									Open {{ form.published_version }} rules &rarr;
@@ -185,13 +223,17 @@
 							size="sm"
 							label="Section Configuration"
 							data-testid="section-config-btn"
-							:route="`/series-studio/series/${encodeURIComponent(form.series_code || props.name || '')}/section-config`"
+							:route="`/series-studio/series/${encodeURIComponent(
+								form.series_code || props.name || ''
+							)}/section-config`"
 						/>
 						<Button
 							variant="outline"
 							size="sm"
 							label="+ Add Profile to Series"
-							:route="`/series-studio/profiles/new?series=${encodeURIComponent(form.series_code)}`"
+							:route="`/series-studio/profiles/new?series=${encodeURIComponent(
+								form.series_code
+							)}`"
 						/>
 					</div>
 				</div>
@@ -215,7 +257,11 @@
 								"
 								@click="selectedRole = r"
 							>
-								{{ r === 'ALL' ? `All · ${seriesProfiles.length}` : r.charAt(0).toUpperCase() + r.slice(1) }}
+								{{
+									r === "ALL"
+										? `All · ${seriesProfiles.length}`
+										: r.charAt(0).toUpperCase() + r.slice(1)
+								}}
 							</button>
 						</div>
 						<FormControl
@@ -226,7 +272,10 @@
 						/>
 					</div>
 
-					<div v-if="!filteredProfiles.length" class="py-8 text-center text-sm text-ink-gray-5">
+					<div
+						v-if="!filteredProfiles.length"
+						class="py-8 text-center text-sm text-ink-gray-5"
+					>
 						No profiles match in this series.
 					</div>
 
@@ -238,7 +287,11 @@
 						>
 							<div
 								class="flex h-[180px] cursor-pointer items-center justify-center border-b border-outline-gray-1 bg-[#f6f6f4] p-3"
-								@click="router.push(`/series-studio/profiles/${encodeURIComponent(p.name)}`)"
+								@click="
+									router.push(
+										`/series-studio/profiles/${encodeURIComponent(p.name)}`
+									)
+								"
 							>
 								<svg
 									v-if="p.section_svg && p.width_mm && p.depth_mm"
@@ -246,7 +299,11 @@
 									class="block h-full max-h-[155px] w-full max-w-full"
 									xmlns="http://www.w3.org/2000/svg"
 								>
-									<g :transform="`translate(${svgOf(p).ox}, ${svgOf(p).oy}) scale(${svgOf(p).s})`">
+									<g
+										:transform="`translate(${svgOf(p).ox}, ${
+											svgOf(p).oy
+										}) scale(${svgOf(p).s})`"
+									>
 										<g :transform="profileRotationTransform(p)">
 											<path
 												:d="p.section_svg"
@@ -277,7 +334,9 @@
 										fill="#0f172a"
 										:font-size="svgOf(p).fontSize"
 										font-weight="600"
-										:transform="`rotate(-90 ${svgOf(p).vTextX} ${svgOf(p).vTextY})`"
+										:transform="`rotate(-90 ${svgOf(p).vTextX} ${
+											svgOf(p).vTextY
+										})`"
 									>
 										{{ svgOf(p).depthLabel }}
 									</text>
@@ -290,14 +349,21 @@
 									<div class="truncate text-sm font-bold text-ink-gray-9">
 										{{ displayProfileCode(p) }} · {{ p.profile_name }}
 									</div>
-									<span class="text-xs capitalize text-ink-gray-5">{{ p.role || '—' }}</span>
+									<span class="text-xs capitalize text-ink-gray-5">{{
+										p.role || "—"
+									}}</span>
 								</div>
 								<div class="mb-2 text-xs text-ink-gray-5">
-									{{ Number(p.width_mm || 0).toFixed(1) }} × {{ Number(p.depth_mm || 0).toFixed(1) }} mm · Bar {{ p.bar_lengths || '4880, 5800' }} mm
+									{{ Number(p.width_mm || 0).toFixed(1) }} ×
+									{{ Number(p.depth_mm || 0).toFixed(1) }} mm · Bar
+									{{ p.bar_lengths || "4880, 5800" }} mm
 								</div>
-								<div class="mt-auto mb-3 flex items-baseline justify-between border-t border-outline-gray-1 pt-2.5">
+								<div
+									class="mt-auto mb-3 flex items-baseline justify-between border-t border-outline-gray-1 pt-2.5"
+								>
 									<span class="text-xs text-ink-gray-5">
-										{{ Number(p.area_mm2 || 0).toFixed(1) }} mm² · {{ Number(p.perimeter_mm || 0).toFixed(0) }} mm
+										{{ Number(p.area_mm2 || 0).toFixed(1) }} mm² ·
+										{{ Number(p.perimeter_mm || 0).toFixed(0) }} mm
 									</span>
 									<span class="text-sm font-bold text-ink-gray-9">
 										{{ effectiveWeight(p).toFixed(3) }} kg/m
@@ -307,7 +373,9 @@
 									variant="outline"
 									size="sm"
 									label="Open profile"
-									:route="`/series-studio/profiles/${encodeURIComponent(p.name)}`"
+									:route="`/series-studio/profiles/${encodeURIComponent(
+										p.name
+									)}`"
 								/>
 							</div>
 						</article>
@@ -319,9 +387,9 @@
 </template>
 
 <script setup lang="ts">
-import { Alert, Badge, Button, FormControl, Popover, toast, useList } from 'frappe-ui'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { Alert, Badge, Button, FormControl, Popover, toast, useList } from "frappe-ui";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import {
 	getProfileSeriesDoc,
 	parseSupportedProducts,
@@ -329,58 +397,62 @@ import {
 	SUPPORTED_PRODUCT_OPTIONS,
 	type FenestrationProfileRow,
 	type SupportedProduct,
-} from '@/studio/api'
+} from "@/studio/api";
 import {
 	computeCardSvgMetrics,
 	displayProfileCode,
 	effectiveWeight,
 	profileRotationTransform,
-} from '@/studio/sectionSvg'
+} from "@/studio/sectionSvg";
 
-const props = defineProps<{ name?: string }>()
-const router = useRouter()
+const props = defineProps<{ name?: string }>();
+const router = useRouter();
 
-const isEdit = computed(() => Boolean(props.name))
-const loadingDoc = ref(false)
-const saving = ref(false)
-const error = ref('')
+const isEdit = computed(() => Boolean(props.name));
+const loadingDoc = ref(false);
+const saving = ref(false);
+const error = ref("");
 
 const systemTypeOptions = [
-	{ label: 'Casement', value: 'Casement' },
-	{ label: 'Sliding', value: 'Sliding' },
-	{ label: 'Door', value: 'Door' },
-]
+	{ label: "Casement", value: "Casement" },
+	{ label: "Sliding", value: "Sliding" },
+	{ label: "Door", value: "Door" },
+];
 
-function defaultProductsForSystem(systemType: 'Casement' | 'Sliding' | 'Door'): SupportedProduct[] {
-	if (systemType === 'Sliding') return ['Sliding Window', 'Sliding Door']
-	if (systemType === 'Door') return ['Door']
-	return ['Window']
+function defaultProductsForSystem(
+	systemType: "Casement" | "Sliding" | "Door"
+): SupportedProduct[] {
+	if (systemType === "Sliding") return ["Sliding Window", "Sliding Door"];
+	if (systemType === "Door") return ["Door"];
+	return ["Window"];
 }
 
 const form = reactive({
-	series_code: '',
-	series_title: '',
-	system_type: 'Casement' as 'Casement' | 'Sliding' | 'Door',
-	supported_products: ['Window'] as SupportedProduct[],
-	published_version: '' as string | null | undefined,
-})
+	series_code: "",
+	series_title: "",
+	system_type: "Casement" as "Casement" | "Sliding" | "Door",
+	supported_products: ["Window"] as SupportedProduct[],
+	published_version: "" as string | null | undefined,
+});
 
-const userEditedProducts = ref(false)
+const userEditedProducts = ref(false);
 watch(
 	() => form.system_type,
 	(next) => {
 		if (!isEdit.value && !userEditedProducts.value) {
-			form.supported_products = defaultProductsForSystem(next)
+			form.supported_products = defaultProductsForSystem(next);
 		}
-	},
-)
+	}
+);
 
 function toggleSupportedProduct(val: SupportedProduct) {
-	userEditedProducts.value = true
-	const set = new Set<SupportedProduct>(form.supported_products)
-	if (set.has(val)) set.delete(val)
-	else set.add(val)
-	form.supported_products = SUPPORTED_PRODUCT_OPTIONS.map((o) => o.value).filter((v) => set.has(v))
+	userEditedProducts.value = true;
+	const set = new Set<SupportedProduct>(form.supported_products);
+	if (set.has(val)) set.delete(val);
+	else set.add(val);
+	form.supported_products = SUPPORTED_PRODUCT_OPTIONS.map((o) => o.value).filter((v) =>
+		set.has(v)
+	);
 }
 
 const canSave = computed(() =>
@@ -389,82 +461,95 @@ const canSave = computed(() =>
 			form.series_title.trim() &&
 			form.system_type &&
 			form.supported_products.length > 0 &&
-			!saving.value,
-	),
-)
+			!saving.value
+	)
+);
 
-const roles = ['ALL', 'frame', 'sash', 'mullion', 'transom', 'bead', 'gasket', 'accessory'] as const
-const selectedRole = ref<string>('ALL')
-const profileSearch = ref('')
+const roles = [
+	"ALL",
+	"frame",
+	"sash",
+	"mullion",
+	"transom",
+	"bead",
+	"gasket",
+	"accessory",
+] as const;
+const selectedRole = ref<string>("ALL");
+const profileSearch = ref("");
 
 const profileResource = useList<FenestrationProfileRow>({
-	doctype: 'Fenestration Profile',
+	doctype: "Fenestration Profile",
 	fields: [
-		'name',
-		'profile_code',
-		'profile_name',
-		'series',
-		'role',
-		'kg_per_m',
-		'computed_kg_per_m',
-		'use_computed_weight',
-		'width_mm',
-		'depth_mm',
-		'area_mm2',
-		'perimeter_mm',
-		'bar_lengths',
-		'dxf_file',
-		'section_svg',
-		'section_rotation',
-		'section_flip_x',
-		'section_flip_y',
+		"name",
+		"profile_code",
+		"profile_name",
+		"series",
+		"role",
+		"kg_per_m",
+		"computed_kg_per_m",
+		"use_computed_weight",
+		"width_mm",
+		"depth_mm",
+		"area_mm2",
+		"perimeter_mm",
+		"bar_lengths",
+		"dxf_file",
+		"section_svg",
+		"section_rotation",
+		"section_flip_x",
+		"section_flip_y",
 	],
-	orderBy: 'profile_code asc',
+	orderBy: "profile_code asc",
 	limit: 500,
-})
+});
 
 const seriesProfiles = computed(() =>
-	(profileResource.data ?? []).filter((p) => p.series === (form.series_code || props.name)),
-)
+	(profileResource.data ?? []).filter((p) => p.series === (form.series_code || props.name))
+);
 
 const filteredProfiles = computed(() => {
-	const q = profileSearch.value.trim().toLowerCase()
+	const q = profileSearch.value.trim().toLowerCase();
 	return seriesProfiles.value.filter((p) => {
-		if (selectedRole.value !== 'ALL' && p.role !== selectedRole.value) return false
+		if (selectedRole.value !== "ALL" && p.role !== selectedRole.value) return false;
 		if (q) {
-			const hay = `${p.profile_code || ''} ${p.profile_name || ''} ${p.role || ''}`.toLowerCase()
-			if (!hay.includes(q)) return false
+			const hay = `${p.profile_code || ""} ${p.profile_name || ""} ${
+				p.role || ""
+			}`.toLowerCase();
+			if (!hay.includes(q)) return false;
 		}
-		return true
-	})
-})
+		return true;
+	});
+});
 
 function svgOf(p: FenestrationProfileRow) {
-	return computeCardSvgMetrics(p.width_mm, p.depth_mm)
+	return computeCardSvgMetrics(p.width_mm, p.depth_mm);
 }
 
 onMounted(async () => {
-	if (!props.name) return
-	loadingDoc.value = true
+	if (!props.name) return;
+	loadingDoc.value = true;
 	try {
-		const doc = await getProfileSeriesDoc(props.name)
-		form.series_code = doc.series_code || doc.name
-		form.series_title = doc.series_title || ''
-		form.system_type = doc.system_type || 'Casement'
-		const parsedProducts = parseSupportedProducts(doc.supported_products)
-		form.supported_products = parsedProducts.length ? parsedProducts : defaultProductsForSystem(form.system_type)
-		form.published_version = doc.published_version || null
+		const doc = await getProfileSeriesDoc(props.name);
+		form.series_code = doc.series_code || doc.name;
+		form.series_title = doc.series_title || "";
+		form.system_type = doc.system_type || "Casement";
+		const parsedProducts = parseSupportedProducts(doc.supported_products);
+		form.supported_products = parsedProducts.length
+			? parsedProducts
+			: defaultProductsForSystem(form.system_type);
+		form.published_version = doc.published_version || null;
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not load profile series'
+		error.value = e instanceof Error ? e.message : "Could not load profile series";
 	} finally {
-		loadingDoc.value = false
+		loadingDoc.value = false;
 	}
-})
+});
 
 async function save() {
-	if (!canSave.value) return
-	saving.value = true
-	error.value = ''
+	if (!canSave.value) return;
+	saving.value = true;
+	error.value = "";
 	try {
 		const savedName = await saveProfileSeries(
 			{
@@ -473,17 +558,16 @@ async function save() {
 				system_type: form.system_type,
 				supported_products: form.supported_products,
 			},
-			props.name || null,
-		)
-		toast.success(isEdit.value ? 'Profile series updated' : 'Profile series created')
+			props.name || null
+		);
+		toast.success(isEdit.value ? "Profile series updated" : "Profile series created");
 		if (!isEdit.value) {
-			router.replace(`/series-studio/series/${encodeURIComponent(savedName)}`)
+			router.replace(`/series-studio/series/${encodeURIComponent(savedName)}`);
 		}
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not save profile series'
+		error.value = e instanceof Error ? e.message : "Could not save profile series";
 	} finally {
-		saving.value = false
+		saving.value = false;
 	}
 }
 </script>
-

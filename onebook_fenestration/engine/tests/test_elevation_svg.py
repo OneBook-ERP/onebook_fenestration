@@ -38,12 +38,21 @@ class TestElevationSvg(unittest.TestCase):
 		self.assertEqual(generate_elevation_svg({}), "")
 		self.assertEqual(generate_elevation_svg({"width": 0, "height": 100}), "")
 
-
 	def test_exhaust_panel_is_steel_with_opening_beside_glass(self):
-		design = {"width": 1200, "height": 1200, "root": {"type": "split", "dir": "v", "at": [600], "children": [
-			{"type": "fixed", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG", "fan": True},
-		]}}
+		design = {
+			"width": 1200,
+			"height": 1200,
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [600],
+				"children": [
+					{"type": "fixed", "glass": "6CTG"},
+					{"type": "fixed", "glass": "6CTG", "fan": True},
+				],
+			},
+		}
 		svg = generate_elevation_svg(design)
 		self.assertEqual(svg.count('fill="#A8ADB5"'), 1)
 		self.assertEqual(svg.count('fill="#DCEBF7"'), 1)
-		self.assertEqual(svg.count('<circle'), 1)
+		self.assertEqual(svg.count("<circle"), 1)

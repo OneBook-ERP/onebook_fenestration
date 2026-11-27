@@ -14,9 +14,31 @@
 						class="mb-2.5 flex size-7 shrink-0 items-center justify-center rounded-[7px] bg-[#0070f3] text-white shadow-sm transition-transform duration-150 hover:scale-[1.04] active:scale-[0.97]"
 					>
 						<svg class="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-							<rect x="2.5" y="2.5" width="15" height="15" rx="2" stroke="currentColor" stroke-width="1.8" />
-							<line x1="10" y1="2.5" x2="10" y2="17.5" stroke="currentColor" stroke-width="1.6" />
-							<line x1="2.5" y1="10" x2="17.5" y2="10" stroke="currentColor" stroke-width="1.6" />
+							<rect
+								x="2.5"
+								y="2.5"
+								width="15"
+								height="15"
+								rx="2"
+								stroke="currentColor"
+								stroke-width="1.8"
+							/>
+							<line
+								x1="10"
+								y1="2.5"
+								x2="10"
+								y2="17.5"
+								stroke="currentColor"
+								stroke-width="1.6"
+							/>
+							<line
+								x1="2.5"
+								y1="10"
+								x2="17.5"
+								y2="10"
+								stroke="currentColor"
+								stroke-width="1.6"
+							/>
 						</svg>
 					</RouterLink>
 				</Tooltip>
@@ -35,12 +57,7 @@
 
 				<!-- Module Rail Items -->
 				<div class="flex w-full flex-1 flex-col items-center gap-1 overflow-y-auto py-0.5">
-					<Tooltip
-						v-for="m in railModules"
-						:key="m.key"
-						:text="m.label"
-						side="right"
-					>
+					<Tooltip v-for="m in railModules" :key="m.key" :text="m.label" side="right">
 						<button
 							type="button"
 							:aria-label="m.label"
@@ -106,11 +123,19 @@
 			:data-state="collapsed ? 'collapsed' : 'expanded'"
 			:aria-label="moduleTitle"
 			class="fixed inset-y-0 left-[48px] z-30 flex h-full shrink-0 flex-col overflow-hidden bg-surface-sidebar transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:static"
-			:class="collapsed ? 'w-0 border-r-0' : 'w-[224px] border-r border-outline-gray-1 shadow-xl md:shadow-none'"
+			:class="
+				collapsed
+					? 'w-0 border-r-0'
+					: 'w-[224px] border-r border-outline-gray-1 shadow-xl md:shadow-none'
+			"
 		>
 			<div
 				class="flex h-full w-[224px] flex-col transition-[opacity,transform] duration-250 ease-[cubic-bezier(0.4,0,0.2,1)]"
-				:class="collapsed ? 'pointer-events-none -translate-x-2 opacity-0' : 'translate-x-0 opacity-100'"
+				:class="
+					collapsed
+						? 'pointer-events-none -translate-x-2 opacity-0'
+						: 'translate-x-0 opacity-100'
+				"
 			>
 				<!-- Panel Header with Module Switcher & Collapse Button -->
 				<div class="flex h-12 shrink-0 items-center justify-between gap-1 px-2">
@@ -148,7 +173,11 @@
 						leave-to-class="opacity-0 -translate-y-1"
 					>
 						<!-- Series Studio -->
-						<div v-if="activeModule === 'studio'" key="studio" class="flex flex-col gap-0.5">
+						<div
+							v-if="activeModule === 'studio'"
+							key="studio"
+							class="flex flex-col gap-0.5"
+						>
 							<SidebarItem
 								v-for="item in studioItems"
 								:key="item.tab"
@@ -160,7 +189,11 @@
 							/>
 
 							<div class="mt-1.5">
-								<SidebarNavGroup label="Quick create" icon="lucide-plus-circle" :default-open="false">
+								<SidebarNavGroup
+									label="Quick create"
+									icon="lucide-plus-circle"
+									:default-open="false"
+								>
 									<SidebarItem
 										v-for="item in studioCreateItems"
 										:key="item.route"
@@ -175,7 +208,11 @@
 						</div>
 
 						<!-- Common Pipeline Sections (Quotes, Orders, Production, Install, Reports) -->
-						<div v-else-if="pipelineConfig" :key="pipelineConfig.key" class="flex flex-col gap-0.5">
+						<div
+							v-else-if="pipelineConfig"
+							:key="pipelineConfig.key"
+							class="flex flex-col gap-0.5"
+						>
 							<SidebarItem
 								v-for="item in pipelineConfig.items"
 								:key="item.route"
@@ -187,7 +224,11 @@
 							/>
 
 							<div v-if="recent.length" class="mt-1.5">
-								<SidebarNavGroup :label="pipelineConfig.projectGroupLabel" icon="lucide-folder-kanban" :default-open="false">
+								<SidebarNavGroup
+									:label="pipelineConfig.projectGroupLabel"
+									icon="lucide-folder-kanban"
+									:default-open="false"
+								>
 									<SidebarItem
 										v-for="p in recent"
 										:key="p.name"
@@ -211,7 +252,11 @@
 							/>
 
 							<div class="mt-1.5">
-								<SidebarNavGroup label="Recent projects" icon="lucide-clock" :default-open="true">
+								<SidebarNavGroup
+									label="Recent projects"
+									icon="lucide-clock"
+									:default-open="true"
+								>
 									<SidebarItem
 										v-for="p in recent"
 										:key="p.name"
@@ -240,202 +285,302 @@
 </template>
 
 <script setup lang="ts">
-import {
-	Dropdown,
-	SidebarItem,
-	Tooltip,
-	TooltipProvider,
-	useList,
-} from 'frappe-ui'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { logout } from '@/api'
-import { type ModuleKey, PIPELINE_SIDEBAR_CONFIG } from './sidebar/sidebarConfig'
-import SidebarNavGroup from './sidebar/SidebarNavGroup.vue'
-import SidebarQuickSearch, { type QuickSearchItem } from './sidebar/SidebarQuickSearch.vue'
+import { Dropdown, SidebarItem, Tooltip, TooltipProvider, useList } from "frappe-ui";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
+import { logout } from "@/api";
+import { type ModuleKey, PIPELINE_SIDEBAR_CONFIG } from "./sidebar/sidebarConfig";
+import SidebarNavGroup from "./sidebar/SidebarNavGroup.vue";
+import SidebarQuickSearch, { type QuickSearchItem } from "./sidebar/SidebarQuickSearch.vue";
 
-const props = defineProps<{ user: string; roles: string[] }>()
-const route = useRoute()
-const router = useRouter()
+const props = defineProps<{ user: string; roles: string[] }>();
+const route = useRoute();
+const router = useRouter();
 
 interface RecentProject {
-	name: string
-	project_title: string
+	name: string;
+	project_title: string;
 }
 
 interface RailModule {
-	key: ModuleKey
-	label: string
-	icon: string
-	route: string
-	active: boolean
+	key: ModuleKey;
+	label: string;
+	icon: string;
+	route: string;
+	active: boolean;
 }
 
 const studioItems = [
-	{ tab: 'series', label: 'Profile Series', icon: 'lucide-layers', route: '/series-studio' },
-	{ tab: 'versions', label: 'Series Version', icon: 'lucide-git-branch', route: '/series-studio?tab=versions' },
-	{ tab: 'profiles', label: 'Fenestration Profile', icon: 'lucide-ruler', route: '/series-studio?tab=profiles' },
-	{ tab: 'glass', label: 'Fenestration Glass', icon: 'lucide-panels-top-left', route: '/series-studio?tab=glass' },
-	{ tab: 'hardware', label: 'Fenestration Hardware', icon: 'lucide-wrench', route: '/series-studio?tab=hardware' },
-]
+	{ tab: "series", label: "Profile Series", icon: "lucide-layers", route: "/series-studio" },
+	{
+		tab: "versions",
+		label: "Series Version",
+		icon: "lucide-git-branch",
+		route: "/series-studio?tab=versions",
+	},
+	{
+		tab: "profiles",
+		label: "Fenestration Profile",
+		icon: "lucide-ruler",
+		route: "/series-studio?tab=profiles",
+	},
+	{
+		tab: "glass",
+		label: "Fenestration Glass",
+		icon: "lucide-panels-top-left",
+		route: "/series-studio?tab=glass",
+	},
+	{
+		tab: "hardware",
+		label: "Fenestration Hardware",
+		icon: "lucide-wrench",
+		route: "/series-studio?tab=hardware",
+	},
+];
 
 const studioCreateItems = [
-	{ label: 'New Profile Series', icon: 'lucide-layers', route: '/series-studio/series/new' },
-	{ label: 'New Series Version', icon: 'lucide-git-branch', route: '/series-studio/versions/new' },
-	{ label: 'New Profile', icon: 'lucide-ruler', route: '/series-studio/profiles/new' },
-	{ label: 'New Glass', icon: 'lucide-panels-top-left', route: '/series-studio/glass/new' },
-	{ label: 'New Hardware', icon: 'lucide-wrench', route: '/series-studio/hardware/new' },
-]
+	{ label: "New Profile Series", icon: "lucide-layers", route: "/series-studio/series/new" },
+	{
+		label: "New Series Version",
+		icon: "lucide-git-branch",
+		route: "/series-studio/versions/new",
+	},
+	{ label: "New Profile", icon: "lucide-ruler", route: "/series-studio/profiles/new" },
+	{ label: "New Glass", icon: "lucide-panels-top-left", route: "/series-studio/glass/new" },
+	{ label: "New Hardware", icon: "lucide-wrench", route: "/series-studio/hardware/new" },
+];
 
 const activeModule = computed<ModuleKey>(() => {
-	if (route.path.startsWith('/series-studio')) return 'studio'
-	if (route.path.startsWith('/quotes')) return 'quotes'
-	if (route.path.startsWith('/orders')) return 'orders'
-	if (route.path.startsWith('/production')) return 'production'
-	if (route.path.startsWith('/install')) return 'install'
-	if (route.path.startsWith('/reports')) return 'reports'
-	return 'projects'
-})
+	if (route.path.startsWith("/series-studio")) return "studio";
+	if (route.path.startsWith("/quotes")) return "quotes";
+	if (route.path.startsWith("/orders")) return "orders";
+	if (route.path.startsWith("/production")) return "production";
+	if (route.path.startsWith("/install")) return "install";
+	if (route.path.startsWith("/reports")) return "reports";
+	return "projects";
+});
 
 const pipelineConfig = computed(() => {
-	const key = activeModule.value
-	if (key === 'projects' || key === 'studio') return null
-	return PIPELINE_SIDEBAR_CONFIG[key]
-})
+	const key = activeModule.value;
+	if (key === "projects" || key === "studio") return null;
+	return PIPELINE_SIDEBAR_CONFIG[key];
+});
 
 const moduleTitle = computed(() => {
-	if (activeModule.value === 'studio') return 'Series Studio'
-	if (pipelineConfig.value) return pipelineConfig.value.title
-	return 'Projects'
-})
+	if (activeModule.value === "studio") return "Series Studio";
+	if (pipelineConfig.value) return pipelineConfig.value.title;
+	return "Projects";
+});
 
 const activeStudioTab = computed(() => {
-	if (route.path.startsWith('/series-studio/profiles')) return 'profiles'
-	if (route.path.startsWith('/series-studio/versions')) return 'versions'
-	if (route.path.startsWith('/series-studio/glass') || route.path.startsWith('/series-studio/glazing-config')) return 'glass'
-	if (route.path.startsWith('/series-studio/hardware')) return 'hardware'
-	if (route.path.startsWith('/series-studio/series')) return 'series'
-	const t = String(route.query.tab ?? '')
-	return ['series', 'versions', 'profiles', 'glass', 'hardware'].includes(t) ? t : 'series'
-})
-const isEngineer = computed(() => props.roles.some((r) => r === 'System Manager' || r === 'Fenestration Engineer'))
-const userInitial = computed(() => (props.user?.trim().charAt(0) || 'U').toUpperCase())
+	if (route.path.startsWith("/series-studio/profiles")) return "profiles";
+	if (route.path.startsWith("/series-studio/versions")) return "versions";
+	if (
+		route.path.startsWith("/series-studio/glass") ||
+		route.path.startsWith("/series-studio/glazing-config")
+	)
+		return "glass";
+	if (route.path.startsWith("/series-studio/hardware")) return "hardware";
+	if (route.path.startsWith("/series-studio/series")) return "series";
+	const t = String(route.query.tab ?? "");
+	return ["series", "versions", "profiles", "glass", "hardware"].includes(t) ? t : "series";
+});
+const isEngineer = computed(() =>
+	props.roles.some((r) => r === "System Manager" || r === "Fenestration Engineer")
+);
+const userInitial = computed(() => (props.user?.trim().charAt(0) || "U").toUpperCase());
 
-const collapsed = ref(typeof window !== 'undefined' && window.innerWidth < 768)
-const searchOpen = ref(false)
+const collapsed = ref(typeof window !== "undefined" && window.innerWidth < 768);
+const searchOpen = ref(false);
 
 const railModules = computed<RailModule[]>(() => {
 	const list: RailModule[] = [
-		{ key: 'projects', label: 'Projects', icon: 'lucide-folder-kanban', route: '/projects', active: activeModule.value === 'projects' },
-		{ key: 'quotes', label: 'Quotes', icon: 'lucide-file-text', route: '/quotes', active: activeModule.value === 'quotes' },
-		{ key: 'orders', label: 'Orders', icon: 'lucide-package', route: '/orders', active: activeModule.value === 'orders' },
-		{ key: 'production', label: 'Production', icon: 'lucide-factory', route: '/production', active: activeModule.value === 'production' },
-		{ key: 'install', label: 'Install', icon: 'lucide-wrench', route: '/install', active: activeModule.value === 'install' },
-		{ key: 'reports', label: 'Reports', icon: 'lucide-bar-chart-3', route: '/reports', active: activeModule.value === 'reports' },
-	]
+		{
+			key: "projects",
+			label: "Projects",
+			icon: "lucide-folder-kanban",
+			route: "/projects",
+			active: activeModule.value === "projects",
+		},
+		{
+			key: "quotes",
+			label: "Quotes",
+			icon: "lucide-file-text",
+			route: "/quotes",
+			active: activeModule.value === "quotes",
+		},
+		{
+			key: "orders",
+			label: "Orders",
+			icon: "lucide-package",
+			route: "/orders",
+			active: activeModule.value === "orders",
+		},
+		{
+			key: "production",
+			label: "Production",
+			icon: "lucide-factory",
+			route: "/production",
+			active: activeModule.value === "production",
+		},
+		{
+			key: "install",
+			label: "Install",
+			icon: "lucide-wrench",
+			route: "/install",
+			active: activeModule.value === "install",
+		},
+		{
+			key: "reports",
+			label: "Reports",
+			icon: "lucide-bar-chart-3",
+			route: "/reports",
+			active: activeModule.value === "reports",
+		},
+	];
 	if (isEngineer.value) {
-		list.push({ key: 'studio', label: 'Series Studio', icon: 'lucide-layers', route: '/series-studio', active: activeModule.value === 'studio' })
+		list.push({
+			key: "studio",
+			label: "Series Studio",
+			icon: "lucide-layers",
+			route: "/series-studio",
+			active: activeModule.value === "studio",
+		});
 	}
-	return list
-})
+	return list;
+});
 
 function isPipelineItemActive(filterKey?: string) {
-	const current = String(route.query.filter || 'all')
-	return current === (filterKey || 'all')
+	const current = String(route.query.filter || "all");
+	return current === (filterKey || "all");
 }
 
 function onRailClick(m: RailModule) {
 	if (m.active) {
-		collapsed.value = !collapsed.value
-		return
+		collapsed.value = !collapsed.value;
+		return;
 	}
-	collapsed.value = false
-	router.push(m.route)
+	collapsed.value = false;
+	router.push(m.route);
 }
 
 const projects = useList<RecentProject>({
-	doctype: 'Fenestration Project',
-	fields: ['name', 'project_title', 'modified'],
-	orderBy: 'modified desc',
+	doctype: "Fenestration Project",
+	fields: ["name", "project_title", "modified"],
+	orderBy: "modified desc",
 	limit: 5,
-})
-const recent = computed(() => (projects.data ?? []).slice(0, 5))
+});
+const recent = computed(() => (projects.data ?? []).slice(0, 5));
 
 const moduleMenu = computed(() => {
 	const items = railModules.value.map((m) => ({
 		label: m.label,
 		icon: m.icon,
 		onClick: () => router.push(m.route),
-	}))
+	}));
 	items.push({
-		label: 'Open Desk',
-		icon: 'lucide-layout-dashboard',
-		onClick: () => (window.location.href = '/app'),
-	})
-	return items
-})
+		label: "Open Desk",
+		icon: "lucide-layout-dashboard",
+		onClick: () => (window.location.href = "/app"),
+	});
+	return items;
+});
 
 const searchItems = computed<QuickSearchItem[]>(() => {
 	const items: QuickSearchItem[] = [
-		{ label: 'All projects', group: 'Projects', icon: 'lucide-folder-kanban', route: '/projects' },
-		{ label: 'Quotes (All Projects)', group: 'Workspace', icon: 'lucide-file-text', route: '/quotes' },
-		{ label: 'Orders (All Projects)', group: 'Workspace', icon: 'lucide-package', route: '/orders' },
-		{ label: 'Production (All Projects)', group: 'Workspace', icon: 'lucide-factory', route: '/production' },
-		{ label: 'Install (All Projects)', group: 'Workspace', icon: 'lucide-wrench', route: '/install' },
-		{ label: 'Reports (All Projects)', group: 'Workspace', icon: 'lucide-bar-chart-3', route: '/reports' },
+		{
+			label: "All projects",
+			group: "Projects",
+			icon: "lucide-folder-kanban",
+			route: "/projects",
+		},
+		{
+			label: "Quotes (All Projects)",
+			group: "Workspace",
+			icon: "lucide-file-text",
+			route: "/quotes",
+		},
+		{
+			label: "Orders (All Projects)",
+			group: "Workspace",
+			icon: "lucide-package",
+			route: "/orders",
+		},
+		{
+			label: "Production (All Projects)",
+			group: "Workspace",
+			icon: "lucide-factory",
+			route: "/production",
+		},
+		{
+			label: "Install (All Projects)",
+			group: "Workspace",
+			icon: "lucide-wrench",
+			route: "/install",
+		},
+		{
+			label: "Reports (All Projects)",
+			group: "Workspace",
+			icon: "lucide-bar-chart-3",
+			route: "/reports",
+		},
 		...recent.value.map((p) => ({
 			label: p.project_title || p.name,
-			group: 'Recent project',
-			icon: 'lucide-folder',
+			group: "Recent project",
+			icon: "lucide-folder",
 			route: `/projects/${p.name}`,
 		})),
-	]
+	];
 	if (isEngineer.value) {
 		items.push(
 			...studioItems.map((s) => ({
 				label: s.label,
-				group: 'Series Studio',
+				group: "Series Studio",
 				icon: s.icon,
 				route: s.route,
-			})),
-		)
+			}))
+		);
 	}
-	return items
-})
+	return items;
+});
 
 const userMenu = [
-	{ label: 'Open Desk', icon: 'lucide-layout-dashboard', onClick: () => (window.location.href = '/app') },
 	{
-		label: 'Log out',
-		icon: 'lucide-log-out',
+		label: "Open Desk",
+		icon: "lucide-layout-dashboard",
+		onClick: () => (window.location.href = "/app"),
+	},
+	{
+		label: "Log out",
+		icon: "lucide-log-out",
 		onClick: async () => {
-			await logout()
-			window.location.href = '/login'
+			await logout();
+			window.location.href = "/login";
 		},
 	},
-]
+];
 
 watch(
 	() => route.fullPath,
 	() => {
-		if (typeof window !== 'undefined' && window.innerWidth < 768) {
-			collapsed.value = true
+		if (typeof window !== "undefined" && window.innerWidth < 768) {
+			collapsed.value = true;
 		}
-	},
-)
+	}
+);
 
 function handleKeydown(e: KeyboardEvent) {
-	if (!(e.metaKey || e.ctrlKey)) return
-	const key = e.key.toLowerCase()
-	if (key === 'k') {
-		e.preventDefault()
-		searchOpen.value = !searchOpen.value
-	} else if (key === 'b') {
-		e.preventDefault()
-		collapsed.value = !collapsed.value
+	if (!(e.metaKey || e.ctrlKey)) return;
+	const key = e.key.toLowerCase();
+	if (key === "k") {
+		e.preventDefault();
+		searchOpen.value = !searchOpen.value;
+	} else if (key === "b") {
+		e.preventDefault();
+		collapsed.value = !collapsed.value;
 	}
 }
 
-onMounted(() => window.addEventListener('keydown', handleKeydown))
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+onMounted(() => window.addEventListener("keydown", handleKeydown));
+onUnmounted(() => window.removeEventListener("keydown", handleKeydown));
 </script>

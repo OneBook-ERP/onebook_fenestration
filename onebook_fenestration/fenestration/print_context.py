@@ -123,7 +123,25 @@ def _detail_block(design) -> dict:
 	pieces.sort(key=lambda p: (p["panel"], _position_rank(p["position"])))
 	glazing = _detail_glazing(computed.glass, snapshot, design_qty)
 	return {
-		**{key: row[key] for key in ("ref", "name", "qty", "width", "height", "svg", "series", "finish", "finish_color", "floor", "location", "area_m2", "area_sqft", "weight")},
+		**{
+			key: row[key]
+			for key in (
+				"ref",
+				"name",
+				"qty",
+				"width",
+				"height",
+				"svg",
+				"series",
+				"finish",
+				"finish_color",
+				"floor",
+				"location",
+				"area_m2",
+				"area_sqft",
+				"weight",
+			)
+		},
 		"total_weight": round(row["weight"] * design_qty, 2),
 		"pieces": pieces,
 		"glazing": glazing,
@@ -137,7 +155,11 @@ def _detail_glazing(panes, snapshot, design_qty: int) -> list[dict]:
 		grouped[key] = grouped.get(key, 0) + 1
 	result = []
 	for (w, h, code, material), count in grouped.items():
-		label = "Steel" if material == "steel" else (snapshot.glasses[code].name if code in snapshot.glasses else code)
+		label = (
+			"Steel"
+			if material == "steel"
+			else (snapshot.glasses[code].name if code in snapshot.glasses else code)
+		)
 		total_qty = count * design_qty
 		result.append(
 			{
@@ -198,7 +220,9 @@ def _address_details(address: str) -> dict:
 	if has_gstin:
 		addr_fields.append("gstin")
 	values = frappe.db.get_value("Address", address, addr_fields, as_dict=True) or {}
-	line = ", ".join(values[f] for f in ("address_line1", "address_line2", "city", "state", "pincode") if values.get(f))
+	line = ", ".join(
+		values[f] for f in ("address_line1", "address_line2", "city", "state", "pincode") if values.get(f)
+	)
 	return {
 		"line": line,
 		"phone": values.get("phone") or "",

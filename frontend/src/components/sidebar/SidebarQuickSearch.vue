@@ -41,7 +41,10 @@
 					</div>
 
 					<div class="max-h-72 overflow-y-auto p-1.5">
-						<div v-if="filtered.length === 0" class="px-3 py-6 text-center text-[13px] text-gray-500">
+						<div
+							v-if="filtered.length === 0"
+							class="px-3 py-6 text-center text-[13px] text-gray-500"
+						>
 							No matching results
 						</div>
 						<button
@@ -58,8 +61,12 @@
 							@click="navigate(item.route)"
 						>
 							<span :class="[item.icon, 'size-4 shrink-0 text-gray-500']" />
-							<span class="min-w-0 flex-1 truncate font-medium">{{ item.label }}</span>
-							<span class="shrink-0 text-[11px] text-gray-500">{{ item.group }}</span>
+							<span class="min-w-0 flex-1 truncate font-medium">{{
+								item.label
+							}}</span>
+							<span class="shrink-0 text-[11px] text-gray-500">{{
+								item.group
+							}}</span>
 						</button>
 					</div>
 				</div>
@@ -69,71 +76,70 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 
 export interface QuickSearchItem {
-	label: string
-	group: string
-	icon: string
-	route: string
+	label: string;
+	group: string;
+	icon: string;
+	route: string;
 }
 
 const props = defineProps<{
-	open: boolean
-	items: QuickSearchItem[]
-}>()
+	open: boolean;
+	items: QuickSearchItem[];
+}>();
 
 const emit = defineEmits<{
-	'update:open': [value: boolean]
-}>()
+	"update:open": [value: boolean];
+}>();
 
-const router = useRouter()
-const inputRef = ref<HTMLInputElement | null>(null)
-const query = ref('')
-const activeIndex = ref(0)
+const router = useRouter();
+const inputRef = ref<HTMLInputElement | null>(null);
+const query = ref("");
+const activeIndex = ref(0);
 
 const filtered = computed(() => {
-	const q = query.value.trim().toLowerCase()
-	if (!q) return props.items
+	const q = query.value.trim().toLowerCase();
+	if (!q) return props.items;
 	return props.items.filter(
-		(item) => item.label.toLowerCase().includes(q) || item.group.toLowerCase().includes(q),
-	)
-})
+		(item) => item.label.toLowerCase().includes(q) || item.group.toLowerCase().includes(q)
+	);
+});
 
 watch(
 	() => props.open,
 	async (isOpen) => {
-		if (!isOpen) return
-		query.value = ''
-		activeIndex.value = 0
-		await nextTick()
-		inputRef.value?.focus()
-	},
-)
+		if (!isOpen) return;
+		query.value = "";
+		activeIndex.value = 0;
+		await nextTick();
+		inputRef.value?.focus();
+	}
+);
 
 watch(filtered, () => {
-	activeIndex.value = 0
-})
+	activeIndex.value = 0;
+});
 
 function close() {
-	emit('update:open', false)
+	emit("update:open", false);
 }
 
 function move(delta: number) {
-	if (!filtered.value.length) return
-	const len = filtered.value.length
-	activeIndex.value = (activeIndex.value + delta + len) % len
+	if (!filtered.value.length) return;
+	const len = filtered.value.length;
+	activeIndex.value = (activeIndex.value + delta + len) % len;
 }
 
 function selectActive() {
-	const item = filtered.value[activeIndex.value]
-	if (item) navigate(item.route)
+	const item = filtered.value[activeIndex.value];
+	if (item) navigate(item.route);
 }
 
 function navigate(route: string) {
-	close()
-	router.push(route)
+	close();
+	router.push(route);
 }
 </script>
-

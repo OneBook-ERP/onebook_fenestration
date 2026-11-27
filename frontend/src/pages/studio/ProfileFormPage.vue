@@ -1,26 +1,44 @@
 <template>
 	<div class="mx-auto max-w-6xl p-6">
-		<header class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4">
+		<header
+			class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4"
+		>
 			<div>
-				<nav aria-label="Breadcrumb" class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5">
+				<nav
+					aria-label="Breadcrumb"
+					class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5"
+				>
 					<router-link to="/series-studio?tab=profiles" class="hover:text-ink-gray-8">
 						Series Studio
 					</router-link>
 					<span aria-hidden="true">/</span>
 					<router-link
-						:to="form.series ? `/series-studio?tab=profiles&series=${form.series}` : '/series-studio?tab=profiles'"
+						:to="
+							form.series
+								? `/series-studio?tab=profiles&series=${form.series}`
+								: '/series-studio?tab=profiles'
+						"
 						class="hover:text-ink-gray-8"
 					>
 						Fenestration Profile
 					</router-link>
 					<span aria-hidden="true">/</span>
-					<span class="font-medium text-ink-gray-8">{{ isEdit ? form.profile_code : 'New Fenestration Profile' }}</span>
+					<span class="font-medium text-ink-gray-8">{{
+						isEdit ? form.profile_code : "New Fenestration Profile"
+					}}</span>
 				</nav>
 				<div class="flex flex-wrap items-center gap-3">
 					<h1 class="text-xl font-semibold text-ink-gray-9">
-						{{ isEdit ? `${form.profile_code} · ${form.profile_name || 'Profile'}` : (form.profile_name || 'New Fenestration Profile') }}
+						{{
+							isEdit
+								? `${form.profile_code} · ${form.profile_name || "Profile"}`
+								: form.profile_name || "New Fenestration Profile"
+						}}
 					</h1>
-					<Badge :theme="hasSvg ? 'green' : 'gray'" :label="hasSvg ? 'DXF Parsed' : 'No DXF'" />
+					<Badge
+						:theme="hasSvg ? 'green' : 'gray'"
+						:label="hasSvg ? 'DXF Parsed' : 'No DXF'"
+					/>
 					<Badge v-if="form.role" theme="blue" :label="form.role" />
 					<Badge
 						v-if="showProfileType && form.profile_type && form.profile_type !== 'Both'"
@@ -31,11 +49,7 @@
 			</div>
 
 			<div class="flex items-center gap-2.5">
-				<Button
-					variant="outline"
-					label="Back to Profiles"
-					@click="goBack"
-				/>
+				<Button variant="outline" label="Back to Profiles" @click="goBack" />
 				<Button
 					variant="solid"
 					:label="isEdit ? 'Save Changes' : 'Create Profile'"
@@ -94,7 +108,8 @@
 								data-testid="profile-type-select"
 							/>
 							<p class="mt-1 text-xs text-ink-gray-5">
-								Automatically assigns this profile to Window or Door templates in Section Templates.
+								Automatically assigns this profile to Window or Door templates in
+								Section Templates.
 							</p>
 						</div>
 						<Combobox
@@ -128,7 +143,8 @@
 									title="Copy computed weight into Weight (kg/m)"
 									@click="form.kg_per_m = Number(form.computed_kg_per_m)"
 								>
-									Copy computed ({{ Number(form.computed_kg_per_m).toFixed(3) }} kg/m)
+									Copy computed ({{ Number(form.computed_kg_per_m).toFixed(3) }}
+									kg/m)
 								</button>
 							</div>
 							<FormControl
@@ -162,14 +178,26 @@
 								@dragleave.prevent="isDragging = false"
 								@drop.prevent="onFileDrop"
 							>
-								<div v-if="uploadingDxf || parsingDxf" class="py-2 text-sm text-ink-gray-7">
+								<div
+									v-if="uploadingDxf || parsingDxf"
+									class="py-2 text-sm text-ink-gray-7"
+								>
 									<span class="font-medium">
-										{{ uploadingDxf ? `Uploading DXF (${uploadProgress}%)…` : 'Analyzing CAD cross-section geometry…' }}
+										{{
+											uploadingDxf
+												? `Uploading DXF (${uploadProgress}%)…`
+												: "Analyzing CAD cross-section geometry…"
+										}}
 									</span>
 								</div>
-								<div v-else-if="form.dxf_file" class="flex flex-wrap items-center justify-between gap-3 text-left">
+								<div
+									v-else-if="form.dxf_file"
+									class="flex flex-wrap items-center justify-between gap-3 text-left"
+								>
 									<div class="min-w-0 flex-1">
-										<div class="truncate text-sm font-semibold text-ink-gray-9">
+										<div
+											class="truncate text-sm font-semibold text-ink-gray-9"
+										>
 											{{ cleanDxfFilename(form.dxf_file) }}
 										</div>
 										<div class="truncate font-mono text-xs text-ink-gray-5">
@@ -177,16 +205,35 @@
 										</div>
 									</div>
 									<div class="flex items-center gap-2">
-										<Button variant="outline" size="sm" label="Replace .dxf" @click="triggerFilePicker" />
-										<Button variant="subtle" size="sm" label="Clear" @click="clearDxf" />
+										<Button
+											variant="outline"
+											size="sm"
+											label="Replace .dxf"
+											@click="triggerFilePicker"
+										/>
+										<Button
+											variant="subtle"
+											size="sm"
+											label="Clear"
+											@click="clearDxf"
+										/>
 									</div>
 								</div>
-								<div v-else class="cursor-pointer space-y-1.5 py-2" @click="triggerFilePicker">
+								<div
+									v-else
+									class="cursor-pointer space-y-1.5 py-2"
+									@click="triggerFilePicker"
+								>
 									<div class="text-sm font-semibold text-ink-gray-8">
-										Drag and drop a CAD <code class="rounded bg-surface-gray-2 px-1 py-0.5 text-xs">.dxf</code> file here, or click to browse
+										Drag and drop a CAD
+										<code class="rounded bg-surface-gray-2 px-1 py-0.5 text-xs"
+											>.dxf</code
+										>
+										file here, or click to browse
 									</div>
 									<div class="text-xs text-ink-gray-5">
-										Automatically computes section area, bounding dimensions,Ix/Iy, weight (kg/m), and SVG preview
+										Automatically computes section area, bounding
+										dimensions,Ix/Iy, weight (kg/m), and SVG preview
 									</div>
 								</div>
 							</div>
@@ -197,8 +244,14 @@
 								v-model="form.use_computed_weight"
 								label="Use Computed Weight from DXF"
 							/>
-							<p v-if="form.use_computed_weight && form.computed_kg_per_m" class="mt-1 text-xs text-ink-gray-6">
-								Engine will use computed weight: <strong>{{ Number(form.computed_kg_per_m).toFixed(3) }} kg/m</strong>
+							<p
+								v-if="form.use_computed_weight && form.computed_kg_per_m"
+								class="mt-1 text-xs text-ink-gray-6"
+							>
+								Engine will use computed weight:
+								<strong
+									>{{ Number(form.computed_kg_per_m).toFixed(3) }} kg/m</strong
+								>
 							</p>
 						</div>
 					</div>
@@ -216,17 +269,26 @@
 							</span>
 						</h2>
 						<p v-if="hasSvg" class="mt-0.5 text-xs text-ink-gray-5">
-							{{ unitNote }} · {{ metrics.loops }} closed loop{{ metrics.loops === 1 ? '' : 's' }}
+							{{ unitNote }} · {{ metrics.loops }} closed loop{{
+								metrics.loops === 1 ? "" : "s"
+							}}
 							<template v-if="metrics.chambers > 0">
-								({{ metrics.chambers }} chamber{{ metrics.chambers === 1 ? '' : 's' }})
+								({{ metrics.chambers }} chamber{{
+									metrics.chambers === 1 ? "" : "s"
+								}})
 							</template>
-							· Role: <strong class="capitalize text-ink-gray-8">{{ form.role || '—' }}</strong>
+							· Role:
+							<strong class="capitalize text-ink-gray-8">{{
+								form.role || "—"
+							}}</strong>
 						</p>
 					</div>
 
 					<div v-if="hasSvg" class="flex flex-wrap items-center gap-2">
 						<!-- Profile Orientation Toolbar -->
-						<div class="inline-flex items-center overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1">
+						<div
+							class="inline-flex items-center overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1"
+						>
 							<button
 								type="button"
 								class="flex h-7 items-center justify-center px-2 text-xs font-semibold text-ink-gray-6 transition-colors hover:bg-surface-gray-3 hover:text-ink-gray-9"
@@ -234,12 +296,21 @@
 								aria-label="Rotate Left 90°"
 								@click="rotateProfile(-90)"
 							>
-								<svg viewBox="0 0 640 640" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
-									<path d="M88 256L232 256C241.7 256 250.5 250.2 254.2 241.2C257.9 232.2 255.9 221.9 249 215L202.3 168.3C277.6 109.7 386.6 115 455.8 184.2C530.8 259.2 530.8 380.7 455.8 455.7C380.8 530.7 259.3 530.7 184.3 455.7C174.1 445.5 165.3 434.4 157.9 422.7C148.4 407.8 128.6 403.4 113.7 412.9C98.8 422.4 94.4 442.2 103.9 457.1C113.7 472.7 125.4 487.5 139 501C239 601 401 601 501 501C601 401 601 239 501 139C406.8 44.7 257.3 39.3 156.7 122.8L105 71C98.1 64.2 87.8 62.1 78.8 65.8C69.8 69.5 64 78.3 64 88L64 232C64 245.3 74.7 256 88 256z" />
+								<svg
+									viewBox="0 0 640 640"
+									class="h-3.5 w-3.5"
+									fill="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										d="M88 256L232 256C241.7 256 250.5 250.2 254.2 241.2C257.9 232.2 255.9 221.9 249 215L202.3 168.3C277.6 109.7 386.6 115 455.8 184.2C530.8 259.2 530.8 380.7 455.8 455.7C380.8 530.7 259.3 530.7 184.3 455.7C174.1 445.5 165.3 434.4 157.9 422.7C148.4 407.8 128.6 403.4 113.7 412.9C98.8 422.4 94.4 442.2 103.9 457.1C113.7 472.7 125.4 487.5 139 501C239 601 401 601 501 501C601 401 601 239 501 139C406.8 44.7 257.3 39.3 156.7 122.8L105 71C98.1 64.2 87.8 62.1 78.8 65.8C69.8 69.5 64 78.3 64 88L64 232C64 245.3 74.7 256 88 256z"
+									/>
 								</svg>
 							</button>
-							<span class="min-w-10 border-x border-outline-gray-2 px-2 py-1 text-center font-mono text-xs font-bold text-blue-600">
-								{{ form.section_rotation || '0' }}°
+							<span
+								class="min-w-10 border-x border-outline-gray-2 px-2 py-1 text-center font-mono text-xs font-bold text-blue-600"
+							>
+								{{ form.section_rotation || "0" }}°
 							</span>
 							<button
 								type="button"
@@ -248,14 +319,25 @@
 								aria-label="Rotate Right 90°"
 								@click="rotateProfile(90)"
 							>
-								<svg viewBox="0 0 640 640" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
-									<path d="M552 256L408 256C398.3 256 389.5 250.2 385.8 241.2C382.1 232.2 384.1 221.9 391 215L437.7 168.3C362.4 109.7 253.4 115 184.2 184.2C109.2 259.2 109.2 380.7 184.2 455.7C259.2 530.7 380.7 530.7 455.7 455.7C463.9 447.5 471.2 438.8 477.6 429.6C487.7 415.1 507.7 411.6 522.2 421.7C536.7 431.8 540.2 451.8 530.1 466.3C521.6 478.5 511.9 490.1 501 501C401 601 238.9 601 139 501C39.1 401 39 239 139 139C233.3 44.7 382.7 39.4 483.3 122.8L535 71C541.9 64.1 552.2 62.1 561.2 65.8C570.2 69.5 576 78.3 576 88L576 232C576 245.3 565.3 256 552 256z" />
+								<svg
+									viewBox="0 0 640 640"
+									class="h-3.5 w-3.5"
+									fill="currentColor"
+									aria-hidden="true"
+								>
+									<path
+										d="M552 256L408 256C398.3 256 389.5 250.2 385.8 241.2C382.1 232.2 384.1 221.9 391 215L437.7 168.3C362.4 109.7 253.4 115 184.2 184.2C109.2 259.2 109.2 380.7 184.2 455.7C259.2 530.7 380.7 530.7 455.7 455.7C463.9 447.5 471.2 438.8 477.6 429.6C487.7 415.1 507.7 411.6 522.2 421.7C536.7 431.8 540.2 451.8 530.1 466.3C521.6 478.5 511.9 490.1 501 501C401 601 238.9 601 139 501C39.1 401 39 239 139 139C233.3 44.7 382.7 39.4 483.3 122.8L535 71C541.9 64.1 552.2 62.1 561.2 65.8C570.2 69.5 576 78.3 576 88L576 232C576 245.3 565.3 256 552 256z"
+									/>
 								</svg>
 							</button>
 							<button
 								type="button"
 								class="flex h-7 items-center justify-center border-l border-outline-gray-2 px-2 text-xs font-semibold transition-colors hover:bg-surface-gray-3"
-								:class="form.section_flip_x ? 'bg-blue-50 text-blue-700' : 'text-ink-gray-6 hover:text-ink-gray-9'"
+								:class="
+									form.section_flip_x
+										? 'bg-blue-50 text-blue-700'
+										: 'text-ink-gray-6 hover:text-ink-gray-9'
+								"
 								title="Flip horizontally"
 								aria-label="Flip horizontally"
 								@click="flipProfile('x')"
@@ -265,7 +347,11 @@
 							<button
 								type="button"
 								class="flex h-7 items-center justify-center border-l border-outline-gray-2 px-2 text-xs font-semibold transition-colors hover:bg-surface-gray-3"
-								:class="form.section_flip_y ? 'bg-blue-50 text-blue-700' : 'text-ink-gray-6 hover:text-ink-gray-9'"
+								:class="
+									form.section_flip_y
+										? 'bg-blue-50 text-blue-700'
+										: 'text-ink-gray-6 hover:text-ink-gray-9'
+								"
 								title="Flip vertically"
 								aria-label="Flip vertically"
 								@click="flipProfile('y')"
@@ -283,19 +369,39 @@
 							@click="saveDefaultOrientation"
 						>
 							<template #prefix>
-								<svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.6">
-									<path d="M3 3h10v10H3z" stroke-linecap="round" stroke-linejoin="round" />
-									<path d="M6 3v4h4V3" stroke-linecap="round" stroke-linejoin="round" />
+								<svg
+									viewBox="0 0 16 16"
+									class="h-3.5 w-3.5"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.6"
+								>
+									<path
+										d="M3 3h10v10H3z"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+									<path
+										d="M6 3v4h4V3"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
 								</svg>
 							</template>
 							Set as Default Orientation
 						</Button>
 
-						<div class="inline-flex overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1">
+						<div
+							class="inline-flex overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1"
+						>
 							<button
 								type="button"
 								class="px-3 py-1 text-xs font-semibold transition-colors"
-								:class="showGrid ? 'bg-surface-gray-3 text-ink-gray-9' : 'text-ink-gray-6'"
+								:class="
+									showGrid
+										? 'bg-surface-gray-3 text-ink-gray-9'
+										: 'text-ink-gray-6'
+								"
 								@click="showGrid = !showGrid"
 							>
 								Grid
@@ -303,7 +409,11 @@
 							<button
 								type="button"
 								class="border-l border-outline-gray-2 px-3 py-1 text-xs font-semibold transition-colors"
-								:class="showDims ? 'bg-surface-gray-3 text-ink-gray-9' : 'text-ink-gray-6'"
+								:class="
+									showDims
+										? 'bg-surface-gray-3 text-ink-gray-9'
+										: 'text-ink-gray-6'
+								"
 								@click="showDims = !showDims"
 							>
 								Dimensions
@@ -311,7 +421,11 @@
 							<button
 								type="button"
 								class="border-l border-outline-gray-2 px-3 py-1 text-xs font-semibold transition-colors"
-								:class="showCentroid ? 'bg-surface-gray-3 text-ink-gray-9' : 'text-ink-gray-6'"
+								:class="
+									showCentroid
+										? 'bg-surface-gray-3 text-ink-gray-9'
+										: 'text-ink-gray-6'
+								"
 								@click="showCentroid = !showCentroid"
 							>
 								Centroid
@@ -353,7 +467,11 @@
 								patternUnits="userSpaceOnUse"
 								:patternTransform="`translate(${metrics.ox}, ${metrics.oy})`"
 							>
-								<rect :width="metrics.majorPx" :height="metrics.majorPx" fill="url(#profile-page-grid-min)" />
+								<rect
+									:width="metrics.majorPx"
+									:height="metrics.majorPx"
+									fill="url(#profile-page-grid-min)"
+								/>
 								<path
 									:d="`M ${metrics.majorPx} 0 L 0 0 0 ${metrics.majorPx}`"
 									fill="none"
@@ -372,7 +490,9 @@
 							fill="url(#profile-page-grid-maj)"
 						/>
 
-						<g :transform="`translate(${metrics.ox}, ${metrics.oy}) scale(${metrics.s})`">
+						<g
+							:transform="`translate(${metrics.ox}, ${metrics.oy}) scale(${metrics.s})`"
+						>
 							<g :transform="rotationTransform">
 								<path
 									:d="form.section_svg || ''"
@@ -386,14 +506,49 @@
 							</g>
 						</g>
 
-						<g v-if="showDims" stroke="#475569" stroke-width="1.15" stroke-linecap="square">
-							<line :x1="metrics.ox" :y1="metrics.dimY" :x2="metrics.ox + metrics.dw" :y2="metrics.dimY" />
-							<line :x1="metrics.ox" :y1="metrics.dimY - metrics.tick" :x2="metrics.ox" :y2="metrics.dimY + metrics.tick" />
-							<line :x1="metrics.ox + metrics.dw" :y1="metrics.dimY - metrics.tick" :x2="metrics.ox + metrics.dw" :y2="metrics.dimY + metrics.tick" />
+						<g
+							v-if="showDims"
+							stroke="#475569"
+							stroke-width="1.15"
+							stroke-linecap="square"
+						>
+							<line
+								:x1="metrics.ox"
+								:y1="metrics.dimY"
+								:x2="metrics.ox + metrics.dw"
+								:y2="metrics.dimY"
+							/>
+							<line
+								:x1="metrics.ox"
+								:y1="metrics.dimY - metrics.tick"
+								:x2="metrics.ox"
+								:y2="metrics.dimY + metrics.tick"
+							/>
+							<line
+								:x1="metrics.ox + metrics.dw"
+								:y1="metrics.dimY - metrics.tick"
+								:x2="metrics.ox + metrics.dw"
+								:y2="metrics.dimY + metrics.tick"
+							/>
 
-							<line :x1="metrics.dimX" :y1="metrics.oy" :x2="metrics.dimX" :y2="metrics.oy + metrics.dh" />
-							<line :x1="metrics.dimX - metrics.tick" :y1="metrics.oy" :x2="metrics.dimX + metrics.tick" :y2="metrics.oy" />
-							<line :x1="metrics.dimX - metrics.tick" :y1="metrics.oy + metrics.dh" :x2="metrics.dimX + metrics.tick" :y2="metrics.oy + metrics.dh" />
+							<line
+								:x1="metrics.dimX"
+								:y1="metrics.oy"
+								:x2="metrics.dimX"
+								:y2="metrics.oy + metrics.dh"
+							/>
+							<line
+								:x1="metrics.dimX - metrics.tick"
+								:y1="metrics.oy"
+								:x2="metrics.dimX + metrics.tick"
+								:y2="metrics.oy"
+							/>
+							<line
+								:x1="metrics.dimX - metrics.tick"
+								:y1="metrics.oy + metrics.dh"
+								:x2="metrics.dimX + metrics.tick"
+								:y2="metrics.oy + metrics.dh"
+							/>
 						</g>
 						<template v-if="showDims">
 							<text
@@ -421,7 +576,14 @@
 						</template>
 
 						<g v-if="showCentroid">
-							<circle :cx="metrics.cx" :cy="metrics.cy" r="3.4" fill="#2563eb" stroke="#ffffff" stroke-width="1.2" />
+							<circle
+								:cx="metrics.cx"
+								:cy="metrics.cy"
+								r="3.4"
+								fill="#2563eb"
+								stroke="#ffffff"
+								stroke-width="1.2"
+							/>
 							<text
 								:x="metrics.cx + 6.5"
 								:y="metrics.cy - 2.5"
@@ -441,9 +603,12 @@
 					v-else
 					class="rounded-xl border border-outline-gray-2 bg-slate-50 p-8 text-center text-ink-gray-5"
 				>
-					<div class="text-sm font-semibold text-ink-gray-8">No DXF Section Attached</div>
+					<div class="text-sm font-semibold text-ink-gray-8">
+						No DXF Section Attached
+					</div>
 					<div class="mt-1 text-xs">
-						Drag and drop a CAD <code>.dxf</code> file above to compute and preview its cross-section geometry.
+						Drag and drop a CAD <code>.dxf</code> file above to compute and preview its
+						cross-section geometry.
 					</div>
 				</div>
 
@@ -453,53 +618,102 @@
 					class="mt-3 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-outline-gray-2 bg-outline-gray-2 sm:grid-cols-2 lg:grid-cols-3"
 				>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Dimensions</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Dimensions
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
-							{{ formatMetric(form.width_mm, 1) }} × {{ formatMetric(form.depth_mm, 1) }}
+							{{ formatMetric(form.width_mm, 1) }} ×
+							{{ formatMetric(form.depth_mm, 1) }}
 							<span class="text-xs font-medium text-ink-gray-5">mm</span>
 						</div>
-						<div class="mt-0.5 text-[11px] text-ink-gray-5">Width × Depth bounding box</div>
+						<div class="mt-0.5 text-[11px] text-ink-gray-5">
+							Width × Depth bounding box
+						</div>
 					</div>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Section Area</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Section Area
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
 							{{ formatMetric(form.area_mm2, 1) }}
 							<span class="text-xs font-medium text-ink-gray-5">mm²</span>
 						</div>
-						<div class="mt-0.5 text-[11px] text-ink-gray-5">Net metal (outer − chambers)</div>
+						<div class="mt-0.5 text-[11px] text-ink-gray-5">
+							Net metal (outer − chambers)
+						</div>
 					</div>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Ix · Iy</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Ix · Iy
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
 							{{ formatMetric(form.ix_mm4, 0) }} · {{ formatMetric(form.iy_mm4, 0) }}
 							<span class="text-xs font-medium text-ink-gray-5">mm⁴</span>
 						</div>
-						<div class="mt-0.5 text-[11px] text-ink-gray-5">Second moment about centroid</div>
+						<div class="mt-0.5 text-[11px] text-ink-gray-5">
+							Second moment about centroid
+						</div>
 					</div>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Outer Perimeter</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Outer Perimeter
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
 							{{ formatMetric(form.perimeter_mm, 0) }}
 							<span class="text-xs font-medium text-ink-gray-5">mm</span>
 						</div>
-						<div class="mt-0.5 text-[11px] text-ink-gray-5">Exposed contour (paint / anodize)</div>
+						<div class="mt-0.5 text-[11px] text-ink-gray-5">
+							Exposed contour (paint / anodize)
+						</div>
 					</div>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Total Perimeter</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Total Perimeter
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
 							{{ formatMetric(form.total_perimeter_mm, 0) }}
 							<span class="text-xs font-medium text-ink-gray-5">mm</span>
 						</div>
-						<div class="mt-0.5 text-[11px] text-ink-gray-5">Outer + inner chamber walls</div>
+						<div class="mt-0.5 text-[11px] text-ink-gray-5">
+							Outer + inner chamber walls
+						</div>
 					</div>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Effective Weight</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Effective Weight
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
-							{{ formatMetric(form.use_computed_weight && form.computed_kg_per_m ? form.computed_kg_per_m : form.kg_per_m, 3) }}
+							{{
+								formatMetric(
+									form.use_computed_weight && form.computed_kg_per_m
+										? form.computed_kg_per_m
+										: form.kg_per_m,
+									3
+								)
+							}}
 							<span class="text-xs font-medium text-ink-gray-5">kg/m</span>
 						</div>
 						<div class="mt-0.5 text-[11px] text-ink-gray-5">
-							{{ form.use_computed_weight ? 'Using DXF computed (Al 2700 kg/m³)' : `Manual · DXF computed ${formatMetric(form.computed_kg_per_m, 3)} kg/m` }}
+							{{
+								form.use_computed_weight
+									? "Using DXF computed (Al 2700 kg/m³)"
+									: `Manual · DXF computed ${formatMetric(
+											form.computed_kg_per_m,
+											3
+									  )} kg/m`
+							}}
 						</div>
 					</div>
 				</div>
@@ -507,7 +721,9 @@
 
 			<!-- Section 3: Computed Section Properties -->
 			<section class="border-t border-outline-gray-2 pt-6">
-				<h2 class="mb-4 text-base font-semibold text-ink-gray-9">Computed Section Properties</h2>
+				<h2 class="mb-4 text-base font-semibold text-ink-gray-9">
+					Computed Section Properties
+				</h2>
 
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					<!-- Left Column -->
@@ -565,7 +781,8 @@
 								placeholder="e.g. 165.0"
 							/>
 							<p class="mt-1 text-xs text-ink-gray-5">
-								Used for powder coating and wood finish pricing per visible perimeter.
+								Used for powder coating and wood finish pricing per visible
+								perimeter.
 							</p>
 						</div>
 						<FormControl
@@ -581,9 +798,19 @@
 </template>
 
 <script setup lang="ts">
-import { Alert, Badge, Button, Checkbox, Combobox, FormControl, toast, upload, useList } from 'frappe-ui'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import {
+	Alert,
+	Badge,
+	Button,
+	Checkbox,
+	Combobox,
+	FormControl,
+	toast,
+	upload,
+	useList,
+} from "frappe-ui";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import {
 	getFenestrationProfileDoc,
 	previewDxf,
@@ -592,75 +819,79 @@ import {
 	type FenestrationProfileRow,
 	type ProfileApplicationType,
 	type ProfileSeriesRow,
-} from '@/studio/api'
-import { cleanDxfFilename, computeBlueprintSvgMetrics, profileRotationTransform } from '@/studio/sectionSvg'
+} from "@/studio/api";
+import {
+	cleanDxfFilename,
+	computeBlueprintSvgMetrics,
+	profileRotationTransform,
+} from "@/studio/sectionSvg";
 
-const props = defineProps<{ name?: string }>()
-const route = useRoute()
-const router = useRouter()
+const props = defineProps<{ name?: string }>();
+const route = useRoute();
+const router = useRouter();
 
-const isEdit = computed(() => Boolean(props.name))
-const loadingDoc = ref(false)
-const saving = ref(false)
-const error = ref('')
+const isEdit = computed(() => Boolean(props.name));
+const loadingDoc = ref(false);
+const saving = ref(false);
+const error = ref("");
 
-const showGrid = ref(true)
-const showDims = ref(true)
-const showCentroid = ref(true)
+const showGrid = ref(true);
+const showDims = ref(true);
+const showCentroid = ref(true);
 
-const isDragging = ref(false)
-const uploadingDxf = ref(false)
-const uploadProgress = ref(0)
-const parsingDxf = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
-const savingOrientation = ref(false)
+const isDragging = ref(false);
+const uploadingDxf = ref(false);
+const uploadProgress = ref(0);
+const parsingDxf = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
+const savingOrientation = ref(false);
 
 const form = reactive<{
-	name: string
-	profile_code: string
-	profile_name: string
-	series: string
-	role: FenestrationProfileRow['role']
-	profile_type: ProfileApplicationType
-	item: string
-	bar_lengths: string
-	kg_per_m: number
-	dxf_file: string
-	use_computed_weight: boolean
-	area_mm2: number | null
-	width_mm: number | null
-	depth_mm: number | null
-	raw_width_mm: number | null
-	raw_depth_mm: number | null
-	section_rotation: string
-	section_flip_x: boolean
-	section_flip_y: boolean
-	perimeter_mm: number | null
-	total_perimeter_mm: number | null
-	visible_perimeter_mm: number | null
-	ix_mm4: number | null
-	iy_mm4: number | null
-	computed_kg_per_m: number | null
-	section_svg: string
-	section_warnings: string
+	name: string;
+	profile_code: string;
+	profile_name: string;
+	series: string;
+	role: FenestrationProfileRow["role"];
+	profile_type: ProfileApplicationType;
+	item: string;
+	bar_lengths: string;
+	kg_per_m: number;
+	dxf_file: string;
+	use_computed_weight: boolean;
+	area_mm2: number | null;
+	width_mm: number | null;
+	depth_mm: number | null;
+	raw_width_mm: number | null;
+	raw_depth_mm: number | null;
+	section_rotation: string;
+	section_flip_x: boolean;
+	section_flip_y: boolean;
+	perimeter_mm: number | null;
+	total_perimeter_mm: number | null;
+	visible_perimeter_mm: number | null;
+	ix_mm4: number | null;
+	iy_mm4: number | null;
+	computed_kg_per_m: number | null;
+	section_svg: string;
+	section_warnings: string;
 }>({
-	name: '',
-	profile_code: '',
-	profile_name: '',
-	series: String(route.query.series || ''),
-	role: 'frame',
-	profile_type: 'Both',
-	item: '',
-	bar_lengths: '4880, 5800',
+	name: "",
+	profile_code: "",
+	profile_name: "",
+	series: String(route.query.series || ""),
+	role: "frame",
+	profile_type: "Both",
+	item: "",
+	bar_lengths: "4880, 5800",
 	kg_per_m: 1.0,
-	dxf_file: '',
+	dxf_file: "",
 	use_computed_weight: false,
 	area_mm2: null,
 	width_mm: null,
 	depth_mm: null,
 	raw_width_mm: null,
 	raw_depth_mm: null,
-	section_rotation: '0',
+	section_rotation: "0",
 	section_flip_x: false,
 	section_flip_y: false,
 	perimeter_mm: null,
@@ -669,79 +900,79 @@ const form = reactive<{
 	ix_mm4: null,
 	iy_mm4: null,
 	computed_kg_per_m: null,
-	section_svg: '',
-	section_warnings: '',
-})
+	section_svg: "",
+	section_warnings: "",
+});
 
 const seriesResource = useList<ProfileSeriesRow>({
-	doctype: 'Profile Series',
-	fields: ['name', 'series_code', 'series_title'],
-	orderBy: 'series_code asc',
+	doctype: "Profile Series",
+	fields: ["name", "series_code", "series_title"],
+	orderBy: "series_code asc",
 	limit: 200,
-})
+});
 
 const itemsResource = useList<{ name: string; item_name?: string; fen_item_kind?: string }>({
-	doctype: 'Item',
-	fields: ['name', 'item_name', 'fen_item_kind'],
+	doctype: "Item",
+	fields: ["name", "item_name", "fen_item_kind"],
 	limit: 500,
-})
+});
 
 const seriesOptions = computed(() =>
 	(seriesResource.data ?? []).map((s) => ({
 		label: `${s.series_code || s.name} — ${s.series_title}`,
 		value: s.series_code || s.name,
-	})),
-)
+	}))
+);
 
 watch(
 	seriesOptions,
 	(opts) => {
 		if (!isEdit.value && !form.series && opts.length > 0) {
-			form.series = opts[0].value
+			form.series = opts[0].value;
 		}
 	},
-	{ immediate: true },
-)
+	{ immediate: true }
+);
 
 const roleOptions = [
-	{ label: 'Frame', value: 'frame' },
-	{ label: 'Sash', value: 'sash' },
-	{ label: 'Mullion', value: 'mullion' },
-	{ label: 'Transom', value: 'transom' },
-	{ label: 'Bead', value: 'bead' },
-	{ label: 'Gasket', value: 'gasket' },
-	{ label: 'Accessory', value: 'accessory' },
-]
+	{ label: "Frame", value: "frame" },
+	{ label: "Sash", value: "sash" },
+	{ label: "Mullion", value: "mullion" },
+	{ label: "Transom", value: "transom" },
+	{ label: "Bead", value: "bead" },
+	{ label: "Gasket", value: "gasket" },
+	{ label: "Accessory", value: "accessory" },
+];
 
 const profileTypeOptions = [
-	{ label: 'Both (Window & Door)', value: 'Both' },
-	{ label: 'Window', value: 'Window' },
-	{ label: 'Door', value: 'Door' },
-]
+	{ label: "Both (Window & Door)", value: "Both" },
+	{ label: "Window", value: "Window" },
+	{ label: "Door", value: "Door" },
+];
 
-const showProfileType = computed(() => form.role !== 'bead' && form.role !== 'gasket')
+const showProfileType = computed(() => form.role !== "bead" && form.role !== "gasket");
 
 const itemOptions = computed(() => {
-	const all = itemsResource.data ?? []
+	const all = itemsResource.data ?? [];
 	const sorted = [...all].sort((a, b) => {
-		const aScore = a.fen_item_kind === 'Profile' ? 0 : 1
-		const bScore = b.fen_item_kind === 'Profile' ? 0 : 1
-		if (aScore !== bScore) return aScore - bScore
-		return a.name.localeCompare(b.name)
-	})
+		const aScore = a.fen_item_kind === "Profile" ? 0 : 1;
+		const bScore = b.fen_item_kind === "Profile" ? 0 : 1;
+		if (aScore !== bScore) return aScore - bScore;
+		return a.name.localeCompare(b.name);
+	});
 	return sorted.map((i) => ({
 		label: i.item_name ? `${i.name} — ${i.item_name}` : i.name,
 		value: i.name,
-	}))
-})
+	}));
+});
 
-const hasSvg = computed(() => Boolean(form.section_svg && form.width_mm && form.depth_mm))
+const hasSvg = computed(() => Boolean(form.section_svg && form.width_mm && form.depth_mm));
 
 const unitNote = computed(() =>
-	(form.section_warnings || '').includes('units_assumed_mm') ? 'Units read as mm' : 'Units in mm',
-)
+	(form.section_warnings || "").includes("units_assumed_mm") ? "Units read as mm" : "Units in mm"
+);
 
-const metrics = computed(() => computeBlueprintSvgMetrics(form, showDims.value))
+const metrics = computed(() => computeBlueprintSvgMetrics(form, showDims.value));
 
 const canSave = computed(() =>
 	Boolean(
@@ -753,9 +984,9 @@ const canSave = computed(() =>
 			Number(form.kg_per_m) > 0 &&
 			!saving.value &&
 			!uploadingDxf.value &&
-			!parsingDxf.value,
-	),
-)
+			!parsingDxf.value
+	)
+);
 
 const rotationTransform = computed(() =>
 	profileRotationTransform({
@@ -764,234 +995,235 @@ const rotationTransform = computed(() =>
 		section_flip_y: form.section_flip_y,
 		width_mm: form.width_mm,
 		depth_mm: form.depth_mm,
-	}),
-)
+	})
+);
 
-function flipProfile(dir: 'x' | 'y') {
-	if (dir === 'x') form.section_flip_x = !form.section_flip_x
-	else form.section_flip_y = !form.section_flip_y
+function flipProfile(dir: "x" | "y") {
+	if (dir === "x") form.section_flip_x = !form.section_flip_x;
+	else form.section_flip_y = !form.section_flip_y;
 }
 
 function rotateProfile(deltaDeg: number) {
-	const cur = Number(form.section_rotation || 0)
-	const next = (((cur + deltaDeg) % 360) + 360) % 360
-	form.section_rotation = String(next)
-	updateRotatedDimensions()
+	const cur = Number(form.section_rotation || 0);
+	const next = (((cur + deltaDeg) % 360) + 360) % 360;
+	form.section_rotation = String(next);
+	updateRotatedDimensions();
 }
 
 function updateRotatedDimensions() {
-	if (form.raw_width_mm == null || form.raw_depth_mm == null) return
-	const rot = (((Number(form.section_rotation || 0) % 360) + 360) % 360)
-	const isTurned = rot === 90 || rot === 270
-	form.width_mm = isTurned ? form.raw_depth_mm : form.raw_width_mm
-	form.depth_mm = isTurned ? form.raw_width_mm : form.raw_depth_mm
+	if (form.raw_width_mm == null || form.raw_depth_mm == null) return;
+	const rot = ((Number(form.section_rotation || 0) % 360) + 360) % 360;
+	const isTurned = rot === 90 || rot === 270;
+	form.width_mm = isTurned ? form.raw_depth_mm : form.raw_width_mm;
+	form.depth_mm = isTurned ? form.raw_width_mm : form.raw_depth_mm;
 }
 
 async function saveDefaultOrientation() {
 	if (!props.name) {
-		toast.success(`Orientation set to ${form.section_rotation || '0'}° (will save with profile)`)
-		return
+		toast.success(
+			`Orientation set to ${form.section_rotation || "0"}° (will save with profile)`
+		);
+		return;
 	}
-	savingOrientation.value = true
+	savingOrientation.value = true;
 	try {
 		const res = await setProfileOrientation(props.name, {
 			rotation: form.section_rotation,
 			flip_x: form.section_flip_x,
 			flip_y: form.section_flip_y,
-		})
-		form.section_rotation = String(res.section_rotation)
-		form.section_flip_x = Boolean(res.section_flip_x)
-		form.section_flip_y = Boolean(res.section_flip_y)
-		form.width_mm = res.width_mm
-		form.depth_mm = res.depth_mm
-		toast.success(`Default orientation set to ${res.section_rotation}°`)
+		});
+		form.section_rotation = String(res.section_rotation);
+		form.section_flip_x = Boolean(res.section_flip_x);
+		form.section_flip_y = Boolean(res.section_flip_y);
+		form.width_mm = res.width_mm;
+		form.depth_mm = res.depth_mm;
+		toast.success(`Default orientation set to ${res.section_rotation}°`);
 	} catch (e) {
-		toast.error(e instanceof Error ? e.message : 'Could not set default orientation')
+		toast.error(e instanceof Error ? e.message : "Could not set default orientation");
 	} finally {
-		savingOrientation.value = false
+		savingOrientation.value = false;
 	}
 }
 
 function formatMetric(val: number | null | undefined, dp: number): string {
-	if (val == null || Number.isNaN(Number(val))) return '—'
-	return Number(val).toFixed(dp)
+	if (val == null || Number.isNaN(Number(val))) return "—";
+	return Number(val).toFixed(dp);
 }
 
 onMounted(async () => {
-	if (!props.name) return
-	loadingDoc.value = true
+	if (!props.name) return;
+	loadingDoc.value = true;
 	try {
-		const doc = await getFenestrationProfileDoc(props.name)
-		applyDoc(doc)
+		const doc = await getFenestrationProfileDoc(props.name);
+		applyDoc(doc);
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not load profile'
+		error.value = e instanceof Error ? e.message : "Could not load profile";
 	} finally {
-		loadingDoc.value = false
+		loadingDoc.value = false;
 	}
-})
+});
 
 function applyDoc(doc: FenestrationProfileRow) {
-	form.name = doc.name
-	form.profile_code = doc.profile_code || doc.name
-	form.profile_name = doc.profile_name || ''
-	form.series = doc.series || ''
-	form.role = doc.role || 'frame'
+	form.name = doc.name;
+	form.profile_code = doc.profile_code || doc.name;
+	form.profile_name = doc.profile_name || "";
+	form.series = doc.series || "";
+	form.role = doc.role || "frame";
 	form.profile_type =
-		doc.profile_type === 'Window' || doc.profile_type === 'Door' ? doc.profile_type : 'Both'
-	form.item = doc.item || ''
-	form.bar_lengths = doc.bar_lengths || '4880, 5800'
-	form.kg_per_m = Number(doc.kg_per_m || 0)
-	form.dxf_file = doc.dxf_file || ''
-	form.use_computed_weight = Boolean(doc.use_computed_weight)
-	form.area_mm2 = doc.area_mm2 ?? null
-	form.section_rotation = String(doc.section_rotation || '0')
-	form.section_flip_x = Boolean(Number(doc.section_flip_x || 0))
-	form.section_flip_y = Boolean(Number(doc.section_flip_y || 0))
-	const rot = (((Number(form.section_rotation || 0) % 360) + 360) % 360)
-	const isTurned = rot === 90 || rot === 270
-	form.raw_width_mm = isTurned ? (doc.depth_mm ?? null) : (doc.width_mm ?? null)
-	form.raw_depth_mm = isTurned ? (doc.width_mm ?? null) : (doc.depth_mm ?? null)
-	form.width_mm = doc.width_mm ?? null
-	form.depth_mm = doc.depth_mm ?? null
-	form.perimeter_mm = doc.perimeter_mm ?? null
-	form.total_perimeter_mm = doc.total_perimeter_mm ?? null
-	form.visible_perimeter_mm = doc.visible_perimeter_mm ?? null
-	form.ix_mm4 = doc.ix_mm4 ?? null
-	form.iy_mm4 = doc.iy_mm4 ?? null
-	form.computed_kg_per_m = doc.computed_kg_per_m ?? null
-	form.section_svg = doc.section_svg || ''
-	form.section_warnings = doc.section_warnings || ''
+		doc.profile_type === "Window" || doc.profile_type === "Door" ? doc.profile_type : "Both";
+	form.item = doc.item || "";
+	form.bar_lengths = doc.bar_lengths || "4880, 5800";
+	form.kg_per_m = Number(doc.kg_per_m || 0);
+	form.dxf_file = doc.dxf_file || "";
+	form.use_computed_weight = Boolean(doc.use_computed_weight);
+	form.area_mm2 = doc.area_mm2 ?? null;
+	form.section_rotation = String(doc.section_rotation || "0");
+	form.section_flip_x = Boolean(Number(doc.section_flip_x || 0));
+	form.section_flip_y = Boolean(Number(doc.section_flip_y || 0));
+	const rot = ((Number(form.section_rotation || 0) % 360) + 360) % 360;
+	const isTurned = rot === 90 || rot === 270;
+	form.raw_width_mm = isTurned ? doc.depth_mm ?? null : doc.width_mm ?? null;
+	form.raw_depth_mm = isTurned ? doc.width_mm ?? null : doc.depth_mm ?? null;
+	form.width_mm = doc.width_mm ?? null;
+	form.depth_mm = doc.depth_mm ?? null;
+	form.perimeter_mm = doc.perimeter_mm ?? null;
+	form.total_perimeter_mm = doc.total_perimeter_mm ?? null;
+	form.visible_perimeter_mm = doc.visible_perimeter_mm ?? null;
+	form.ix_mm4 = doc.ix_mm4 ?? null;
+	form.iy_mm4 = doc.iy_mm4 ?? null;
+	form.computed_kg_per_m = doc.computed_kg_per_m ?? null;
+	form.section_svg = doc.section_svg || "";
+	form.section_warnings = doc.section_warnings || "";
 }
 
 function triggerFilePicker() {
-	fileInput.value?.click()
+	fileInput.value?.click();
 }
 
 async function onFilePick(e: Event) {
-	const input = e.target as HTMLInputElement
-	const file = input.files?.[0]
-	input.value = ''
-	if (file) await handleDxfFile(file)
+	const input = e.target as HTMLInputElement;
+	const file = input.files?.[0];
+	input.value = "";
+	if (file) await handleDxfFile(file);
 }
 
 async function onFileDrop(e: DragEvent) {
-	isDragging.value = false
-	const file = e.dataTransfer?.files?.[0]
-	if (file) await handleDxfFile(file)
+	isDragging.value = false;
+	const file = e.dataTransfer?.files?.[0];
+	if (file) await handleDxfFile(file);
 }
 
 async function handleDxfFile(file: File) {
-	if (!file.name.toLowerCase().endsWith('.dxf')) {
-		error.value = 'Please select a valid .dxf CAD section file.'
-		return
+	if (!file.name.toLowerCase().endsWith(".dxf")) {
+		error.value = "Please select a valid .dxf CAD section file.";
+		return;
 	}
-	error.value = ''
-	uploadingDxf.value = true
-	uploadProgress.value = 0
+	error.value = "";
+	uploadingDxf.value = true;
+	uploadProgress.value = 0;
 	try {
 		const uploaded = await upload(file, {
 			private: false,
 			onProgress: (p) => {
-				uploadProgress.value = p.percent
+				uploadProgress.value = p.percent;
 			},
-		})
-		form.dxf_file = uploaded.file_url
-		uploadingDxf.value = false
-		parsingDxf.value = true
-		const res = await previewDxf(uploaded.file_url)
+		});
+		form.dxf_file = uploaded.file_url;
+		uploadingDxf.value = false;
+		parsingDxf.value = true;
+		const res = await previewDxf(uploaded.file_url);
 		if (res.ok) {
-			form.area_mm2 = res.section.area_mm2
-			form.width_mm = res.section.width_mm
-			form.depth_mm = res.section.depth_mm
-			form.raw_width_mm = res.section.width_mm
-			form.raw_depth_mm = res.section.depth_mm
-			form.section_rotation = '0'
-			form.section_flip_x = false
-			form.section_flip_y = false
-			form.perimeter_mm = res.section.perimeter_mm
-			form.total_perimeter_mm = res.section.total_perimeter_mm
-			form.ix_mm4 = res.section.ix_mm4
-			form.iy_mm4 = res.section.iy_mm4
-			form.computed_kg_per_m = res.section.computed_kg_per_m
-			form.section_svg = res.section.section_svg
-			form.section_warnings = res.section.section_warnings
+			form.area_mm2 = res.section.area_mm2;
+			form.width_mm = res.section.width_mm;
+			form.depth_mm = res.section.depth_mm;
+			form.raw_width_mm = res.section.width_mm;
+			form.raw_depth_mm = res.section.depth_mm;
+			form.section_rotation = "0";
+			form.section_flip_x = false;
+			form.section_flip_y = false;
+			form.perimeter_mm = res.section.perimeter_mm;
+			form.total_perimeter_mm = res.section.total_perimeter_mm;
+			form.ix_mm4 = res.section.ix_mm4;
+			form.iy_mm4 = res.section.iy_mm4;
+			form.computed_kg_per_m = res.section.computed_kg_per_m;
+			form.section_svg = res.section.section_svg;
+			form.section_warnings = res.section.section_warnings;
 			if (!isEdit.value || form.use_computed_weight) {
-				form.kg_per_m = res.section.computed_kg_per_m
+				form.kg_per_m = res.section.computed_kg_per_m;
 			}
 		} else {
-			error.value = res.message
+			error.value = res.message;
 		}
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'DXF upload failed'
+		error.value = e instanceof Error ? e.message : "DXF upload failed";
 	} finally {
-		uploadingDxf.value = false
-		parsingDxf.value = false
+		uploadingDxf.value = false;
+		parsingDxf.value = false;
 	}
 }
 
 function clearDxf() {
-	form.dxf_file = ''
-	form.area_mm2 = null
-	form.width_mm = null
-	form.depth_mm = null
-	form.raw_width_mm = null
-	form.raw_depth_mm = null
-	form.section_rotation = '0'
-	form.section_flip_x = false
-	form.section_flip_y = false
-	form.perimeter_mm = null
-	form.total_perimeter_mm = null
-	form.ix_mm4 = null
-	form.iy_mm4 = null
-	form.computed_kg_per_m = null
-	form.section_svg = ''
-	form.section_warnings = ''
+	form.dxf_file = "";
+	form.area_mm2 = null;
+	form.width_mm = null;
+	form.depth_mm = null;
+	form.raw_width_mm = null;
+	form.raw_depth_mm = null;
+	form.section_rotation = "0";
+	form.section_flip_x = false;
+	form.section_flip_y = false;
+	form.perimeter_mm = null;
+	form.total_perimeter_mm = null;
+	form.ix_mm4 = null;
+	form.iy_mm4 = null;
+	form.computed_kg_per_m = null;
+	form.section_svg = "";
+	form.section_warnings = "";
 }
 
 function goBack() {
 	router.push({
-		path: '/series-studio',
+		path: "/series-studio",
 		query: {
-			tab: 'profiles',
+			tab: "profiles",
 			...(form.series ? { series: form.series } : {}),
 		},
-	})
+	});
 }
 
 async function save() {
-	if (!canSave.value) return
-	saving.value = true
-	error.value = ''
+	if (!canSave.value) return;
+	saving.value = true;
+	error.value = "";
 	try {
 		const saved = await saveFenestrationProfile(
 			{
-				profile_code: String(form.profile_code ?? '').trim(),
-				profile_name: String(form.profile_name ?? '').trim(),
+				profile_code: String(form.profile_code ?? "").trim(),
+				profile_name: String(form.profile_name ?? "").trim(),
 				series: form.series,
 				role: form.role,
-				profile_type: showProfileType.value ? form.profile_type : 'Both',
-				item: String(form.item ?? '').trim() || null,
-				bar_lengths: String(form.bar_lengths ?? '').trim(),
+				profile_type: showProfileType.value ? form.profile_type : "Both",
+				item: String(form.item ?? "").trim() || null,
+				bar_lengths: String(form.bar_lengths ?? "").trim(),
 				kg_per_m: Number(form.kg_per_m),
 				dxf_file: form.dxf_file || null,
 				use_computed_weight: form.use_computed_weight,
 				visible_perimeter_mm: form.visible_perimeter_mm,
-				section_rotation: form.section_rotation || '0',
+				section_rotation: form.section_rotation || "0",
 				section_flip_x: form.section_flip_x ? 1 : 0,
 				section_flip_y: form.section_flip_y ? 1 : 0,
 			},
-			props.name || null,
-		)
-		applyDoc(saved)
-		toast.success(isEdit.value ? 'Profile updated' : 'Profile created')
+			props.name || null
+		);
+		applyDoc(saved);
+		toast.success(isEdit.value ? "Profile updated" : "Profile created");
 		if (!isEdit.value) {
-			router.replace(`/series-studio/profiles/${encodeURIComponent(saved.name)}`)
+			router.replace(`/series-studio/profiles/${encodeURIComponent(saved.name)}`);
 		}
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not save fenestration profile'
+		error.value = e instanceof Error ? e.message : "Could not save fenestration profile";
 	} finally {
-		saving.value = false
+		saving.value = false;
 	}
 }
 </script>
-

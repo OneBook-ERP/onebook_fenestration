@@ -1,8 +1,13 @@
 <template>
 	<div class="mx-auto max-w-6xl p-6">
-		<header class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4">
+		<header
+			class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4"
+		>
 			<div>
-				<nav aria-label="Breadcrumb" class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5">
+				<nav
+					aria-label="Breadcrumb"
+					class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5"
+				>
 					<router-link to="/series-studio?tab=hardware" class="hover:text-ink-gray-8">
 						Series Studio
 					</router-link>
@@ -11,19 +16,32 @@
 						Fenestration Hardware
 					</router-link>
 					<span aria-hidden="true">/</span>
-					<span class="font-medium text-ink-gray-8">{{ isEdit ? form.hardware_code : 'New Hardware' }}</span>
+					<span class="font-medium text-ink-gray-8">{{
+						isEdit ? form.hardware_code : "New Hardware"
+					}}</span>
 				</nav>
 				<div class="flex flex-wrap items-center gap-3">
 					<h1 class="text-xl font-semibold text-ink-gray-9">
-						{{ isEdit ? `${form.hardware_code} · ${form.hardware_name || 'Hardware'}` : (form.hardware_name || 'New Fenestration Hardware') }}
+						{{
+							isEdit
+								? `${form.hardware_code} · ${form.hardware_name || "Hardware"}`
+								: form.hardware_name || "New Fenestration Hardware"
+						}}
 					</h1>
 					<Badge v-if="form.category" theme="blue" :label="form.category" />
-					<Badge :theme="hasSvg ? 'green' : 'gray'" :label="hasSvg ? 'DXF Parsed' : 'No DXF'" />
+					<Badge
+						:theme="hasSvg ? 'green' : 'gray'"
+						:label="hasSvg ? 'DXF Parsed' : 'No DXF'"
+					/>
 				</div>
 			</div>
 
 			<div class="flex items-center gap-2.5">
-				<Button variant="outline" label="Back to Hardware" route="/series-studio?tab=hardware" />
+				<Button
+					variant="outline"
+					label="Back to Hardware"
+					route="/series-studio?tab=hardware"
+				/>
 				<Button
 					variant="solid"
 					:label="isEdit ? 'Save Changes' : 'Create Hardware'"
@@ -44,7 +62,9 @@
 
 			<!-- Section 1: Hardware Configuration -->
 			<section>
-				<h2 class="mb-4 text-base font-semibold text-ink-gray-9">Hardware Configuration</h2>
+				<h2 class="mb-4 text-base font-semibold text-ink-gray-9">
+					Hardware Configuration
+				</h2>
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					<div class="space-y-4">
 						<FormControl
@@ -105,7 +125,9 @@
 
 						<!-- Drag & Drop DXF Upload Zone -->
 						<div>
-							<label class="mb-1.5 block text-xs text-ink-gray-6">CAD / Section DXF (Gaskets, Beadings, Hardware)</label>
+							<label class="mb-1.5 block text-xs text-ink-gray-6"
+								>CAD / Section DXF (Gaskets, Beadings, Hardware)</label
+							>
 							<input
 								ref="fileInput"
 								type="file"
@@ -126,14 +148,26 @@
 								@dragleave.prevent="isDragging = false"
 								@drop.prevent="onFileDrop"
 							>
-								<div v-if="uploadingDxf || parsingDxf" class="py-2 text-sm text-ink-gray-7">
+								<div
+									v-if="uploadingDxf || parsingDxf"
+									class="py-2 text-sm text-ink-gray-7"
+								>
 									<span class="font-medium">
-										{{ uploadingDxf ? `Uploading DXF (${uploadProgress}%)…` : 'Analyzing CAD cross-section geometry…' }}
+										{{
+											uploadingDxf
+												? `Uploading DXF (${uploadProgress}%)…`
+												: "Analyzing CAD cross-section geometry…"
+										}}
 									</span>
 								</div>
-								<div v-else-if="form.dxf_file" class="flex flex-wrap items-center justify-between gap-3 text-left">
+								<div
+									v-else-if="form.dxf_file"
+									class="flex flex-wrap items-center justify-between gap-3 text-left"
+								>
 									<div class="min-w-0 flex-1">
-										<div class="truncate text-sm font-semibold text-ink-gray-9">
+										<div
+											class="truncate text-sm font-semibold text-ink-gray-9"
+										>
 											{{ cleanDxfFilename(form.dxf_file) }}
 										</div>
 										<div class="truncate font-mono text-xs text-ink-gray-5">
@@ -141,16 +175,35 @@
 										</div>
 									</div>
 									<div class="flex items-center gap-2">
-										<Button variant="outline" size="sm" label="Replace .dxf" @click="triggerFilePicker" />
-										<Button variant="subtle" size="sm" label="Clear" @click="clearDxf" />
+										<Button
+											variant="outline"
+											size="sm"
+											label="Replace .dxf"
+											@click="triggerFilePicker"
+										/>
+										<Button
+											variant="subtle"
+											size="sm"
+											label="Clear"
+											@click="clearDxf"
+										/>
 									</div>
 								</div>
-								<div v-else class="cursor-pointer space-y-1.5 py-2" @click="triggerFilePicker">
+								<div
+									v-else
+									class="cursor-pointer space-y-1.5 py-2"
+									@click="triggerFilePicker"
+								>
 									<div class="text-sm font-semibold text-ink-gray-8">
-										Drag and drop a CAD <code class="rounded bg-surface-gray-2 px-1 py-0.5 text-xs">.dxf</code> file here, or click to browse
+										Drag and drop a CAD
+										<code class="rounded bg-surface-gray-2 px-1 py-0.5 text-xs"
+											>.dxf</code
+										>
+										file here, or click to browse
 									</div>
 									<div class="text-xs text-ink-gray-5">
-										Supports gaskets (G22–G25), beadings, blocks, and open/closed polylines
+										Supports gaskets (G22–G25), beadings, blocks, and
+										open/closed polylines
 									</div>
 								</div>
 							</div>
@@ -170,13 +223,16 @@
 							</span>
 						</h2>
 						<p v-if="hasSvg" class="mt-0.5 text-xs text-ink-gray-5">
-							{{ metrics.loops }} closed loop{{ metrics.loops === 1 ? '' : 's' }}
-							· {{ formatMetric(form.width_mm, 1) }} × {{ formatMetric(form.depth_mm, 1) }} mm
+							{{ metrics.loops }} closed loop{{ metrics.loops === 1 ? "" : "s" }} ·
+							{{ formatMetric(form.width_mm, 1) }} ×
+							{{ formatMetric(form.depth_mm, 1) }} mm
 						</p>
 					</div>
 
 					<div v-if="hasSvg" class="flex flex-wrap items-center gap-2">
-						<div class="inline-flex items-center overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1">
+						<div
+							class="inline-flex items-center overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1"
+						>
 							<button
 								type="button"
 								class="flex h-7 items-center justify-center px-2 text-xs font-semibold text-ink-gray-6 hover:bg-surface-gray-3 hover:text-ink-gray-9"
@@ -185,8 +241,10 @@
 							>
 								↺
 							</button>
-							<span class="min-w-10 border-x border-outline-gray-2 px-2 py-1 text-center font-mono text-xs font-bold text-blue-600">
-								{{ form.section_rotation || '0' }}°
+							<span
+								class="min-w-10 border-x border-outline-gray-2 px-2 py-1 text-center font-mono text-xs font-bold text-blue-600"
+							>
+								{{ form.section_rotation || "0" }}°
 							</span>
 							<button
 								type="button"
@@ -199,7 +257,11 @@
 							<button
 								type="button"
 								class="flex h-7 items-center justify-center border-l border-outline-gray-2 px-2 text-xs font-semibold hover:bg-surface-gray-3"
-								:class="form.section_flip_x ? 'bg-blue-50 text-blue-700' : 'text-ink-gray-6'"
+								:class="
+									form.section_flip_x
+										? 'bg-blue-50 text-blue-700'
+										: 'text-ink-gray-6'
+								"
 								@click="form.section_flip_x = !form.section_flip_x"
 							>
 								Flip H
@@ -207,7 +269,11 @@
 							<button
 								type="button"
 								class="flex h-7 items-center justify-center border-l border-outline-gray-2 px-2 text-xs font-semibold hover:bg-surface-gray-3"
-								:class="form.section_flip_y ? 'bg-blue-50 text-blue-700' : 'text-ink-gray-6'"
+								:class="
+									form.section_flip_y
+										? 'bg-blue-50 text-blue-700'
+										: 'text-ink-gray-6'
+								"
 								@click="form.section_flip_y = !form.section_flip_y"
 							>
 								Flip V
@@ -223,11 +289,17 @@
 							@click="saveDefaultOrientation"
 						/>
 
-						<div class="inline-flex overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1">
+						<div
+							class="inline-flex overflow-hidden rounded-lg border border-outline-gray-2 bg-surface-gray-1"
+						>
 							<button
 								type="button"
 								class="px-3 py-1 text-xs font-semibold"
-								:class="showGrid ? 'bg-surface-gray-3 text-ink-gray-9' : 'text-ink-gray-6'"
+								:class="
+									showGrid
+										? 'bg-surface-gray-3 text-ink-gray-9'
+										: 'text-ink-gray-6'
+								"
 								@click="showGrid = !showGrid"
 							>
 								Grid
@@ -235,7 +307,11 @@
 							<button
 								type="button"
 								class="border-l border-outline-gray-2 px-3 py-1 text-xs font-semibold"
-								:class="showDims ? 'bg-surface-gray-3 text-ink-gray-9' : 'text-ink-gray-6'"
+								:class="
+									showDims
+										? 'bg-surface-gray-3 text-ink-gray-9'
+										: 'text-ink-gray-6'
+								"
 								@click="showDims = !showDims"
 							>
 								Dimensions
@@ -243,7 +319,11 @@
 							<button
 								type="button"
 								class="border-l border-outline-gray-2 px-3 py-1 text-xs font-semibold"
-								:class="showCentroid ? 'bg-surface-gray-3 text-ink-gray-9' : 'text-ink-gray-6'"
+								:class="
+									showCentroid
+										? 'bg-surface-gray-3 text-ink-gray-9'
+										: 'text-ink-gray-6'
+								"
 								@click="showCentroid = !showCentroid"
 							>
 								Centroid
@@ -284,7 +364,11 @@
 								patternUnits="userSpaceOnUse"
 								:patternTransform="`translate(${metrics.ox}, ${metrics.oy})`"
 							>
-								<rect :width="metrics.majorPx" :height="metrics.majorPx" fill="url(#hw-page-grid-min)" />
+								<rect
+									:width="metrics.majorPx"
+									:height="metrics.majorPx"
+									fill="url(#hw-page-grid-min)"
+								/>
 								<path
 									:d="`M ${metrics.majorPx} 0 L 0 0 0 ${metrics.majorPx}`"
 									fill="none"
@@ -294,9 +378,18 @@
 							</pattern>
 						</defs>
 
-						<rect v-if="showGrid" x="0" y="0" :width="metrics.cw" :height="metrics.ch" fill="url(#hw-page-grid-maj)" />
+						<rect
+							v-if="showGrid"
+							x="0"
+							y="0"
+							:width="metrics.cw"
+							:height="metrics.ch"
+							fill="url(#hw-page-grid-maj)"
+						/>
 
-						<g :transform="`translate(${metrics.ox}, ${metrics.oy}) scale(${metrics.s})`">
+						<g
+							:transform="`translate(${metrics.ox}, ${metrics.oy}) scale(${metrics.s})`"
+						>
 							<g :transform="rotationTransform">
 								<path
 									:d="form.section_svg || ''"
@@ -310,14 +403,49 @@
 							</g>
 						</g>
 
-						<g v-if="showDims" stroke="#475569" stroke-width="1.15" stroke-linecap="square">
-							<line :x1="metrics.ox" :y1="metrics.dimY" :x2="metrics.ox + metrics.dw" :y2="metrics.dimY" />
-							<line :x1="metrics.ox" :y1="metrics.dimY - metrics.tick" :x2="metrics.ox" :y2="metrics.dimY + metrics.tick" />
-							<line :x1="metrics.ox + metrics.dw" :y1="metrics.dimY - metrics.tick" :x2="metrics.ox + metrics.dw" :y2="metrics.dimY + metrics.tick" />
+						<g
+							v-if="showDims"
+							stroke="#475569"
+							stroke-width="1.15"
+							stroke-linecap="square"
+						>
+							<line
+								:x1="metrics.ox"
+								:y1="metrics.dimY"
+								:x2="metrics.ox + metrics.dw"
+								:y2="metrics.dimY"
+							/>
+							<line
+								:x1="metrics.ox"
+								:y1="metrics.dimY - metrics.tick"
+								:x2="metrics.ox"
+								:y2="metrics.dimY + metrics.tick"
+							/>
+							<line
+								:x1="metrics.ox + metrics.dw"
+								:y1="metrics.dimY - metrics.tick"
+								:x2="metrics.ox + metrics.dw"
+								:y2="metrics.dimY + metrics.tick"
+							/>
 
-							<line :x1="metrics.dimX" :y1="metrics.oy" :x2="metrics.dimX" :y2="metrics.oy + metrics.dh" />
-							<line :x1="metrics.dimX - metrics.tick" :y1="metrics.oy" :x2="metrics.dimX + metrics.tick" :y2="metrics.oy" />
-							<line :x1="metrics.dimX - metrics.tick" :y1="metrics.oy + metrics.dh" :x2="metrics.dimX + metrics.tick" :y2="metrics.oy + metrics.dh" />
+							<line
+								:x1="metrics.dimX"
+								:y1="metrics.oy"
+								:x2="metrics.dimX"
+								:y2="metrics.oy + metrics.dh"
+							/>
+							<line
+								:x1="metrics.dimX - metrics.tick"
+								:y1="metrics.oy"
+								:x2="metrics.dimX + metrics.tick"
+								:y2="metrics.oy"
+							/>
+							<line
+								:x1="metrics.dimX - metrics.tick"
+								:y1="metrics.oy + metrics.dh"
+								:x2="metrics.dimX + metrics.tick"
+								:y2="metrics.oy + metrics.dh"
+							/>
 						</g>
 						<template v-if="showDims">
 							<text
@@ -345,7 +473,14 @@
 						</template>
 
 						<g v-if="showCentroid">
-							<circle :cx="metrics.cx" :cy="metrics.cy" r="3.4" fill="#2563eb" stroke="#ffffff" stroke-width="1.2" />
+							<circle
+								:cx="metrics.cx"
+								:cy="metrics.cy"
+								r="3.4"
+								fill="#2563eb"
+								stroke="#ffffff"
+								stroke-width="1.2"
+							/>
 						</g>
 					</svg>
 				</div>
@@ -355,7 +490,8 @@
 				>
 					<div class="text-sm font-semibold text-ink-gray-8">No DXF Attached</div>
 					<div class="mt-1 text-xs">
-						Upload a <code>.dxf</code> file above to preview the hardware / gasket cross-section geometry.
+						Upload a <code>.dxf</code> file above to preview the hardware / gasket
+						cross-section geometry.
 					</div>
 				</div>
 
@@ -364,21 +500,34 @@
 					class="mt-3 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-outline-gray-2 bg-outline-gray-2 sm:grid-cols-3"
 				>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Dimensions</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Dimensions
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
-							{{ formatMetric(form.width_mm, 1) }} × {{ formatMetric(form.depth_mm, 1) }}
+							{{ formatMetric(form.width_mm, 1) }} ×
+							{{ formatMetric(form.depth_mm, 1) }}
 							<span class="text-xs font-medium text-ink-gray-5">mm</span>
 						</div>
 					</div>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Section Area</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Section Area
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
 							{{ formatMetric(form.area_mm2, 1) }}
 							<span class="text-xs font-medium text-ink-gray-5">mm²</span>
 						</div>
 					</div>
 					<div class="bg-surface-white p-3.5">
-						<div class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5">Perimeter</div>
+						<div
+							class="text-[11px] font-semibold uppercase tracking-wider text-ink-gray-5"
+						>
+							Perimeter
+						</div>
 						<div class="mt-1 text-sm font-bold text-ink-gray-9">
 							{{ formatMetric(form.perimeter_mm, 1) }}
 							<span class="text-xs font-medium text-ink-gray-5">mm</span>
@@ -391,9 +540,9 @@
 </template>
 
 <script setup lang="ts">
-import { Alert, Badge, Button, Combobox, FormControl, toast, upload, useList } from 'frappe-ui'
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { Alert, Badge, Button, Combobox, FormControl, toast, upload, useList } from "frappe-ui";
+import { computed, onMounted, reactive, ref } from "vue";
+import { useRouter } from "vue-router";
 import {
 	getFenestrationHardwareDoc,
 	HARDWARE_CATEGORIES,
@@ -401,69 +550,73 @@ import {
 	saveFenestrationHardware,
 	setHardwareOrientation,
 	type FenestrationHardwareRow,
-} from '@/studio/api'
-import { cleanDxfFilename, computeBlueprintSvgMetrics, profileRotationTransform } from '@/studio/sectionSvg'
+} from "@/studio/api";
+import {
+	cleanDxfFilename,
+	computeBlueprintSvgMetrics,
+	profileRotationTransform,
+} from "@/studio/sectionSvg";
 
-const props = defineProps<{ name?: string }>()
-const router = useRouter()
+const props = defineProps<{ name?: string }>();
+const router = useRouter();
 
-const isEdit = computed(() => Boolean(props.name))
-const loadingDoc = ref(false)
-const saving = ref(false)
-const savingOrientation = ref(false)
-const error = ref('')
+const isEdit = computed(() => Boolean(props.name));
+const loadingDoc = ref(false);
+const saving = ref(false);
+const savingOrientation = ref(false);
+const error = ref("");
 
-const showGrid = ref(true)
-const showDims = ref(true)
-const showCentroid = ref(true)
-const isDragging = ref(false)
-const uploadingDxf = ref(false)
-const uploadProgress = ref(0)
-const parsingDxf = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
+const showGrid = ref(true);
+const showDims = ref(true);
+const showCentroid = ref(true);
+const isDragging = ref(false);
+const uploadingDxf = ref(false);
+const uploadProgress = ref(0);
+const parsingDxf = ref(false);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 const form = reactive({
-	name: '',
-	hardware_code: '',
-	hardware_name: '',
-	category: 'Gasket',
-	item: '',
-	uom: 'Meter',
+	name: "",
+	hardware_code: "",
+	hardware_name: "",
+	category: "Gasket",
+	item: "",
+	uom: "Meter",
 	thickness_mm: null as number | null,
 	weight_kg: null as number | null,
-	description: '',
-	dxf_file: '',
-	section_svg: '',
+	description: "",
+	dxf_file: "",
+	section_svg: "",
 	width_mm: null as number | null,
 	depth_mm: null as number | null,
 	raw_width_mm: null as number | null,
 	raw_depth_mm: null as number | null,
 	area_mm2: null as number | null,
 	perimeter_mm: null as number | null,
-	section_rotation: '0',
+	section_rotation: "0",
 	section_flip_x: false,
 	section_flip_y: false,
-	section_warnings: '',
-})
+	section_warnings: "",
+});
 
-const categoryOptions = HARDWARE_CATEGORIES.map((c) => ({ label: c, value: c }))
-const uomOptions = ['Meter', 'Nos', 'Set', 'Pair', 'Kg'].map((u) => ({ label: u, value: u }))
+const categoryOptions = HARDWARE_CATEGORIES.map((c) => ({ label: c, value: c }));
+const uomOptions = ["Meter", "Nos", "Set", "Pair", "Kg"].map((u) => ({ label: u, value: u }));
 
 const itemsResource = useList<{ name: string; item_name?: string; fen_item_kind?: string }>({
-	doctype: 'Item',
-	fields: ['name', 'item_name', 'fen_item_kind'],
+	doctype: "Item",
+	fields: ["name", "item_name", "fen_item_kind"],
 	limit: 500,
-})
+});
 
 const itemOptions = computed(() =>
 	(itemsResource.data ?? []).map((i) => ({
 		label: i.item_name ? `${i.name} — ${i.item_name}` : i.name,
 		value: i.name,
-	})),
-)
+	}))
+);
 
-const hasSvg = computed(() => Boolean(form.section_svg && form.width_mm && form.depth_mm))
-const metrics = computed(() => computeBlueprintSvgMetrics(form, showDims.value))
+const hasSvg = computed(() => Boolean(form.section_svg && form.width_mm && form.depth_mm));
+const metrics = computed(() => computeBlueprintSvgMetrics(form, showDims.value));
 
 const rotationTransform = computed(() =>
 	profileRotationTransform({
@@ -472,206 +625,207 @@ const rotationTransform = computed(() =>
 		section_flip_y: form.section_flip_y,
 		width_mm: form.width_mm,
 		depth_mm: form.depth_mm,
-	}),
-)
+	})
+);
 
 const canSave = computed(() =>
 	Boolean(
-		String(form.hardware_code ?? '').trim() &&
-			String(form.hardware_name ?? '').trim() &&
+		String(form.hardware_code ?? "").trim() &&
+			String(form.hardware_name ?? "").trim() &&
 			form.category &&
 			!saving.value &&
 			!uploadingDxf.value &&
-			!parsingDxf.value,
-	),
-)
+			!parsingDxf.value
+	)
+);
 
 function formatMetric(val: number | null | undefined, dp: number): string {
-	if (val == null || Number.isNaN(Number(val))) return '—'
-	return Number(val).toFixed(dp)
+	if (val == null || Number.isNaN(Number(val))) return "—";
+	return Number(val).toFixed(dp);
 }
 
 function rotateHardware(deltaDeg: number) {
-	const cur = Number(form.section_rotation || 0)
-	const next = (((cur + deltaDeg) % 360) + 360) % 360
-	form.section_rotation = String(next)
+	const cur = Number(form.section_rotation || 0);
+	const next = (((cur + deltaDeg) % 360) + 360) % 360;
+	form.section_rotation = String(next);
 	if (form.raw_width_mm != null && form.raw_depth_mm != null) {
-		const isTurned = next === 90 || next === 270
-		form.width_mm = isTurned ? form.raw_depth_mm : form.raw_width_mm
-		form.depth_mm = isTurned ? form.raw_width_mm : form.raw_depth_mm
+		const isTurned = next === 90 || next === 270;
+		form.width_mm = isTurned ? form.raw_depth_mm : form.raw_width_mm;
+		form.depth_mm = isTurned ? form.raw_width_mm : form.raw_depth_mm;
 	}
 }
 
 async function saveDefaultOrientation() {
 	if (!props.name) {
-		toast.success(`Orientation set to ${form.section_rotation || '0'}° (will save with hardware)`)
-		return
+		toast.success(
+			`Orientation set to ${form.section_rotation || "0"}° (will save with hardware)`
+		);
+		return;
 	}
-	savingOrientation.value = true
+	savingOrientation.value = true;
 	try {
 		const res = await setHardwareOrientation(props.name, {
 			rotation: form.section_rotation,
 			flip_x: form.section_flip_x,
 			flip_y: form.section_flip_y,
-		})
-		form.section_rotation = String(res.section_rotation)
-		form.section_flip_x = Boolean(res.section_flip_x)
-		form.section_flip_y = Boolean(res.section_flip_y)
-		form.width_mm = res.width_mm
-		form.depth_mm = res.depth_mm
-		toast.success(`Default orientation set to ${res.section_rotation}°`)
+		});
+		form.section_rotation = String(res.section_rotation);
+		form.section_flip_x = Boolean(res.section_flip_x);
+		form.section_flip_y = Boolean(res.section_flip_y);
+		form.width_mm = res.width_mm;
+		form.depth_mm = res.depth_mm;
+		toast.success(`Default orientation set to ${res.section_rotation}°`);
 	} catch (e) {
-		toast.error(e instanceof Error ? e.message : 'Could not update orientation')
+		toast.error(e instanceof Error ? e.message : "Could not update orientation");
 	} finally {
-		savingOrientation.value = false
+		savingOrientation.value = false;
 	}
 }
 
 function triggerFilePicker() {
-	fileInput.value?.click()
+	fileInput.value?.click();
 }
 
 async function onFilePick(e: Event) {
-	const input = e.target as HTMLInputElement
-	const file = input.files?.[0]
-	input.value = ''
-	if (file) await handleDxfFile(file)
+	const input = e.target as HTMLInputElement;
+	const file = input.files?.[0];
+	input.value = "";
+	if (file) await handleDxfFile(file);
 }
 
 async function onFileDrop(e: DragEvent) {
-	isDragging.value = false
-	const file = e.dataTransfer?.files?.[0]
-	if (file) await handleDxfFile(file)
+	isDragging.value = false;
+	const file = e.dataTransfer?.files?.[0];
+	if (file) await handleDxfFile(file);
 }
 
 async function handleDxfFile(file: File) {
-	if (!file.name.toLowerCase().endsWith('.dxf')) {
-		error.value = 'Please select a valid .dxf CAD file.'
-		return
+	if (!file.name.toLowerCase().endsWith(".dxf")) {
+		error.value = "Please select a valid .dxf CAD file.";
+		return;
 	}
-	error.value = ''
-	uploadingDxf.value = true
-	uploadProgress.value = 0
+	error.value = "";
+	uploadingDxf.value = true;
+	uploadProgress.value = 0;
 	try {
 		const uploaded = await upload(file, {
 			private: false,
 			onProgress: (p) => {
-				uploadProgress.value = p.percent
+				uploadProgress.value = p.percent;
 			},
-		})
-		form.dxf_file = uploaded.file_url
-		uploadingDxf.value = false
-		parsingDxf.value = true
-		const res = await previewDxf(uploaded.file_url)
+		});
+		form.dxf_file = uploaded.file_url;
+		uploadingDxf.value = false;
+		parsingDxf.value = true;
+		const res = await previewDxf(uploaded.file_url);
 		if (res.ok) {
-			form.area_mm2 = res.section.area_mm2
-			form.width_mm = res.section.width_mm
-			form.depth_mm = res.section.depth_mm
-			form.raw_width_mm = res.section.width_mm
-			form.raw_depth_mm = res.section.depth_mm
-			form.perimeter_mm = res.section.perimeter_mm
-			form.section_svg = res.section.section_svg
-			form.section_warnings = res.section.section_warnings
-			form.section_rotation = '0'
-			form.section_flip_x = false
-			form.section_flip_y = false
+			form.area_mm2 = res.section.area_mm2;
+			form.width_mm = res.section.width_mm;
+			form.depth_mm = res.section.depth_mm;
+			form.raw_width_mm = res.section.width_mm;
+			form.raw_depth_mm = res.section.depth_mm;
+			form.perimeter_mm = res.section.perimeter_mm;
+			form.section_svg = res.section.section_svg;
+			form.section_warnings = res.section.section_warnings;
+			form.section_rotation = "0";
+			form.section_flip_x = false;
+			form.section_flip_y = false;
 		} else {
-			error.value = res.message
+			error.value = res.message;
 		}
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'DXF upload failed'
+		error.value = e instanceof Error ? e.message : "DXF upload failed";
 	} finally {
-		uploadingDxf.value = false
-		parsingDxf.value = false
+		uploadingDxf.value = false;
+		parsingDxf.value = false;
 	}
 }
 
 function clearDxf() {
-	form.dxf_file = ''
-	form.section_svg = ''
-	form.width_mm = null
-	form.depth_mm = null
-	form.raw_width_mm = null
-	form.raw_depth_mm = null
-	form.area_mm2 = null
-	form.perimeter_mm = null
-	form.section_rotation = '0'
-	form.section_flip_x = false
-	form.section_flip_y = false
-	form.section_warnings = ''
+	form.dxf_file = "";
+	form.section_svg = "";
+	form.width_mm = null;
+	form.depth_mm = null;
+	form.raw_width_mm = null;
+	form.raw_depth_mm = null;
+	form.area_mm2 = null;
+	form.perimeter_mm = null;
+	form.section_rotation = "0";
+	form.section_flip_x = false;
+	form.section_flip_y = false;
+	form.section_warnings = "";
 }
 
 function applyDoc(doc: FenestrationHardwareRow) {
-	form.name = doc.name
-	form.hardware_code = doc.hardware_code || doc.name
-	form.hardware_name = doc.hardware_name || ''
-	form.category = doc.category || 'Gasket'
-	form.item = doc.item || ''
-	form.uom = doc.uom || 'Meter'
-	form.thickness_mm = doc.thickness_mm ?? null
-	form.weight_kg = doc.weight_kg ?? null
-	form.description = doc.description || ''
-	form.dxf_file = doc.dxf_file || ''
-	form.section_svg = doc.section_svg || ''
-	form.section_rotation = String(doc.section_rotation || '0')
-	form.section_flip_x = Boolean(Number(doc.section_flip_x || 0))
-	form.section_flip_y = Boolean(Number(doc.section_flip_y || 0))
-	const rot = (((Number(form.section_rotation || 0) % 360) + 360) % 360)
-	const isTurned = rot === 90 || rot === 270
-	form.raw_width_mm = isTurned ? (doc.depth_mm ?? null) : (doc.width_mm ?? null)
-	form.raw_depth_mm = isTurned ? (doc.width_mm ?? null) : (doc.depth_mm ?? null)
-	form.width_mm = doc.width_mm ?? null
-	form.depth_mm = doc.depth_mm ?? null
-	form.area_mm2 = doc.area_mm2 ?? null
-	form.perimeter_mm = doc.perimeter_mm ?? null
-	form.section_warnings = doc.section_warnings || ''
+	form.name = doc.name;
+	form.hardware_code = doc.hardware_code || doc.name;
+	form.hardware_name = doc.hardware_name || "";
+	form.category = doc.category || "Gasket";
+	form.item = doc.item || "";
+	form.uom = doc.uom || "Meter";
+	form.thickness_mm = doc.thickness_mm ?? null;
+	form.weight_kg = doc.weight_kg ?? null;
+	form.description = doc.description || "";
+	form.dxf_file = doc.dxf_file || "";
+	form.section_svg = doc.section_svg || "";
+	form.section_rotation = String(doc.section_rotation || "0");
+	form.section_flip_x = Boolean(Number(doc.section_flip_x || 0));
+	form.section_flip_y = Boolean(Number(doc.section_flip_y || 0));
+	const rot = ((Number(form.section_rotation || 0) % 360) + 360) % 360;
+	const isTurned = rot === 90 || rot === 270;
+	form.raw_width_mm = isTurned ? doc.depth_mm ?? null : doc.width_mm ?? null;
+	form.raw_depth_mm = isTurned ? doc.width_mm ?? null : doc.depth_mm ?? null;
+	form.width_mm = doc.width_mm ?? null;
+	form.depth_mm = doc.depth_mm ?? null;
+	form.area_mm2 = doc.area_mm2 ?? null;
+	form.perimeter_mm = doc.perimeter_mm ?? null;
+	form.section_warnings = doc.section_warnings || "";
 }
 
 onMounted(async () => {
-	if (!props.name) return
-	loadingDoc.value = true
+	if (!props.name) return;
+	loadingDoc.value = true;
 	try {
-		const doc = await getFenestrationHardwareDoc(props.name)
-		applyDoc(doc)
+		const doc = await getFenestrationHardwareDoc(props.name);
+		applyDoc(doc);
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not load hardware record'
+		error.value = e instanceof Error ? e.message : "Could not load hardware record";
 	} finally {
-		loadingDoc.value = false
+		loadingDoc.value = false;
 	}
-})
+});
 
 async function save() {
-	if (!canSave.value) return
-	saving.value = true
-	error.value = ''
+	if (!canSave.value) return;
+	saving.value = true;
+	error.value = "";
 	try {
 		const saved = await saveFenestrationHardware(
 			{
-				hardware_code: String(form.hardware_code ?? '').trim(),
-				hardware_name: String(form.hardware_name ?? '').trim(),
+				hardware_code: String(form.hardware_code ?? "").trim(),
+				hardware_name: String(form.hardware_name ?? "").trim(),
 				category: form.category,
-				item: String(form.item ?? '').trim() || null,
-				uom: form.uom || 'Meter',
+				item: String(form.item ?? "").trim() || null,
+				uom: form.uom || "Meter",
 				thickness_mm: form.thickness_mm,
 				weight_kg: form.weight_kg,
-				description: String(form.description ?? '').trim() || null,
+				description: String(form.description ?? "").trim() || null,
 				dxf_file: form.dxf_file || null,
-				section_rotation: form.section_rotation || '0',
+				section_rotation: form.section_rotation || "0",
 				section_flip_x: form.section_flip_x ? 1 : 0,
 				section_flip_y: form.section_flip_y ? 1 : 0,
 			},
-			props.name || null,
-		)
-		applyDoc(saved)
-		toast.success(isEdit.value ? 'Hardware updated' : 'Hardware created')
+			props.name || null
+		);
+		applyDoc(saved);
+		toast.success(isEdit.value ? "Hardware updated" : "Hardware created");
 		if (!isEdit.value) {
-			router.replace(`/series-studio/hardware/${encodeURIComponent(saved.name)}`)
+			router.replace(`/series-studio/hardware/${encodeURIComponent(saved.name)}`);
 		}
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not save hardware record'
+		error.value = e instanceof Error ? e.message : "Could not save hardware record";
 	} finally {
-		saving.value = false
+		saving.value = false;
 	}
 }
 </script>
-

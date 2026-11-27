@@ -73,9 +73,13 @@ def hardware_bom(
 				)
 			)
 		if not rule:
-			rule = match_global_glazing_rule(getattr(snapshot, "global_glazing_rules", ()), thickness, host, application)
+			rule = match_global_glazing_rule(
+				getattr(snapshot, "global_glazing_rules", ()), thickness, host, application
+			)
 		if not rule:
-			rule = match_glass_glazing_rule(glass_spec.glazing_rules if glass_spec else None, snapshot.code, host)
+			rule = match_glass_glazing_rule(
+				glass_spec.glazing_rules if glass_spec else None, snapshot.code, host
+			)
 		if not rule and snapshot.section_config:
 			rule = match_bead_gasket_rule(snapshot.section_config, opening_type, application, thickness, host)
 		if not rule:
@@ -83,11 +87,15 @@ def hardware_bom(
 		gasket_pairs = [
 			(
 				rule.get("inner_gasket_item") or rule.get("inner_gasket_hardware"),
-				rule.get("inner_gasket_name") or rule.get("inner_gasket_item") or rule.get("inner_gasket_hardware"),
+				rule.get("inner_gasket_name")
+				or rule.get("inner_gasket_item")
+				or rule.get("inner_gasket_hardware"),
 			),
 			(
 				rule.get("outer_gasket_item") or rule.get("outer_gasket_hardware"),
-				rule.get("outer_gasket_name") or rule.get("outer_gasket_item") or rule.get("outer_gasket_hardware"),
+				rule.get("outer_gasket_name")
+				or rule.get("outer_gasket_item")
+				or rule.get("outer_gasket_hardware"),
 			),
 		]
 		emitted = False
@@ -96,7 +104,18 @@ def hardware_bom(
 				continue
 			for position, side_len in (("W", p.width), ("W", p.width), ("H", p.height), ("H", p.height)):
 				length = max(0.0, round(side_len - 2 * gasket_ded, 1))
-				bom.append(BomLine(item_code, item_name or item_code, 1.0, "Meter", p.panel, position, length, GASKET_GROUP))
+				bom.append(
+					BomLine(
+						item_code,
+						item_name or item_code,
+						1.0,
+						"Meter",
+						p.panel,
+						position,
+						length,
+						GASKET_GROUP,
+					)
+				)
 			emitted = True
 		if emitted:
 			gasketed.add(p.number)
@@ -106,7 +125,11 @@ def hardware_bom(
 		for panel, position, variables in _contexts(
 			rule.per, members, panes, sash_sizes, shutter_kg, window_vars, snapshot, nodes, defaults
 		):
-			if rule.per == "pane_side" and rule.group == GASKET_GROUP and variables.get("pane_no") in config_gasketed_panes:
+			if (
+				rule.per == "pane_side"
+				and rule.group == GASKET_GROUP
+				and variables.get("pane_no") in config_gasketed_panes
+			):
 				continue
 			variables = {**base, **variables}
 			if not evaluate(rule.when, variables, rule.id):
@@ -152,7 +175,13 @@ def _any_rule_applies(rules, pane: GlassPane, base: dict, snapshot: SeriesSnapsh
 
 def _ungasketed_issues(panes: list[GlassPane], gasketed: set[int]) -> list[Issue]:
 	return [
-		Issue("warn", "no_glazing_gasket", f"{p.panel}: no glazing gasket rule for {'steel sheet' if p.material == 'steel' else 'glass ' + str(p.glass)}", p.panel, path=p.path)
+		Issue(
+			"warn",
+			"no_glazing_gasket",
+			f"{p.panel}: no glazing gasket rule for {'steel sheet' if p.material == 'steel' else 'glass ' + str(p.glass)}",
+			p.panel,
+			path=p.path,
+		)
 		for p in panes
 		if p.number not in gasketed
 	]
@@ -165,17 +194,36 @@ def _contexts(per, members, panes, sash_sizes, shutter_kg, window_vars, snapshot
 			if m.role in MEMBER_ROLES[per]:
 				yield m.panel, m.position, {"len": m.length, "position": m.position, "role": m.role}
 	elif per == "frame_side":
-		frame_meta = {k: window_vars[k] for k in ("frame_profile", "frame_depth", "frame_face", "frame_config") if k in window_vars}
+		frame_meta = {
+			k: window_vars[k]
+			for k in ("frame_profile", "frame_depth", "frame_face", "frame_config")
+			if k in window_vars
+		}
 		sizes = {FRAME_PANEL: (window_vars["W"], window_vars["H"]), **sash_sizes}
 		for panel, (width, height) in sizes.items():
 			for position, side_len in (("B", width), ("T", width), ("L", height), ("R", height)):
-				yield panel, position, {**frame_meta, "side_len": side_len, "position": position, "panel": panel}
+				yield (
+					panel,
+					position,
+					{**frame_meta, "side_len": side_len, "position": position, "panel": panel},
+				)
 	elif per == "pane_side":
-		frame_meta = {k: window_vars[k] for k in ("frame_profile", "frame_depth", "frame_face", "frame_config") if k in window_vars}
+		frame_meta = {
+			k: window_vars[k]
+			for k in ("frame_profile", "frame_depth", "frame_face", "frame_config")
+			if k in window_vars
+		}
 		for p in panes:
 			thickness = p.thickness or snapshot.glasses[p.glass].thickness_mm
 			for position, side_len in (("W", p.width), ("W", p.width), ("H", p.height), ("H", p.height)):
-				variables = {**frame_meta, "side_len": side_len, "position": position, "panel": p.panel, "glass": "STEEL" if p.material == "steel" else p.glass, "in_sash": _in_sash(p)}
+				variables = {
+					**frame_meta,
+					"side_len": side_len,
+					"position": position,
+					"panel": p.panel,
+					"glass": "STEEL" if p.material == "steel" else p.glass,
+					"in_sash": _in_sash(p),
+				}
 				yield p.panel, position, {**variables, "glass_t": thickness, "pane_no": p.number}
 	elif per == "sash":
 		for panel, (sash_w, sash_h) in sash_sizes.items():
@@ -183,20 +231,28 @@ def _contexts(per, members, panes, sash_sizes, shutter_kg, window_vars, snapshot
 			options = _sash_options(node, defaults)
 			shutter_mass = shutter_kg.get(panel, 0.0)
 			is_door = options["sash_config"] == "door"
-			yield panel, "", {
-				"sash_w": sash_w,
-				"sash_h": sash_h,
-				"shutter_kg": shutter_mass,
-				"panel": panel,
-				"hinge_count": calc_hinge_count(sash_h, shutter_mass, is_door),
-				**options,
-			}
+			yield (
+				panel,
+				"",
+				{
+					"sash_w": sash_w,
+					"sash_h": sash_h,
+					"shutter_kg": shutter_mass,
+					"panel": panel,
+					"hinge_count": calc_hinge_count(sash_h, shutter_mass, is_door),
+					**options,
+				},
+			)
 	elif per == "glass":
 		for p in panes:
 			if p.material == "steel":
 				continue
 			thickness = p.thickness or snapshot.glasses[p.glass].thickness_mm
-			yield p.panel, "", {"glass_w": p.width, "glass_h": p.height, "glass_t": thickness, "in_sash": _in_sash(p)}
+			yield (
+				p.panel,
+				"",
+				{"glass_w": p.width, "glass_h": p.height, "glass_t": thickness, "in_sash": _in_sash(p)},
+			)
 	elif per == "window":
 		yield FRAME_PANEL, "", dict(window_vars)
 
@@ -212,7 +268,13 @@ def _sash_defaults(snapshot: SeriesSnapshot) -> tuple[dict[str, bool], list[Issu
 	for name in DEFAULT_CONSTANTS:
 		value = snapshot.constants.get(name, 0)
 		if value not in (0, 1):
-			issues.append(Issue("error", "invalid_series_constant", f"series constant {name} must be 0 or 1, got {value!r}"))
+			issues.append(
+				Issue(
+					"error",
+					"invalid_series_constant",
+					f"series constant {name} must be 0 or 1, got {value!r}",
+				)
+			)
 		defaults[name] = value == 1
 	return defaults, issues
 
@@ -245,7 +307,8 @@ def _sash_options(node: dict, defaults: dict[str, bool]) -> dict:
 		"hinge_stay": node.get("hingeStay") or ("hinges" if default_hinge == "butt" else "friction"),
 		"sash_config": sash_config,
 		"active_leaf": bool(node.get("activeLeaf", True)),
-		"handle": node.get("handle") or ("single" if defaults["default_single_point_handle"] else "multipoint"),
+		"handle": node.get("handle")
+		or ("single" if defaults["default_single_point_handle"] else "multipoint"),
 		"limiter": defaults["default_limiter"] if limiter is None else bool(limiter),
 		"mesh": defaults["default_mesh"] if mesh is None else bool(mesh),
 	}

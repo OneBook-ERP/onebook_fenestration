@@ -8,12 +8,16 @@
 			>
 				<div>
 					<div class="flex items-center gap-2.5">
-						<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700">
+						<div
+							class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700"
+						>
 							<span :class="[r.icon, 'size-4']" />
 						</div>
 						<h3 class="text-sm font-semibold text-gray-900">{{ r.title }}</h3>
 					</div>
-					<p class="mt-2 text-[12.5px] leading-relaxed text-gray-500">{{ r.description }}</p>
+					<p class="mt-2 text-[12.5px] leading-relaxed text-gray-500">
+						{{ r.description }}
+					</p>
 				</div>
 				<div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
 					<span class="text-[11px] font-medium text-gray-400">{{ r.tag }}</span>
@@ -32,60 +36,69 @@
 </template>
 
 <script setup lang="ts">
-import { Button } from 'frappe-ui'
-import { computed } from 'vue'
-import { printPdfUrl } from '@/print'
+import { Button } from "frappe-ui";
+import { computed } from "vue";
+import { printPdfUrl } from "@/print";
 
 const props = defineProps<{
-	project: string
-	quotation?: string | null
-}>()
+	project: string;
+	quotation?: string | null;
+}>();
 
 const reports = computed(() => [
 	{
-		title: 'Elevation Report',
-		description: 'Architectural window elevations, dimensions, glass specs, and placement schedule.',
-		icon: 'lucide-panels-top-left',
-		tag: 'Engineering PDF',
-		url: printPdfUrl('Fenestration Project', props.project, 'Fenestration Elevation'),
+		title: "Elevation Report",
+		description:
+			"Architectural window elevations, dimensions, glass specs, and placement schedule.",
+		icon: "lucide-panels-top-left",
+		tag: "Engineering PDF",
+		url: printPdfUrl("Fenestration Project", props.project, "Fenestration Elevation"),
 	},
 	{
-		title: 'Estimate Confirmation',
-		description: 'Itemized customer confirmation sheet with unit rates, quantities, and totals.',
-		icon: 'lucide-file-check',
-		tag: 'Commercial PDF',
-		url: printPdfUrl('Fenestration Project', props.project, 'Fenestration Estimate Confirmation'),
+		title: "Estimate Confirmation",
+		description:
+			"Itemized customer confirmation sheet with unit rates, quantities, and totals.",
+		icon: "lucide-file-check",
+		tag: "Commercial PDF",
+		url: printPdfUrl(
+			"Fenestration Project",
+			props.project,
+			"Fenestration Estimate Confirmation"
+		),
 	},
 	{
-		title: 'Cutting Sheet',
-		description: 'Profile cut optimisation with stock bar diagrams, miter angles, residuals, and wastage summary.',
-		icon: 'lucide-scissors',
-		tag: 'Cut Optimisation PDF',
-		url: printPdfUrl('Fenestration Project', props.project, 'Fenestration Cutting Sheet'),
+		title: "Cutting Sheet",
+		description:
+			"Profile cut optimisation with stock bar diagrams, miter angles, residuals, and wastage summary.",
+		icon: "lucide-scissors",
+		tag: "Cut Optimisation PDF",
+		url: printPdfUrl("Fenestration Project", props.project, "Fenestration Cutting Sheet"),
 	},
 	{
-		title: 'Assembly Summary',
-		description: 'Consolidated profile bars, glass panels, and hardware summary for fabrication.',
-		icon: 'lucide-layers',
-		tag: 'Production PDF',
-		url: printPdfUrl('Fenestration Project', props.project, 'Fenestration Assembly Summary'),
+		title: "Assembly Summary",
+		description:
+			"Consolidated profile bars, glass panels, and hardware summary for fabrication.",
+		icon: "lucide-layers",
+		tag: "Production PDF",
+		url: printPdfUrl("Fenestration Project", props.project, "Fenestration Assembly Summary"),
 	},
 	{
-		title: 'Assembly Detail',
-		description: 'Detailed per-window member cut lengths, angles, and hardware breakdown.',
-		icon: 'lucide-ruler',
-		tag: 'Shop Floor PDF',
-		url: printPdfUrl('Fenestration Project', props.project, 'Fenestration Assembly Detail'),
+		title: "Assembly Detail",
+		description: "Detailed per-window member cut lengths, angles, and hardware breakdown.",
+		icon: "lucide-ruler",
+		tag: "Shop Floor PDF",
+		url: printPdfUrl("Fenestration Project", props.project, "Fenestration Assembly Detail"),
 	},
 	{
-		title: 'Quotation PDF',
+		title: "Quotation PDF",
 		description: props.quotation
 			? `Formal commercial quotation (${props.quotation}) with terms and tax breakdown.`
-			: 'Generate a quotation on the Quote tab first to download the Quotation PDF.',
-		icon: 'lucide-file-text',
-		tag: props.quotation ? props.quotation : 'Not quoted yet',
-		url: props.quotation ? printPdfUrl('Quotation', props.quotation, 'Fenestration Quotation') : undefined,
+			: "Generate a quotation on the Quote tab first to download the Quotation PDF.",
+		icon: "lucide-file-text",
+		tag: props.quotation ? props.quotation : "Not quoted yet",
+		url: props.quotation
+			? printPdfUrl("Quotation", props.quotation, "Fenestration Quotation")
+			: undefined,
 	},
-])
+]);
 </script>
-

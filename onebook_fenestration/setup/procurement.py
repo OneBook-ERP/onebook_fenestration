@@ -127,9 +127,7 @@ def ensure_warehouses(company: str | None = None) -> list[str]:
 
 
 def _ensure_group_warehouse(wh_name: str, parent_warehouse: str, company: str) -> str:
-	existing = frappe.db.get_value(
-		"Warehouse", {"warehouse_name": wh_name, "company": company}, "name"
-	)
+	existing = frappe.db.get_value("Warehouse", {"warehouse_name": wh_name, "company": company}, "name")
 	if existing:
 		doc = frappe.get_doc("Warehouse", existing)
 		changed = False
@@ -147,21 +145,23 @@ def _ensure_group_warehouse(wh_name: str, parent_warehouse: str, company: str) -
 			doc.save(ignore_permissions=True)
 		return doc.name
 
-	return frappe.get_doc(
-		{
-			"doctype": "Warehouse",
-			"warehouse_name": wh_name,
-			"parent_warehouse": parent_warehouse,
-			"company": company,
-			"is_group": 1,
-		}
-	).insert(ignore_permissions=True).name
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Warehouse",
+				"warehouse_name": wh_name,
+				"parent_warehouse": parent_warehouse,
+				"company": company,
+				"is_group": 1,
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
 
 
 def _ensure_leaf_warehouse(wh_name: str, parent_warehouse: str, company: str) -> str:
-	existing = frappe.db.get_value(
-		"Warehouse", {"warehouse_name": wh_name, "company": company}, "name"
-	)
+	existing = frappe.db.get_value("Warehouse", {"warehouse_name": wh_name, "company": company}, "name")
 	if existing:
 		doc = frappe.get_doc("Warehouse", existing)
 		if doc.parent_warehouse != parent_warehouse:
@@ -169,15 +169,19 @@ def _ensure_leaf_warehouse(wh_name: str, parent_warehouse: str, company: str) ->
 			doc.save(ignore_permissions=True)
 		return doc.name
 
-	return frappe.get_doc(
-		{
-			"doctype": "Warehouse",
-			"warehouse_name": wh_name,
-			"parent_warehouse": parent_warehouse,
-			"company": company,
-			"is_group": 0,
-		}
-	).insert(ignore_permissions=True).name
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Warehouse",
+				"warehouse_name": wh_name,
+				"parent_warehouse": parent_warehouse,
+				"company": company,
+				"is_group": 0,
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
 
 
 def ensure_procurement_settings() -> None:
@@ -211,7 +215,11 @@ def ensure_item_classifications() -> None:
 		updates = {}
 		if has_kind and frappe.db.get_value("Item", item_code, "fen_item_kind") != kind:
 			updates["fen_item_kind"] = kind
-		if fen_group and frappe.db.get_value("Item", item_code, "item_group") in (None, "", "All Item Groups"):
+		if fen_group and frappe.db.get_value("Item", item_code, "item_group") in (
+			None,
+			"",
+			"All Item Groups",
+		):
 			updates["item_group"] = fen_group
 		if updates:
 			frappe.db.set_value("Item", item_code, updates, update_modified=False)
@@ -250,9 +258,9 @@ def ensure_hardware_uom_alignment() -> None:
 	"""Ensure snapshot UOM aliases (Pairs, m) and CS400 H914 sealant UOM match ERP Item stock UOMs."""
 	for uom_name, whole in (("Pairs", 1), ("m", 0), ("Can", 0)):
 		if not frappe.db.exists("UOM", uom_name):
-			frappe.get_doc(
-				{"doctype": "UOM", "uom_name": uom_name, "must_be_whole_number": whole}
-			).insert(ignore_permissions=True)
+			frappe.get_doc({"doctype": "UOM", "uom_name": uom_name, "must_be_whole_number": whole}).insert(
+				ignore_permissions=True
+			)
 
 	for item_code, alias_uom in (("H416", "Pairs"), ("H915", "m")):
 		if not frappe.db.exists("Item", item_code):
@@ -287,7 +295,11 @@ def ensure_hardware_uom_alignment() -> None:
 						updated = True
 				if updated:
 					frappe.db.set_value(
-						"Series Version", version_name, "snapshot_json", json.dumps(data), update_modified=False
+						"Series Version",
+						version_name,
+						"snapshot_json",
+						json.dumps(data),
+						update_modified=False,
 					)
 					frappe.cache.hdel("fen_snapshot", version_name)
 
@@ -341,7 +353,9 @@ def ensure_default_suppliers(company: str | None = None) -> None:
 		)
 		if default_row:
 			if not default_row.default_supplier:
-				frappe.db.set_value("Item Default", default_row.name, "default_supplier", sup, update_modified=False)
+				frappe.db.set_value(
+					"Item Default", default_row.name, "default_supplier", sup, update_modified=False
+				)
 		else:
 			item_doc = frappe.get_doc("Item", row.name)
 			item_doc.append("item_defaults", {"company": company, "default_supplier": sup})
@@ -387,7 +401,9 @@ def ensure_glass_and_profile_prices() -> None:
 		if not frappe.db.exists("Price List", plist):
 			continue
 		pl_flags = frappe.db.get_value("Price List", plist, ["buying", "selling"], as_dict=True) or {}
-		is_buying = 1 if (pl_flags.get("buying") and not pl_flags.get("selling")) or plist == "Standard Buying" else 0
+		is_buying = (
+			1 if (pl_flags.get("buying") and not pl_flags.get("selling")) or plist == "Standard Buying" else 0
+		)
 		price_lists.append((plist, is_buying))
 	profile_items = list(
 		dict.fromkeys(frappe.get_all("Fenestration Profile", filters={"item": ("is", "set")}, pluck="item"))
@@ -404,7 +420,9 @@ def ensure_glass_and_profile_prices() -> None:
 
 	for plist, is_buying in price_lists:
 		default_glass_rate = 850.0 if is_buying else 1050.0
-		for glass in frappe.get_all("Fenestration Glass", filters={"item": ("is", "set")}, fields=["item", "thickness_mm"]):
+		for glass in frappe.get_all(
+			"Fenestration Glass", filters={"item": ("is", "set")}, fields=["item", "thickness_mm"]
+		):
 			rate = default_glass_rate if flt(glass.thickness_mm) <= 6 else round(default_glass_rate * 1.4, 2)
 			_ensure_item_price(glass.item, plist, rate)
 
@@ -422,7 +440,9 @@ def ensure_glass_and_profile_prices() -> None:
 			frappe.get_doc("Window Design", d_name).reprice()
 		except Exception:
 			frappe.clear_messages()
-			frappe.log_error(title=f"Procurement setup reprice skipped for {d_name}", message=frappe.get_traceback())
+			frappe.log_error(
+				title=f"Procurement setup reprice skipped for {d_name}", message=frappe.get_traceback()
+			)
 
 
 def _ensure_item_price(item_code: str, price_list: str, rate: float) -> None:

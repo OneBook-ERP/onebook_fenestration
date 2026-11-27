@@ -84,9 +84,13 @@ def _walk(node, path, depth, x, y, w, h, sides, cells, bars, counters):
 		counters[bar_kind] += 1
 		prefix = "M" if bar_kind == "mullion" else "T"
 		if direction == "v":
-			bars.append(Bar(bar_kind, f"{prefix}{counters[bar_kind]}", h, (sides["B"], sides["T"]), x + bound, y))
+			bars.append(
+				Bar(bar_kind, f"{prefix}{counters[bar_kind]}", h, (sides["B"], sides["T"]), x + bound, y)
+			)
 		else:
-			bars.append(Bar(bar_kind, f"{prefix}{counters[bar_kind]}", w, (sides["L"], sides["R"]), y + bound, x))
+			bars.append(
+				Bar(bar_kind, f"{prefix}{counters[bar_kind]}", w, (sides["L"], sides["R"]), y + bound, x)
+			)
 
 	last = len(children) - 1
 	for i, child in enumerate(children):

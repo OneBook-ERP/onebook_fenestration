@@ -24,7 +24,9 @@ class CuttingResult:
 	unplaced: list[Piece]
 
 
-def optimize(pieces: list[Piece], bar_lengths: list[float], kerf: float = 10.0, min_rest: float = 500.0) -> CuttingResult:
+def optimize(
+	pieces: list[Piece], bar_lengths: list[float], kerf: float = 10.0, min_rest: float = 500.0
+) -> CuttingResult:
 	lengths = sorted(set(bar_lengths))
 	longest = lengths[-1] if lengths else 0.0
 	unplaced: list[Piece] = []
@@ -72,7 +74,9 @@ def _pct(part: float, whole: float) -> float:
 	return round(part / whole * 100, 2) if whole else 0.0
 
 
-def _best_fit(open_bars: list[list[Piece]], piece: Piece, bar_length: float, kerf: float) -> list[Piece] | None:
+def _best_fit(
+	open_bars: list[list[Piece]], piece: Piece, bar_length: float, kerf: float
+) -> list[Piece] | None:
 	best, best_remainder = None, None
 	for bar in open_bars:
 		remainder = bar_length - _used(bar, kerf) - piece.length - kerf

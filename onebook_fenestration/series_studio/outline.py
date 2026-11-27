@@ -92,7 +92,9 @@ def transform_path(
 	if not xs:
 		return d, 0, 0
 	min_x, min_y = min(xs), min(ys)
-	shifted = [(cmd, [_shift_args(cmd, args, min_x, min_y) for args in groups]) for cmd, groups in transformed]
+	shifted = [
+		(cmd, [_shift_args(cmd, args, min_x, min_y) for args in groups]) for cmd, groups in transformed
+	]
 	return _format(shifted), _round(max(xs) - min_x), _round(max(ys) - min_y)
 
 
@@ -114,7 +116,7 @@ def svg_extents(d: str) -> tuple[float, float]:
 def _degrees(degrees) -> int:
 	try:
 		value = int(degrees or 0)
-	except (TypeError, ValueError):
+	except TypeError, ValueError:
 		value = -1
 	if value not in ROTATIONS:
 		raise ValueError(f"outline rotation must be one of {ROTATIONS}, got {degrees!r}")

@@ -90,4 +90,3 @@ class TestCuttingSheet(unittest.TestCase):
 		self.assertEqual(_parse_angles("45 / 45"), (45, 45))
 		self.assertEqual(_parse_angles("45 / 135"), (45, 45))
 		self.assertEqual(_parse_angles(None), (90, 90))
-

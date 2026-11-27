@@ -27,11 +27,22 @@ def compute(design: dict, snapshot: SeriesSnapshot) -> EngineResult:
 		"window_kg": window_kg,
 		**frame_context(design, snapshot, members),
 	}
-	hardware, hardware_issues = hardware_bom(members, panes, sash_sizes, shutter_kg, window_vars, snapshot, sash_nodes(cells), design=design)
+	hardware, hardware_issues = hardware_bom(
+		members, panes, sash_sizes, shutter_kg, window_vars, snapshot, sash_nodes(cells), design=design
+	)
 	sash_paths = {m.panel: m.path for m in members if m.role in ("sash", "door_sash")}
 	issues = member_issues + glass_issues + glazing_issues + hardware_issues
 	issues += _series_product_warnings(design, cells, snapshot)
-	issues += [Issue("warn", "grill_visual_only", "Grill: weight, fabrication quantities and cost are not included", path=c.path) for c in cells if c.node.get("grill") is not None]
+	issues += [
+		Issue(
+			"warn",
+			"grill_visual_only",
+			"Grill: weight, fabrication quantities and cost are not included",
+			path=c.path,
+		)
+		for c in cells
+		if c.node.get("grill") is not None
+	]
 	issues += validate(snapshot, sash_sizes, shutter_kg, window_vars, sash_paths)
 
 	area_m2 = round(width * height / 1e6, 3)
@@ -56,7 +67,10 @@ def _series_product_warnings(design: dict, cells: list, snapshot: SeriesSnapshot
 	is_sliding = bool(design.get("isSliding")) or any(
 		c.node.get("type") == "sash" and bool(c.node.get("isSliding")) for c in cells
 	)
-	frame_is_door = str(design.get("frameConfig") or "4-side").strip().lower() in ("3-side", "3-side-threshold")
+	frame_is_door = str(design.get("frameConfig") or "4-side").strip().lower() in (
+		"3-side",
+		"3-side-threshold",
+	)
 	has_door_sash = any(
 		c.node.get("type") == "sash" and str(c.node.get("sashConfig") or "").strip().lower() == "door"
 		for c in cells

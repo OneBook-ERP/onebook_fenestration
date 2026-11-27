@@ -97,7 +97,9 @@ def _with_section_config(data: dict) -> dict:
 def get_snapshot(series_version: str) -> SeriesSnapshot:
 	"""Snapshot for `series_version`; submitted versions use the frozen snapshot_json, drafts always rebuild."""
 	if frappe.db.get_value("Series Version", series_version, "docstatus") != 1:
-		return SeriesSnapshot.from_dict(_with_section_config(_with_all_profiles(build_snapshot_dict(series_version))))
+		return SeriesSnapshot.from_dict(
+			_with_section_config(_with_all_profiles(build_snapshot_dict(series_version)))
+		)
 	data = frappe.cache.hget(CACHE_KEY, series_version)
 	if data is None:
 		raw_json = frappe.db.get_value("Series Version", series_version, "snapshot_json")
@@ -126,7 +128,10 @@ def _with_all_profiles(data: dict) -> dict:
 	out = {**data, "profiles": dict(data.get("profiles") or {})}
 	for code, spec in _all_profiles().items():
 		if code in out["profiles"]:
-			out["profiles"][code] = {**out["profiles"][code], "section_anchors": spec.get("section_anchors") or {}}
+			out["profiles"][code] = {
+				**out["profiles"][code],
+				"section_anchors": spec.get("section_anchors") or {},
+			}
 		else:
 			out["profiles"][code] = spec
 	return out
@@ -152,7 +157,8 @@ def _all_profiles() -> dict:
 	return {
 		p.profile_code: {
 			"name": p.profile_name,
-			"kg_per_m": (p.computed_kg_per_m if p.use_computed_weight and p.computed_kg_per_m else p.kg_per_m) or 0.0,
+			"kg_per_m": (p.computed_kg_per_m if p.use_computed_weight and p.computed_kg_per_m else p.kg_per_m)
+			or 0.0,
 			"bar_lengths": _safe_bar_lengths(p.bar_lengths, [6000.0]),
 			"visible_perimeter_mm": p.visible_perimeter_mm or 0,
 			"total_perimeter_mm": p.total_perimeter_mm or 0,
@@ -170,7 +176,11 @@ def clear_snapshot(series_version: str) -> None:
 
 def build_snapshot_dict(series_version: str | Document) -> dict:
 	"""The plain dict `SeriesSnapshot.from_dict` expects, read from the version and its series masters."""
-	doc = series_version if isinstance(series_version, Document) else frappe.get_doc("Series Version", series_version)
+	doc = (
+		series_version
+		if isinstance(series_version, Document)
+		else frappe.get_doc("Series Version", series_version)
+	)
 	return {
 		"code": doc.series,
 		"version": doc.name,
@@ -191,7 +201,16 @@ def _profiles(series: str, rule_profiles: set[str]) -> dict:
 	rows = frappe.get_all(
 		"Fenestration Profile",
 		or_filters={"series": series, "name": ("in", sorted(rule_profiles) or [""])},
-		fields=["profile_code", "profile_name", "kg_per_m", "bar_lengths", "use_computed_weight", "computed_kg_per_m", "visible_perimeter_mm", "total_perimeter_mm"],
+		fields=[
+			"profile_code",
+			"profile_name",
+			"kg_per_m",
+			"bar_lengths",
+			"use_computed_weight",
+			"computed_kg_per_m",
+			"visible_perimeter_mm",
+			"total_perimeter_mm",
+		],
 	)
 	return {
 		p.profile_code: {

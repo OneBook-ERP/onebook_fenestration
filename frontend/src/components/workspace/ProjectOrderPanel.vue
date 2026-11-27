@@ -2,7 +2,9 @@
 	<section class="space-y-4" data-testid="project-order-panel">
 		<PipelineStatGrid :cards="statCards" />
 
-		<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4">
+		<div
+			class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4"
+		>
 			<div>
 				<h2 class="text-sm font-semibold text-gray-900">Project Sales Orders</h2>
 				<p class="text-[12px] text-gray-500">
@@ -40,7 +42,8 @@
 
 			<p v-if="loading" class="px-4 py-6 text-sm text-gray-500">Loading project orders…</p>
 			<div v-else-if="!items.length" class="px-4 py-8 text-center text-sm text-gray-500">
-				No sales orders for this project yet. Submit the quotation and click <strong>Create Sales Order</strong>.
+				No sales orders for this project yet. Submit the quotation and click
+				<strong>Create Sales Order</strong>.
 			</div>
 			<ul v-else class="divide-y divide-gray-100">
 				<li
@@ -50,21 +53,29 @@
 				>
 					<div>
 						<div class="text-[13.5px] font-medium text-gray-900">{{ o.name }}</div>
-						<div class="text-[12px] text-gray-500">{{ o.customer || '—' }} · {{ o.total_qty }} qty</div>
+						<div class="text-[12px] text-gray-500">
+							{{ o.customer || "—" }} · {{ o.total_qty }} qty
+						</div>
 					</div>
 					<div>
-						<span class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium" :class="statusBadgeClass(o.status, o.docstatus)">
+						<span
+							class="inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium"
+							:class="statusBadgeClass(o.status, o.docstatus)"
+						>
 							{{ o.status }}
 						</span>
 					</div>
-					<div class="text-[12px] text-gray-600">{{ o.delivery_date || '—' }}</div>
+					<div class="text-[12px] text-gray-600">{{ o.delivery_date || "—" }}</div>
 					<div>
 						<div class="flex items-center justify-between text-[11px] text-gray-500">
 							<span>Delivered</span>
 							<span class="tabular-nums">{{ o.per_delivered }}%</span>
 						</div>
 						<div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-							<div class="h-full rounded-full bg-blue-500 transition-all" :style="{ width: `${Math.min(100, o.per_delivered)}%` }" />
+							<div
+								class="h-full rounded-full bg-blue-500 transition-all"
+								:style="{ width: `${Math.min(100, o.per_delivered)}%` }"
+							/>
 						</div>
 					</div>
 					<div class="text-right text-[13px] font-medium tabular-nums text-gray-900">
@@ -76,7 +87,13 @@
 							:suppliers="flow?.suppliers"
 							@done="onFlowDone"
 						/>
-						<Button size="sm" variant="subtle" label="Open" :href="deskDocUrl('Sales Order', o.name)" target="_blank" />
+						<Button
+							size="sm"
+							variant="subtle"
+							label="Open"
+							:href="deskDocUrl('Sales Order', o.name)"
+							target="_blank"
+						/>
 					</div>
 				</li>
 			</ul>
@@ -85,85 +102,114 @@
 </template>
 
 <script setup lang="ts">
-import { Button, toast } from 'frappe-ui'
-import { computed, onMounted, ref, watch } from 'vue'
-import { getWorkspacePipeline, makeSalesOrder, type FlowAction, type PipelineOrderRow, type ProjectFlowState } from '@/api'
-import { formatMoney } from '@/money'
-import FlowDocActions from './FlowDocActions.vue'
-import PipelineStatGrid from './PipelineStatGrid.vue'
-import type { StatCardItem } from './pipelineConfig'
-import { deskDocUrl, statusBadgeClass } from './statusStyle'
+import { Button, toast } from "frappe-ui";
+import { computed, onMounted, ref, watch } from "vue";
+import {
+	getWorkspacePipeline,
+	makeSalesOrder,
+	type FlowAction,
+	type PipelineOrderRow,
+	type ProjectFlowState,
+} from "@/api";
+import { formatMoney } from "@/money";
+import FlowDocActions from "./FlowDocActions.vue";
+import PipelineStatGrid from "./PipelineStatGrid.vue";
+import type { StatCardItem } from "./pipelineConfig";
+import { deskDocUrl, statusBadgeClass } from "./statusStyle";
 
-const props = defineProps<{ project: string; quotation?: string | null; flow?: ProjectFlowState | null }>()
-const emit = defineEmits<{ changed: [] }>()
+const props = defineProps<{
+	project: string;
+	quotation?: string | null;
+	flow?: ProjectFlowState | null;
+}>();
+const emit = defineEmits<{ changed: [] }>();
 
-const loading = ref(true)
-const creating = ref(false)
-const items = ref<PipelineOrderRow[]>([])
-const stats = ref<Record<string, number>>({})
+const loading = ref(true);
+const creating = ref(false);
+const items = ref<PipelineOrderRow[]>([]);
+const stats = ref<Record<string, number>>({});
 
 const actionsByOrder = computed(() => {
-	const map = new Map<string, FlowAction[]>()
+	const map = new Map<string, FlowAction[]>();
 	for (const so of props.flow?.sales_orders ?? []) {
-		if (so.actions?.length) map.set(so.name, so.actions)
+		if (so.actions?.length) map.set(so.name, so.actions);
 	}
-	return map
-})
+	return map;
+});
 
 function orderActions(name: string): FlowAction[] {
-	return actionsByOrder.value.get(name) ?? []
+	return actionsByOrder.value.get(name) ?? [];
 }
 
 async function onFlowDone() {
-	await load()
-	emit('changed')
+	await load();
+	emit("changed");
 }
 
 watch(
 	() => props.flow?.sales_orders,
 	() => {
-		void load()
-	},
-)
+		void load();
+	}
+);
 
 const statCards = computed<StatCardItem[]>(() => [
-	{ label: 'Sales Orders', value: stats.value.total ?? 0, sublabel: `${stats.value.draft ?? 0} draft`, icon: 'lucide-package' },
-	{ label: 'To Deliver', value: stats.value.to_deliver ?? 0, sublabel: 'Pending dispatch', icon: 'lucide-truck' },
-	{ label: 'Completed', value: stats.value.completed ?? 0, sublabel: 'Delivered & billed', icon: 'lucide-check-circle' },
-	{ label: 'Order Value', value: formatMoney(stats.value.total_value ?? 0), sublabel: 'Total committed', icon: 'lucide-indian-rupee' },
-])
+	{
+		label: "Sales Orders",
+		value: stats.value.total ?? 0,
+		sublabel: `${stats.value.draft ?? 0} draft`,
+		icon: "lucide-package",
+	},
+	{
+		label: "To Deliver",
+		value: stats.value.to_deliver ?? 0,
+		sublabel: "Pending dispatch",
+		icon: "lucide-truck",
+	},
+	{
+		label: "Completed",
+		value: stats.value.completed ?? 0,
+		sublabel: "Delivered & billed",
+		icon: "lucide-check-circle",
+	},
+	{
+		label: "Order Value",
+		value: formatMoney(stats.value.total_value ?? 0),
+		sublabel: "Total committed",
+		icon: "lucide-indian-rupee",
+	},
+]);
 
 async function load() {
-	loading.value = true
+	loading.value = true;
 	try {
-		const res = await getWorkspacePipeline<PipelineOrderRow>('orders', props.project)
-		items.value = res.items ?? []
-		stats.value = res.stats ?? {}
+		const res = await getWorkspacePipeline<PipelineOrderRow>("orders", props.project);
+		items.value = res.items ?? [];
+		stats.value = res.stats ?? {};
 	} catch {
-		items.value = []
+		items.value = [];
 	} finally {
-		loading.value = false
+		loading.value = false;
 	}
 }
 
 async function createOrder() {
-	creating.value = true
+	creating.value = true;
 	try {
-		const res = await makeSalesOrder(props.project)
+		const res = await makeSalesOrder(props.project);
 		if (!res.ok) {
-			toast.error(res.message)
-			return
+			toast.error(res.message);
+			return;
 		}
-		toast.success(`Sales Order ${res.sales_order} created`)
-		await load()
-		emit('changed')
+		toast.success(`Sales Order ${res.sales_order} created`);
+		await load();
+		emit("changed");
 	} catch (e) {
-		toast.error(e instanceof Error ? e.message : 'Could not create Sales Order')
+		toast.error(e instanceof Error ? e.message : "Could not create Sales Order");
 	} finally {
-		creating.value = false
+		creating.value = false;
 	}
 }
 
-onMounted(load)
+onMounted(load);
 </script>
-

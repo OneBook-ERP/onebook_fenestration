@@ -78,7 +78,19 @@ class TestSectionCut(unittest.TestCase):
 		roles = [p.role for p in section.pieces]
 		self.assertEqual(
 			roles,
-			["frame", "bead", "glass", "bead", "mullion", "sash", "glass_adaptor", "glass", "glass_adaptor", "sash", "frame"],
+			[
+				"frame",
+				"bead",
+				"glass",
+				"bead",
+				"mullion",
+				"sash",
+				"glass_adaptor",
+				"glass",
+				"glass_adaptor",
+				"sash",
+				"frame",
+			],
 		)
 		sash_glass = section.pieces[7]
 		self.assertEqual(sash_glass.end - sash_glass.start, 613)
@@ -114,13 +126,26 @@ class TestSectionCut(unittest.TestCase):
 
 	def test_nested_fixed_panes_remain_reachable_in_both_sections(self):
 		design = {
-			"width": 915, "height": 610, "beadProfileId": "E104161",
-			"root": {"type": "split", "dir": "v", "at": [631], "children": [
-				{"type": "fixed", "glass": "6CTG"},
-				{"type": "split", "dir": "h", "at": [371.2], "children": [
-					{"type": "fixed", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"},
-				]},
-			]},
+			"width": 915,
+			"height": 610,
+			"beadProfileId": "E104161",
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [631],
+				"children": [
+					{"type": "fixed", "glass": "6CTG"},
+					{
+						"type": "split",
+						"dir": "h",
+						"at": [371.2],
+						"children": [
+							{"type": "fixed", "glass": "6CTG"},
+							{"type": "fixed", "glass": "6CTG"},
+						],
+					},
+				],
+			},
 		}
 		bottom = cross_section(design, snapshot(), "h", at=185.6, widths=CS400_WIDTHS)
 		top = cross_section(design, snapshot(), "h", at=490.6, widths=CS400_WIDTHS)
@@ -135,7 +160,14 @@ class TestSectionCut(unittest.TestCase):
 
 	def test_cut_position_snaps_to_cell(self):
 		design, snap = load("w01.json"), snapshot()
-		cases = [("h", None, 610), ("h", 5000, 610), ("h", -10, 610), ("v", None, 228.75), ("v", 457.5, 686.25), ("v", 2000, 686.25)]
+		cases = [
+			("h", None, 610),
+			("h", 5000, 610),
+			("h", -10, 610),
+			("v", None, 228.75),
+			("v", 457.5, 686.25),
+			("v", 2000, 686.25),
+		]
 		for axis, at, expected in cases:
 			with self.subTest(axis=axis, at=at):
 				section = cross_section(design, snap, axis, at, CS400_WIDTHS)
@@ -178,7 +210,10 @@ class TestSectionCut(unittest.TestCase):
 		section = cross_section(load("w02.json"), snapshot(), "v", widths=CS400_WIDTHS)
 		self.assertEqual([p.role for p in section.pieces], ["frame", "louver", "frame"])
 		louver = section.pieces[1]
-		self.assertEqual((louver.path, louver.blades, louver.start, louver.end, louver.opening_height), ("F1.0", 9, 24, 586, 562))
+		self.assertEqual(
+			(louver.path, louver.blades, louver.start, louver.end, louver.opening_height),
+			("F1.0", 9, 24, 586, 562),
+		)
 		section = cross_section(load("w02.json"), snapshot(), "h", widths=CS400_WIDTHS)
 		self.assertEqual([p.role for p in section.pieces], ["frame", "louver", "mullion", "glass", "frame"])
 

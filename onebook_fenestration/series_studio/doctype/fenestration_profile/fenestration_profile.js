@@ -40,8 +40,11 @@ function render_profile_section_preview(frm) {
 	const unitNote = (doc.section_warnings || "").includes("units_assumed_mm")
 		? "Units read as mm"
 		: "Units in mm";
-	const loopNote = `${loops} closed loop${loops === 1 ? "" : "s"}${chambers > 0 ? ` (${chambers} chamber${chambers === 1 ? "" : "s"})` : ""}`;
-	const weight = doc.use_computed_weight && doc.computed_kg_per_m ? doc.computed_kg_per_m : doc.kg_per_m;
+	const loopNote = `${loops} closed loop${loops === 1 ? "" : "s"}${
+		chambers > 0 ? ` (${chambers} chamber${chambers === 1 ? "" : "s"})` : ""
+	}`;
+	const weight =
+		doc.use_computed_weight && doc.computed_kg_per_m ? doc.computed_kg_per_m : doc.kg_per_m;
 
 	const svgMarkup = build_blueprint_svg(doc, state);
 
@@ -54,14 +57,22 @@ function render_profile_section_preview(frm) {
 						<span style="color:#64748b;font-weight:500;"> · ${frappe.utils.escape_html(dxfName)}</span>
 					</div>
 					<div style="font-size:13px;color:#64748b;margin-top:4px;">
-						${unitNote} · ${loopNote} · Role: <strong style="color:#334155;text-transform:capitalize;">${frappe.utils.escape_html(doc.role || "—")}</strong>
+						${unitNote} · ${loopNote} · Role: <strong style="color:#334155;text-transform:capitalize;">${frappe.utils.escape_html(
+		doc.role || "—"
+	)}</strong>
 					</div>
 				</div>
 				<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;">
 					<div style="display:inline-flex;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#f8fafc;">
-						<button type="button" data-action="toggle-grid" style="border:none;background:${state.showGrid ? "#e2e8f0" : "transparent"};padding:5px 12px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">Grid</button>
-						<button type="button" data-action="toggle-dims" style="border:none;border-left:1px solid #e2e8f0;background:${state.showDims ? "#e2e8f0" : "transparent"};padding:5px 12px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">Dimensions</button>
-						<button type="button" data-action="toggle-centroid" style="border:none;border-left:1px solid #e2e8f0;background:${state.showCentroid ? "#e2e8f0" : "transparent"};padding:5px 12px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">Centroid</button>
+						<button type="button" data-action="toggle-grid" style="border:none;background:${
+							state.showGrid ? "#e2e8f0" : "transparent"
+						};padding:5px 12px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">Grid</button>
+						<button type="button" data-action="toggle-dims" style="border:none;border-left:1px solid #e2e8f0;background:${
+							state.showDims ? "#e2e8f0" : "transparent"
+						};padding:5px 12px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">Dimensions</button>
+						<button type="button" data-action="toggle-centroid" style="border:none;border-left:1px solid #e2e8f0;background:${
+							state.showCentroid ? "#e2e8f0" : "transparent"
+						};padding:5px 12px;font-size:12px;font-weight:600;color:#334155;cursor:pointer;">Centroid</button>
 					</div>
 					<span style="display:inline-flex;align-items:center;padding:5px 14px;border-radius:999px;background:#dcfce7;color:#15803d;font-size:12px;font-weight:600;">
 						Parsed
@@ -76,23 +87,38 @@ function render_profile_section_preview(frm) {
 			<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 48px;margin-top:20px;padding-top:18px;border-top:1px solid #f1f5f9;">
 				<div>
 					<div style="font-size:12px;color:#64748b;margin-bottom:3px;">Section area</div>
-					<div style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(doc.area_mm2, 1)} mm²</div>
+					<div style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(
+						doc.area_mm2,
+						1
+					)} mm²</div>
 				</div>
 				<div>
 					<div style="font-size:12px;color:#64748b;margin-bottom:3px;">Weight</div>
-					<div style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(weight, 3)} kg/m</div>
+					<div style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(
+						weight,
+						3
+					)} kg/m</div>
 				</div>
 				<div>
 					<div style="font-size:12px;color:#64748b;margin-bottom:3px;">Width × depth</div>
-					<div style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(doc.width_mm, 1)} × ${format_num(doc.depth_mm, 1)}</div>
+					<div style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(
+						doc.width_mm,
+						1
+					)} × ${format_num(doc.depth_mm, 1)}</div>
 				</div>
 				<div>
 					<div style="font-size:12px;color:#64748b;margin-bottom:3px;">Perimeter</div>
-					<div style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(doc.perimeter_mm, 1)} mm</div>
+					<div style="font-size:19px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(
+						doc.perimeter_mm,
+						1
+					)} mm</div>
 				</div>
 				<div>
 					<div style="font-size:12px;color:#64748b;margin-bottom:3px;">Ix / Iy</div>
-					<div style="font-size:17px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(doc.ix_mm4, 0)} / ${format_num(doc.iy_mm4, 0)} mm⁴</div>
+					<div style="font-size:17px;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">${format_num(
+						doc.ix_mm4,
+						0
+					)} / ${format_num(doc.iy_mm4, 0)} mm⁴</div>
 				</div>
 				<div>
 					<div style="font-size:12px;color:#64748b;margin-bottom:3px;">Material</div>
@@ -157,35 +183,75 @@ function build_blueprint_svg(doc, state) {
 	return `
 		<svg viewBox="0 0 ${cw} ${ch}" style="width:100%;height:320px;display:block;" xmlns="http://www.w3.org/2000/svg">
 			<defs>
-				<pattern id="${gridId}-minor" width="${minorPx.toFixed(3)}" height="${minorPx.toFixed(3)}" patternUnits="userSpaceOnUse" patternTransform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)})">
-					<path d="M ${minorPx.toFixed(3)} 0 L 0 0 0 ${minorPx.toFixed(3)}" fill="none" stroke="#e2e8f0" stroke-width="0.7" />
+				<pattern id="${gridId}-minor" width="${minorPx.toFixed(3)}" height="${minorPx.toFixed(
+		3
+	)}" patternUnits="userSpaceOnUse" patternTransform="translate(${ox.toFixed(2)}, ${oy.toFixed(
+		2
+	)})">
+					<path d="M ${minorPx.toFixed(3)} 0 L 0 0 0 ${minorPx.toFixed(
+		3
+	)}" fill="none" stroke="#e2e8f0" stroke-width="0.7" />
 				</pattern>
-				<pattern id="${gridId}-major" width="${majorPx.toFixed(3)}" height="${majorPx.toFixed(3)}" patternUnits="userSpaceOnUse" patternTransform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)})">
+				<pattern id="${gridId}-major" width="${majorPx.toFixed(3)}" height="${majorPx.toFixed(
+		3
+	)}" patternUnits="userSpaceOnUse" patternTransform="translate(${ox.toFixed(2)}, ${oy.toFixed(
+		2
+	)})">
 					<rect width="${majorPx.toFixed(3)}" height="${majorPx.toFixed(3)}" fill="url(#${gridId}-minor)" />
-					<path d="M ${majorPx.toFixed(3)} 0 L 0 0 0 ${majorPx.toFixed(3)}" fill="none" stroke="#cbd5e1" stroke-width="1.1" />
+					<path d="M ${majorPx.toFixed(3)} 0 L 0 0 0 ${majorPx.toFixed(
+		3
+	)}" fill="none" stroke="#cbd5e1" stroke-width="1.1" />
 				</pattern>
 			</defs>
 
-			${state.showGrid ? `<rect x="0" y="0" width="${cw}" height="${ch}" fill="url(#${gridId}-major)" />` : ""}
+			${
+				state.showGrid
+					? `<rect x="0" y="0" width="${cw}" height="${ch}" fill="url(#${gridId}-major)" />`
+					: ""
+			}
 
 			<g transform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)}) scale(${s.toFixed(4)})">
-				<path d="${frappe.utils.escape_html(doc.section_svg || "")}" fill="#94a3b8" fill-opacity="0.85" stroke="#1e293b" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
+				<path d="${frappe.utils.escape_html(
+					doc.section_svg || ""
+				)}" fill="#94a3b8" fill-opacity="0.85" stroke="#1e293b" stroke-width="${pathStroke.toFixed(
+		3
+	)}" stroke-linejoin="round" fill-rule="evenodd" />
 			</g>
 
 			${
 				state.showDims
 					? `
 				<g stroke="#475569" stroke-width="1.15" stroke-linecap="square">
-					<line x1="${ox.toFixed(2)}" y1="${dimY.toFixed(2)}" x2="${(ox + dw).toFixed(2)}" y2="${dimY.toFixed(2)}" />
-					<line x1="${ox.toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${ox.toFixed(2)}" y2="${(dimY + tick).toFixed(2)}" />
-					<line x1="${(ox + dw).toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${(ox + dw).toFixed(2)}" y2="${(dimY + tick).toFixed(2)}" />
+					<line x1="${ox.toFixed(2)}" y1="${dimY.toFixed(2)}" x2="${(ox + dw).toFixed(
+							2
+					  )}" y2="${dimY.toFixed(2)}" />
+					<line x1="${ox.toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${ox.toFixed(2)}" y2="${(
+							dimY + tick
+					  ).toFixed(2)}" />
+					<line x1="${(ox + dw).toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${(ox + dw).toFixed(
+							2
+					  )}" y2="${(dimY + tick).toFixed(2)}" />
 
-					<line x1="${dimX.toFixed(2)}" y1="${oy.toFixed(2)}" x2="${dimX.toFixed(2)}" y2="${(oy + dh).toFixed(2)}" />
-					<line x1="${(dimX - tick).toFixed(2)}" y1="${oy.toFixed(2)}" x2="${(dimX + tick).toFixed(2)}" y2="${oy.toFixed(2)}" />
-					<line x1="${(dimX - tick).toFixed(2)}" y1="${(oy + dh).toFixed(2)}" x2="${(dimX + tick).toFixed(2)}" y2="${(oy + dh).toFixed(2)}" />
+					<line x1="${dimX.toFixed(2)}" y1="${oy.toFixed(2)}" x2="${dimX.toFixed(2)}" y2="${(
+							oy + dh
+					  ).toFixed(2)}" />
+					<line x1="${(dimX - tick).toFixed(2)}" y1="${oy.toFixed(2)}" x2="${(dimX + tick).toFixed(
+							2
+					  )}" y2="${oy.toFixed(2)}" />
+					<line x1="${(dimX - tick).toFixed(2)}" y1="${(oy + dh).toFixed(2)}" x2="${(dimX + tick).toFixed(
+							2
+					  )}" y2="${(oy + dh).toFixed(2)}" />
 				</g>
-				<text x="${(ox + dw / 2).toFixed(2)}" y="${(dimY + 18).toFixed(2)}" text-anchor="middle" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif">${Number(doc.width_mm).toFixed(1)}</text>
-				<text x="${vTextX.toFixed(2)}" y="${vTextY.toFixed(2)}" text-anchor="middle" dominant-baseline="central" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif" transform="rotate(-90 ${vTextX.toFixed(2)} ${vTextY.toFixed(2)})">${Number(doc.depth_mm).toFixed(1)}</text>
+				<text x="${(ox + dw / 2).toFixed(2)}" y="${(dimY + 18).toFixed(
+							2
+					  )}" text-anchor="middle" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif">${Number(
+							doc.width_mm
+					  ).toFixed(1)}</text>
+				<text x="${vTextX.toFixed(2)}" y="${vTextY.toFixed(
+							2
+					  )}" text-anchor="middle" dominant-baseline="central" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif" transform="rotate(-90 ${vTextX.toFixed(
+							2
+					  )} ${vTextY.toFixed(2)})">${Number(doc.depth_mm).toFixed(1)}</text>
 			`
 					: ""
 			}
@@ -194,8 +260,12 @@ function build_blueprint_svg(doc, state) {
 				state.showCentroid
 					? `
 				<g>
-					<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="3.4" fill="#2563eb" stroke="#ffffff" stroke-width="1.2" />
-					<text x="${(cx + 6.5).toFixed(2)}" y="${(cy - 2.5).toFixed(2)}" fill="#2563eb" stroke="#f8fafc" stroke-width="3" paint-order="stroke" font-size="11.5" font-weight="600" font-family="Inter, system-ui, sans-serif">centroid</text>
+					<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(
+							2
+					  )}" r="3.4" fill="#2563eb" stroke="#ffffff" stroke-width="1.2" />
+					<text x="${(cx + 6.5).toFixed(2)}" y="${(cy - 2.5).toFixed(
+							2
+					  )}" fill="#2563eb" stroke="#f8fafc" stroke-width="3" paint-order="stroke" font-size="11.5" font-weight="600" font-family="Inter, system-ui, sans-serif">centroid</text>
 				</g>
 			`
 					: ""
@@ -212,7 +282,10 @@ function count_svg_loops(svgPath) {
 
 function estimate_svg_centroid(svgPath, fallbackW, fallbackH) {
 	if (!svgPath) return { x: fallbackW / 2, y: fallbackH / 2 };
-	const subpaths = svgPath.split("Z").map((s) => s.trim()).filter(Boolean);
+	const subpaths = svgPath
+		.split("Z")
+		.map((s) => s.trim())
+		.filter(Boolean);
 	let totalArea = 0;
 	let cxSum = 0;
 	let cySum = 0;
@@ -243,7 +316,11 @@ function estimate_svg_centroid(svgPath, fallbackW, fallbackH) {
 		}
 		const absA = Math.abs(area2) / 2;
 		if (absA > maxAbsArea) maxAbsArea = absA;
-		return { absA, cx: area2 !== 0 ? sx / (3 * area2) : fallbackW / 2, cy: area2 !== 0 ? sy / (3 * area2) : fallbackH / 2 };
+		return {
+			absA,
+			cx: area2 !== 0 ? sx / (3 * area2) : fallbackW / 2,
+			cy: area2 !== 0 ? sy / (3 * area2) : fallbackH / 2,
+		};
 	});
 
 	for (const loop of parsedLoops) {

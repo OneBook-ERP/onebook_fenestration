@@ -223,7 +223,9 @@ function render_card_grid(listview) {
 		if (state.role !== "ALL" && p.role !== state.role) return false;
 		if (state.search.trim()) {
 			const q = state.search.trim().toLowerCase();
-			const hay = `${p.profile_code || ""} ${p.profile_name || ""} ${p.series || ""} ${p.role || ""}`.toLowerCase();
+			const hay = `${p.profile_code || ""} ${p.profile_name || ""} ${p.series || ""} ${
+				p.role || ""
+			}`.toLowerCase();
 			if (!hay.includes(q)) return false;
 		}
 		return true;
@@ -239,7 +241,15 @@ function render_card_grid(listview) {
 				s === "ALL"
 					? `All Profiles · ${seriesCounts.ALL}`
 					: `${s} · ${seriesCounts[s] || 0}`;
-			return `<button type="button" data-series="${frappe.utils.escape_html(s)}" style="border:none;border-bottom:2px solid ${active ? "#0f172a" : "transparent"};background:transparent;padding:8px 14px;font-size:13px;font-weight:${active ? "600" : "500"};color:${active ? "#0f172a" : "#64748b"};cursor:pointer;">${frappe.utils.escape_html(label)}</button>`;
+			return `<button type="button" data-series="${frappe.utils.escape_html(
+				s
+			)}" style="border:none;border-bottom:2px solid ${
+				active ? "#0f172a" : "transparent"
+			};background:transparent;padding:8px 14px;font-size:13px;font-weight:${
+				active ? "600" : "500"
+			};color:${active ? "#0f172a" : "#64748b"};cursor:pointer;">${frappe.utils.escape_html(
+				label
+			)}</button>`;
 		})
 		.join("");
 
@@ -247,7 +257,11 @@ function render_card_grid(listview) {
 		.map((r) => {
 			const active = state.role === r;
 			const label = r === "ALL" ? "All roles" : r.charAt(0).toUpperCase() + r.slice(1);
-			return `<button type="button" data-role="${r}" style="border:1px solid ${active ? "#0f172a" : "#cbd5e1"};background:${active ? "#0f172a" : "#ffffff"};color:${active ? "#ffffff" : "#334155"};border-radius:8px;padding:6px 13px;font-size:12px;font-weight:600;cursor:pointer;">${label}</button>`;
+			return `<button type="button" data-role="${r}" style="border:1px solid ${
+				active ? "#0f172a" : "#cbd5e1"
+			};background:${active ? "#0f172a" : "#ffffff"};color:${
+				active ? "#ffffff" : "#334155"
+			};border-radius:8px;padding:6px 13px;font-size:12px;font-weight:600;cursor:pointer;">${label}</button>`;
 		})
 		.join("");
 
@@ -263,7 +277,9 @@ function render_card_grid(listview) {
 				${rolePillsHtml}
 			</div>
 			<div style="display:flex;align-items:center;gap:10px;">
-				<input type="search" class="fen-card-search" placeholder="Search profiles..." value="${frappe.utils.escape_html(state.search)}" style="border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;font-size:13px;width:230px;color:#0f172a;background:#ffffff;" />
+				<input type="search" class="fen-card-search" placeholder="Search profiles..." value="${frappe.utils.escape_html(
+					state.search
+				)}" style="border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;font-size:13px;width:230px;color:#0f172a;background:#ffffff;" />
 			</div>
 		</div>
 
@@ -316,8 +332,7 @@ function build_profile_card_html(p) {
 			: p.series === "CS4800"
 			? "CS4800 Premium"
 			: p.series || "—";
-	const weight =
-		p.use_computed_weight && p.computed_kg_per_m ? p.computed_kg_per_m : p.kg_per_m;
+	const weight = p.use_computed_weight && p.computed_kg_per_m ? p.computed_kg_per_m : p.kg_per_m;
 	const hasSvg = Boolean(p.section_svg && p.width_mm && p.depth_mm);
 
 	const thumbSvg = hasSvg
@@ -326,25 +341,37 @@ function build_profile_card_html(p) {
 
 	return `
 		<article style="border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 2px rgba(15,23,42,0.03);">
-			<div data-view-details="${frappe.utils.escape_html(p.name)}" style="height:190px;background:#f6f6f4;display:flex;align-items:center;justify-content:center;padding:14px;cursor:pointer;border-bottom:1px solid #f1f5f9;">
+			<div data-view-details="${frappe.utils.escape_html(
+				p.name
+			)}" style="height:190px;background:#f6f6f4;display:flex;align-items:center;justify-content:center;padding:14px;cursor:pointer;border-bottom:1px solid #f1f5f9;">
 				${thumbSvg}
 			</div>
 			<div style="padding:14px 16px 16px;display:flex;flex-direction:column;flex:1;">
 				<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:3px;">
-					<div style="font-size:14px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${frappe.utils.escape_html(codeDisp + " · " + p.profile_name)}">
+					<div style="font-size:14px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${frappe.utils.escape_html(
+						codeDisp + " · " + p.profile_name
+					)}">
 						${frappe.utils.escape_html(codeDisp)} · ${frappe.utils.escape_html(p.profile_name)}
 					</div>
-					<span style="font-size:12px;color:#64748b;flex-shrink:0;text-transform:capitalize;">${frappe.utils.escape_html(p.role || "—")}</span>
+					<span style="font-size:12px;color:#64748b;flex-shrink:0;text-transform:capitalize;">${frappe.utils.escape_html(
+						p.role || "—"
+					)}</span>
 				</div>
 				<div style="font-size:12.5px;color:#64748b;margin-bottom:6px;">
-					${frappe.utils.escape_html(seriesLabel)} · Bar ${frappe.utils.escape_html(p.bar_lengths || "4880, 5800")} mm
+					${frappe.utils.escape_html(seriesLabel)} · Bar ${frappe.utils.escape_html(
+		p.bar_lengths || "4880, 5800"
+	)} mm
 				</div>
 				<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
 					<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#475569;">
 						<span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#94a3b8;border:1px solid #64748b;"></span>
-						<span>Al 6063-T6 · ${Number(p.width_mm || 0).toFixed(1)} × ${Number(p.depth_mm || 0).toFixed(1)} mm</span>
+						<span>Al 6063-T6 · ${Number(p.width_mm || 0).toFixed(1)} × ${Number(p.depth_mm || 0).toFixed(
+		1
+	)} mm</span>
 					</div>
-					<span style="padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;background:${hasSvg ? "#dcfce7" : "#f1f5f9"};color:${hasSvg ? "#15803d" : "#64748b"};">
+					<span style="padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;background:${
+						hasSvg ? "#dcfce7" : "#f1f5f9"
+					};color:${hasSvg ? "#15803d" : "#64748b"};">
 						${hasSvg ? "OK" : "No DXF"}
 					</span>
 				</div>
@@ -357,10 +384,14 @@ function build_profile_card_html(p) {
 					</span>
 				</div>
 				<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-					<button type="button" data-open-profile="${frappe.utils.escape_html(p.name)}" style="border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;border-radius:8px;padding:7px 10px;font-size:12.5px;font-weight:600;cursor:pointer;">
+					<button type="button" data-open-profile="${frappe.utils.escape_html(
+						p.name
+					)}" style="border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;border-radius:8px;padding:7px 10px;font-size:12.5px;font-weight:600;cursor:pointer;">
 						Edit profile
 					</button>
-					<button type="button" data-view-details="${frappe.utils.escape_html(p.name)}" style="border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;border-radius:8px;padding:7px 10px;font-size:12.5px;font-weight:600;cursor:pointer;">
+					<button type="button" data-view-details="${frappe.utils.escape_html(
+						p.name
+					)}" style="border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;border-radius:8px;padding:7px 10px;font-size:12.5px;font-weight:600;cursor:pointer;">
 						Details
 					</button>
 				</div>
@@ -400,27 +431,50 @@ function build_card_thumbnail_svg(p) {
 	return `
 		<svg viewBox="0 0 ${cw} ${ch}" style="max-width:100%;max-height:166px;width:100%;height:100%;display:block;" xmlns="http://www.w3.org/2000/svg">
 			<g transform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)}) scale(${s.toFixed(4)})">
-				<path d="${frappe.utils.escape_html(p.section_svg || "")}" fill="#94a3b8" fill-opacity="0.85" stroke="#334155" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
+				<path d="${frappe.utils.escape_html(
+					p.section_svg || ""
+				)}" fill="#94a3b8" fill-opacity="0.85" stroke="#334155" stroke-width="${pathStroke.toFixed(
+		3
+	)}" stroke-linejoin="round" fill-rule="evenodd" />
 			</g>
 			<g stroke="#64748b" stroke-width="1" stroke-linecap="square">
-				<line x1="${ox.toFixed(2)}" y1="${dimY.toFixed(2)}" x2="${(ox + dw).toFixed(2)}" y2="${dimY.toFixed(2)}" />
-				<line x1="${ox.toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${ox.toFixed(2)}" y2="${(dimY + tick).toFixed(2)}" />
-				<line x1="${(ox + dw).toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${(ox + dw).toFixed(2)}" y2="${(dimY + tick).toFixed(2)}" />
+				<line x1="${ox.toFixed(2)}" y1="${dimY.toFixed(2)}" x2="${(ox + dw).toFixed(
+		2
+	)}" y2="${dimY.toFixed(2)}" />
+				<line x1="${ox.toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${ox.toFixed(2)}" y2="${(
+		dimY + tick
+	).toFixed(2)}" />
+				<line x1="${(ox + dw).toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${(ox + dw).toFixed(
+		2
+	)}" y2="${(dimY + tick).toFixed(2)}" />
 
-				<line x1="${dimX.toFixed(2)}" y1="${oy.toFixed(2)}" x2="${dimX.toFixed(2)}" y2="${(oy + dh).toFixed(2)}" />
-				<line x1="${(dimX - tick).toFixed(2)}" y1="${oy.toFixed(2)}" x2="${(dimX + tick).toFixed(2)}" y2="${oy.toFixed(2)}" />
-				<line x1="${(dimX - tick).toFixed(2)}" y1="${(oy + dh).toFixed(2)}" x2="${(dimX + tick).toFixed(2)}" y2="${(oy + dh).toFixed(2)}" />
+				<line x1="${dimX.toFixed(2)}" y1="${oy.toFixed(2)}" x2="${dimX.toFixed(2)}" y2="${(
+		oy + dh
+	).toFixed(2)}" />
+				<line x1="${(dimX - tick).toFixed(2)}" y1="${oy.toFixed(2)}" x2="${(dimX + tick).toFixed(
+		2
+	)}" y2="${oy.toFixed(2)}" />
+				<line x1="${(dimX - tick).toFixed(2)}" y1="${(oy + dh).toFixed(2)}" x2="${(dimX + tick).toFixed(
+		2
+	)}" y2="${(oy + dh).toFixed(2)}" />
 			</g>
-			<text x="${(ox + dw / 2).toFixed(2)}" y="${(dimY + 15).toFixed(2)}" text-anchor="middle" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif">${Number(p.width_mm).toFixed(1)}</text>
-			<text x="${vTextX.toFixed(2)}" y="${vTextY.toFixed(2)}" text-anchor="middle" dominant-baseline="central" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif" transform="rotate(-90 ${vTextX.toFixed(2)} ${vTextY.toFixed(2)})">${Number(p.depth_mm).toFixed(1)}</text>
+			<text x="${(ox + dw / 2).toFixed(2)}" y="${(dimY + 15).toFixed(
+		2
+	)}" text-anchor="middle" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif">${Number(
+		p.width_mm
+	).toFixed(1)}</text>
+			<text x="${vTextX.toFixed(2)}" y="${vTextY.toFixed(
+		2
+	)}" text-anchor="middle" dominant-baseline="central" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif" transform="rotate(-90 ${vTextX.toFixed(
+		2
+	)} ${vTextY.toFixed(2)})">${Number(p.depth_mm).toFixed(1)}</text>
 		</svg>
 	`;
 }
 
 function open_profile_details_modal(p) {
 	const dxfName = clean_dxf_filename(p.dxf_file);
-	const weight =
-		p.use_computed_weight && p.computed_kg_per_m ? p.computed_kg_per_m : p.kg_per_m;
+	const weight = p.use_computed_weight && p.computed_kg_per_m ? p.computed_kg_per_m : p.kg_per_m;
 	const w = Math.max(Number(p.width_mm) || 10, 1);
 	const h = Math.max(Number(p.depth_mm) || 10, 1);
 	const span = Math.max(w, h);
@@ -454,7 +508,9 @@ function open_profile_details_modal(p) {
 	const majorPx = minorPx * 5;
 
 	const d = new frappe.ui.Dialog({
-		title: `${frappe.utils.escape_html((p.profile_code || p.name).replace("-CS400", ""))} · ${frappe.utils.escape_html(p.profile_name || "")}`,
+		title: `${frappe.utils.escape_html(
+			(p.profile_code || p.name).replace("-CS400", "")
+		)} · ${frappe.utils.escape_html(p.profile_name || "")}`,
 		size: "large",
 		primary_action_label: __("Open Profile Form"),
 		primary_action() {
@@ -467,43 +523,95 @@ function open_profile_details_modal(p) {
 		<div style="padding:6px 4px;">
 			<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
 				<div style="font-size:13px;color:#64748b;">
-					Series: <strong style="color:#0f172a;">${frappe.utils.escape_html(p.series)}</strong> · Role: <strong style="color:#0f172a;text-transform:capitalize;">${frappe.utils.escape_html(p.role)}</strong> · DXF: <code>${frappe.utils.escape_html(dxfName)}</code>
+					Series: <strong style="color:#0f172a;">${frappe.utils.escape_html(
+						p.series
+					)}</strong> · Role: <strong style="color:#0f172a;text-transform:capitalize;">${frappe.utils.escape_html(
+		p.role
+	)}</strong> · DXF: <code>${frappe.utils.escape_html(dxfName)}</code>
 				</div>
 				<span style="padding:3px 10px;border-radius:999px;background:#dcfce7;color:#15803d;font-size:12px;font-weight:600;">Parsed</span>
 			</div>
 			<div style="border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;overflow:hidden;margin-bottom:16px;">
 				<svg viewBox="0 0 ${cw} ${ch}" style="width:100%;height:310px;display:block;" xmlns="http://www.w3.org/2000/svg">
 					<defs>
-						<pattern id="modal-grid-min" width="${minorPx.toFixed(3)}" height="${minorPx.toFixed(3)}" patternUnits="userSpaceOnUse" patternTransform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)})">
-							<path d="M ${minorPx.toFixed(3)} 0 L 0 0 0 ${minorPx.toFixed(3)}" fill="none" stroke="#e2e8f0" stroke-width="0.7" />
+						<pattern id="modal-grid-min" width="${minorPx.toFixed(3)}" height="${minorPx.toFixed(
+		3
+	)}" patternUnits="userSpaceOnUse" patternTransform="translate(${ox.toFixed(2)}, ${oy.toFixed(
+		2
+	)})">
+							<path d="M ${minorPx.toFixed(3)} 0 L 0 0 0 ${minorPx.toFixed(
+		3
+	)}" fill="none" stroke="#e2e8f0" stroke-width="0.7" />
 						</pattern>
-						<pattern id="modal-grid-maj" width="${majorPx.toFixed(3)}" height="${majorPx.toFixed(3)}" patternUnits="userSpaceOnUse" patternTransform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)})">
+						<pattern id="modal-grid-maj" width="${majorPx.toFixed(3)}" height="${majorPx.toFixed(
+		3
+	)}" patternUnits="userSpaceOnUse" patternTransform="translate(${ox.toFixed(2)}, ${oy.toFixed(
+		2
+	)})">
 							<rect width="${majorPx.toFixed(3)}" height="${majorPx.toFixed(3)}" fill="url(#modal-grid-min)" />
-							<path d="M ${majorPx.toFixed(3)} 0 L 0 0 0 ${majorPx.toFixed(3)}" fill="none" stroke="#cbd5e1" stroke-width="1.1" />
+							<path d="M ${majorPx.toFixed(3)} 0 L 0 0 0 ${majorPx.toFixed(
+		3
+	)}" fill="none" stroke="#cbd5e1" stroke-width="1.1" />
 						</pattern>
 					</defs>
 					<rect x="0" y="0" width="${cw}" height="${ch}" fill="url(#modal-grid-maj)" />
 					<g transform="translate(${ox.toFixed(2)}, ${oy.toFixed(2)}) scale(${s.toFixed(4)})">
-						<path d="${frappe.utils.escape_html(p.section_svg || "")}" fill="#94a3b8" fill-opacity="0.86" stroke="#1e293b" stroke-width="${pathStroke.toFixed(3)}" stroke-linejoin="round" fill-rule="evenodd" />
+						<path d="${frappe.utils.escape_html(
+							p.section_svg || ""
+						)}" fill="#94a3b8" fill-opacity="0.86" stroke="#1e293b" stroke-width="${pathStroke.toFixed(
+		3
+	)}" stroke-linejoin="round" fill-rule="evenodd" />
 					</g>
 					<g stroke="#475569" stroke-width="1.15" stroke-linecap="square">
-						<line x1="${ox.toFixed(2)}" y1="${dimY.toFixed(2)}" x2="${(ox + dw).toFixed(2)}" y2="${dimY.toFixed(2)}" />
-						<line x1="${ox.toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${ox.toFixed(2)}" y2="${(dimY + tick).toFixed(2)}" />
-						<line x1="${(ox + dw).toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${(ox + dw).toFixed(2)}" y2="${(dimY + tick).toFixed(2)}" />
-						<line x1="${dimX.toFixed(2)}" y1="${oy.toFixed(2)}" x2="${dimX.toFixed(2)}" y2="${(oy + dh).toFixed(2)}" />
-						<line x1="${(dimX - tick).toFixed(2)}" y1="${oy.toFixed(2)}" x2="${(dimX + tick).toFixed(2)}" y2="${oy.toFixed(2)}" />
-						<line x1="${(dimX - tick).toFixed(2)}" y1="${(oy + dh).toFixed(2)}" x2="${(dimX + tick).toFixed(2)}" y2="${(oy + dh).toFixed(2)}" />
+						<line x1="${ox.toFixed(2)}" y1="${dimY.toFixed(2)}" x2="${(ox + dw).toFixed(
+		2
+	)}" y2="${dimY.toFixed(2)}" />
+						<line x1="${ox.toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${ox.toFixed(2)}" y2="${(
+		dimY + tick
+	).toFixed(2)}" />
+						<line x1="${(ox + dw).toFixed(2)}" y1="${(dimY - tick).toFixed(2)}" x2="${(ox + dw).toFixed(
+		2
+	)}" y2="${(dimY + tick).toFixed(2)}" />
+						<line x1="${dimX.toFixed(2)}" y1="${oy.toFixed(2)}" x2="${dimX.toFixed(2)}" y2="${(
+		oy + dh
+	).toFixed(2)}" />
+						<line x1="${(dimX - tick).toFixed(2)}" y1="${oy.toFixed(2)}" x2="${(dimX + tick).toFixed(
+		2
+	)}" y2="${oy.toFixed(2)}" />
+						<line x1="${(dimX - tick).toFixed(2)}" y1="${(oy + dh).toFixed(2)}" x2="${(dimX + tick).toFixed(
+		2
+	)}" y2="${(oy + dh).toFixed(2)}" />
 					</g>
-					<text x="${(ox + dw / 2).toFixed(2)}" y="${(dimY + 18).toFixed(2)}" text-anchor="middle" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif">${Number(p.width_mm).toFixed(1)}</text>
-					<text x="${vTextX.toFixed(2)}" y="${vTextY.toFixed(2)}" text-anchor="middle" dominant-baseline="central" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif" transform="rotate(-90 ${vTextX.toFixed(2)} ${vTextY.toFixed(2)})">${Number(p.depth_mm).toFixed(1)}</text>
+					<text x="${(ox + dw / 2).toFixed(2)}" y="${(dimY + 18).toFixed(
+		2
+	)}" text-anchor="middle" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif">${Number(
+		p.width_mm
+	).toFixed(1)}</text>
+					<text x="${vTextX.toFixed(2)}" y="${vTextY.toFixed(
+		2
+	)}" text-anchor="middle" dominant-baseline="central" fill="#0f172a" font-size="${fontSize}" font-weight="600" font-family="Inter, system-ui, sans-serif" transform="rotate(-90 ${vTextX.toFixed(
+		2
+	)} ${vTextY.toFixed(2)})">${Number(p.depth_mm).toFixed(1)}</text>
 				</svg>
 			</div>
 			<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px 36px;">
-				<div><div style="font-size:12px;color:#64748b;">Section area</div><div style="font-size:17px;font-weight:700;color:#0f172a;">${Number(p.area_mm2 || 0).toFixed(1)} mm²</div></div>
-				<div><div style="font-size:12px;color:#64748b;">Weight</div><div style="font-size:17px;font-weight:700;color:#0f172a;">${Number(weight || 0).toFixed(3)} kg/m</div></div>
-				<div><div style="font-size:12px;color:#64748b;">Width × depth</div><div style="font-size:17px;font-weight:700;color:#0f172a;">${Number(p.width_mm || 0).toFixed(1)} × ${Number(p.depth_mm || 0).toFixed(1)} mm</div></div>
-				<div><div style="font-size:12px;color:#64748b;">Perimeter</div><div style="font-size:17px;font-weight:700;color:#0f172a;">${Number(p.perimeter_mm || 0).toFixed(1)} mm</div></div>
-				<div><div style="font-size:12px;color:#64748b;">Ix / Iy</div><div style="font-size:16px;font-weight:700;color:#0f172a;">${Math.round(p.ix_mm4 || 0).toLocaleString("en-IN")} / ${Math.round(p.iy_mm4 || 0).toLocaleString("en-IN")} mm⁴</div></div>
+				<div><div style="font-size:12px;color:#64748b;">Section area</div><div style="font-size:17px;font-weight:700;color:#0f172a;">${Number(
+					p.area_mm2 || 0
+				).toFixed(1)} mm²</div></div>
+				<div><div style="font-size:12px;color:#64748b;">Weight</div><div style="font-size:17px;font-weight:700;color:#0f172a;">${Number(
+					weight || 0
+				).toFixed(3)} kg/m</div></div>
+				<div><div style="font-size:12px;color:#64748b;">Width × depth</div><div style="font-size:17px;font-weight:700;color:#0f172a;">${Number(
+					p.width_mm || 0
+				).toFixed(1)} × ${Number(p.depth_mm || 0).toFixed(1)} mm</div></div>
+				<div><div style="font-size:12px;color:#64748b;">Perimeter</div><div style="font-size:17px;font-weight:700;color:#0f172a;">${Number(
+					p.perimeter_mm || 0
+				).toFixed(1)} mm</div></div>
+				<div><div style="font-size:12px;color:#64748b;">Ix / Iy</div><div style="font-size:16px;font-weight:700;color:#0f172a;">${Math.round(
+					p.ix_mm4 || 0
+				).toLocaleString("en-IN")} / ${Math.round(p.iy_mm4 || 0).toLocaleString(
+		"en-IN"
+	)} mm⁴</div></div>
 				<div><div style="font-size:12px;color:#64748b;">Material</div><div style="font-size:16px;font-weight:700;color:#0f172a;">Al 6063-T6</div></div>
 			</div>
 		</div>

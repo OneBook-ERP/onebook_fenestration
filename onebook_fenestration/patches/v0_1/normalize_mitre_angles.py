@@ -10,7 +10,7 @@ from onebook_fenestration.series_studio.snapshot import clear_snapshot
 def _norm_angle(val):
 	try:
 		return 45 if int(val) == 135 else val
-	except (TypeError, ValueError):
+	except TypeError, ValueError:
 		return val
 
 
@@ -25,7 +25,7 @@ def execute():
 	):
 		try:
 			data = json.loads(row.snapshot_json)
-		except (TypeError, ValueError):
+		except TypeError, ValueError:
 			continue
 		changed = False
 		for rule in data.get("member_rules") or []:
@@ -34,7 +34,9 @@ def execute():
 				rule["angles"] = [_norm_angle(a) for a in angles]
 				changed = True
 		if changed:
-			frappe.db.set_value("Series Version", row.name, "snapshot_json", json.dumps(data), update_modified=False)
+			frappe.db.set_value(
+				"Series Version", row.name, "snapshot_json", json.dumps(data), update_modified=False
+			)
 			clear_snapshot(row.name)
 
 	for row in frappe.get_all(
@@ -44,7 +46,7 @@ def execute():
 	):
 		try:
 			data = json.loads(row.result_json)
-		except (TypeError, ValueError):
+		except TypeError, ValueError:
 			continue
 		changed = False
 		for member in data.get("members") or []:
@@ -53,5 +55,6 @@ def execute():
 				member["angles"] = [_norm_angle(a) for a in angles]
 				changed = True
 		if changed:
-			frappe.db.set_value("Window Design", row.name, "result_json", json.dumps(data), update_modified=False)
-
+			frappe.db.set_value(
+				"Window Design", row.name, "result_json", json.dumps(data), update_modified=False
+			)

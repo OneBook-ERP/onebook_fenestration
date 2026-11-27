@@ -158,7 +158,9 @@ class TestPrintFormats(IntegrationTestCase):
 	def test_quotation_skips_lines_of_deleted_designs(self):
 		line = next(row for row in self.quotation.items if row.fen_window_design)
 		frappe.db.set_value("Quotation Item", line.name, "fen_window_design", "NO-SUCH-DESIGN")
-		self.addCleanup(frappe.db.set_value, "Quotation Item", line.name, "fen_window_design", line.fen_window_design)
+		self.addCleanup(
+			frappe.db.set_value, "Quotation Item", line.name, "fen_window_design", line.fen_window_design
+		)
 		html = self.printed("Quotation", self.quotation.name, QUOTATION_FORMAT)
 		self.assertIn("Grand Total", html)
 
@@ -215,7 +217,9 @@ class TestAssemblyPrints(IntegrationTestCase):
 		self.assertEqual(first["refs"], "W01, W02")
 		self.assertEqual(first["qty"], 5)
 		rows = {r["ref"]: r for r in print_context.design_rows(self.project)}
-		self.assertAlmostEqual(first["area_sqft"], rows["W01"]["area_sqft"] * 2 + rows["W02"]["area_sqft"] * 3, 2)
+		self.assertAlmostEqual(
+			first["area_sqft"], rows["W01"]["area_sqft"] * 2 + rows["W02"]["area_sqft"] * 3, 2
+		)
 		self.assertEqual((second["width"], second["height"], second["refs"]), (600, 600, "W03"))
 		self.assertTrue(first["typology"])
 
@@ -230,7 +234,9 @@ class TestAssemblyPrints(IntegrationTestCase):
 		self.assertLess(frame.index("B"), frame.index("T"))
 		keys = [(p["panel"], POSITION_ORDER.index(p["position"])) for p in pieces]
 		self.assertEqual(keys, sorted(keys))
-		self.assertTrue(all("/" in p["angles"] and p["profile_name"] and p["qty_per_window"] >= 1 for p in pieces))
+		self.assertTrue(
+			all("/" in p["angles"] and p["profile_name"] and p["qty_per_window"] >= 1 for p in pieces)
+		)
 
 	def test_assembly_prints_skip_superseded(self):
 		w02 = frappe.db.get_value("Window Design", {"project": self.project.name, "design_ref": "W02"})
@@ -260,7 +266,9 @@ class TestAssemblyPrints(IntegrationTestCase):
 		win_ctx = cutting_sheet.window_cutting_sheet(w01)
 		self.assertEqual(win_ctx["project_code"], self.project.name)
 		self.assertTrue(win_ctx["groups"])
-		self.assertTrue(win_ctx["groups"][0]["patterns"][0]["diagram_uri"].startswith("data:image/svg+xml;base64,"))
+		self.assertTrue(
+			win_ctx["groups"][0]["patterns"][0]["diagram_uri"].startswith("data:image/svg+xml;base64,")
+		)
 		win_html = frappe.get_print("Window Design", w01.name, print_format="Window Cutting Sheet")
 		self.assertIn("Cutting Sheet", win_html)
 		self.assertIn("W01", win_html)
@@ -268,8 +276,9 @@ class TestAssemblyPrints(IntegrationTestCase):
 
 		proj_ctx = cutting_sheet.project_cutting_sheet(self.project)
 		self.assertTrue(proj_ctx["summary"])
-		proj_html = frappe.get_print("Fenestration Project", self.project.name, print_format="Fenestration Cutting Sheet")
+		proj_html = frappe.get_print(
+			"Fenestration Project", self.project.name, print_format="Fenestration Cutting Sheet"
+		)
 		self.assertIn("Residual lengths", proj_html)
 		self.assertIn(test_quotation.COMPANY, proj_html)
 		self.assertTrue(get_pdf(proj_html).startswith(b"%PDF"))
-

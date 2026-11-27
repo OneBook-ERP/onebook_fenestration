@@ -1,7 +1,11 @@
 <template>
 	<div>
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by system type">
+			<div
+				class="flex flex-wrap items-center gap-2"
+				role="group"
+				aria-label="Filter by system type"
+			>
 				<button
 					v-for="st in systemTypes"
 					:key="st"
@@ -15,7 +19,7 @@
 					"
 					@click="selectedType = st"
 				>
-					{{ st === 'ALL' ? `All systems · ${seriesList.length}` : st }}
+					{{ st === "ALL" ? `All systems · ${seriesList.length}` : st }}
 				</button>
 			</div>
 
@@ -69,7 +73,10 @@
 						{{ row.series_title }}
 					</router-link>
 					<div>
-						<Badge :theme="systemTheme(row.system_type)" :label="row.system_type || 'Casement'" />
+						<Badge
+							:theme="systemTheme(row.system_type)"
+							:label="row.system_type || 'Casement'"
+						/>
 					</div>
 					<div>
 						<Badge
@@ -107,10 +114,7 @@
 					</div>
 				</li>
 
-				<li
-					v-if="!filtered.length"
-					class="px-4 py-8 text-center text-sm text-ink-gray-5"
-				>
+				<li v-if="!filtered.length" class="px-4 py-8 text-center text-sm text-ink-gray-5">
 					No profile series found.
 				</li>
 			</ul>
@@ -119,53 +123,55 @@
 </template>
 
 <script setup lang="ts">
-import { Badge, Button, FormControl } from 'frappe-ui'
-import { computed, ref } from 'vue'
-import type { FenestrationProfileRow, ProfileSeriesRow } from '@/studio/api'
+import { Badge, Button, FormControl } from "frappe-ui";
+import { computed, ref } from "vue";
+import type { FenestrationProfileRow, ProfileSeriesRow } from "@/studio/api";
 
 const props = defineProps<{
-	seriesList: ProfileSeriesRow[]
-	profiles: FenestrationProfileRow[]
-}>()
+	seriesList: ProfileSeriesRow[];
+	profiles: FenestrationProfileRow[];
+}>();
 
 defineEmits<{
-	(e: 'reload'): void
-	(e: 'select-series-profiles', seriesCode: string): void
-	(e: 'select-series-versions', seriesCode: string): void
-}>()
+	(e: "reload"): void;
+	(e: "select-series-profiles", seriesCode: string): void;
+	(e: "select-series-versions", seriesCode: string): void;
+}>();
 
-const systemTypes = ['ALL', 'Casement', 'Sliding', 'Door'] as const
-const selectedType = ref<string>('ALL')
-const search = ref('')
+const systemTypes = ["ALL", "Casement", "Sliding", "Door"] as const;
+const selectedType = ref<string>("ALL");
+const search = ref("");
 
 const filtered = computed(() => {
-	const q = search.value.trim().toLowerCase()
+	const q = search.value.trim().toLowerCase();
 	return props.seriesList.filter((row) => {
-		if (selectedType.value !== 'ALL' && row.system_type !== selectedType.value) return false
+		if (selectedType.value !== "ALL" && row.system_type !== selectedType.value) return false;
 		if (q) {
-			const hay = `${row.series_code || ''} ${row.series_title || ''} ${row.system_type || ''} ${row.published_version || ''}`.toLowerCase()
-			if (!hay.includes(q)) return false
+			const hay = `${row.series_code || ""} ${row.series_title || ""} ${
+				row.system_type || ""
+			} ${row.published_version || ""}`.toLowerCase();
+			if (!hay.includes(q)) return false;
 		}
-		return true
-	})
-})
+		return true;
+	});
+});
 
 const countsBySeries = computed(() => {
-	const map = new Map<string, number>()
+	const map = new Map<string, number>();
 	for (const p of props.profiles) {
-		if (!p.series) continue
-		map.set(p.series, (map.get(p.series) || 0) + 1)
+		if (!p.series) continue;
+		map.set(p.series, (map.get(p.series) || 0) + 1);
 	}
-	return map
-})
+	return map;
+});
 
 function profileCount(seriesCode: string): number {
-	return countsBySeries.value.get(seriesCode) || 0
+	return countsBySeries.value.get(seriesCode) || 0;
 }
 
-function systemTheme(systemType?: string): 'blue' | 'amber' | 'gray' {
-	if (systemType === 'Casement') return 'blue'
-	if (systemType === 'Sliding') return 'amber'
-	return 'gray'
+function systemTheme(systemType?: string): "blue" | "amber" | "gray" {
+	if (systemType === "Casement") return "blue";
+	if (systemType === "Sliding") return "amber";
+	return "gray";
 }
 </script>

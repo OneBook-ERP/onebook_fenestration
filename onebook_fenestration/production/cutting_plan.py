@@ -58,7 +58,11 @@ def collect_pieces(order_names: list[str]) -> dict[tuple[str, str], list[Piece]]
 	"""
 	lines = frappe.get_all(
 		"Sales Order Item",
-		filters={"parenttype": "Sales Order", "parent": ("in", order_names), "fen_window_design": ("is", "set")},
+		filters={
+			"parenttype": "Sales Order",
+			"parent": ("in", order_names),
+			"fen_window_design": ("is", "set"),
+		},
 		fields=["fen_window_design", "qty"],
 		order_by="parent, idx",
 	)
@@ -126,7 +130,9 @@ def parse_bar_lengths(text: str | None, profile: str = "") -> list[float]:
 		try:
 			lengths.append(float(part))
 		except ValueError:
-			frappe.throw(_("Fenestration Profile {0} has an invalid bar length: {1}").format(profile, part.strip()))
+			frappe.throw(
+				_("Fenestration Profile {0} has an invalid bar length: {1}").format(profile, part.strip())
+			)
 	return lengths
 
 

@@ -98,14 +98,19 @@ def make_sales_order_from_project(project: str) -> dict:
 
 	docstatus = frappe.db.get_value("Quotation", quotation_name, "docstatus")
 	if docstatus is None:
-		return {"ok": False, "message": _("Quotation {0} no longer exists. Create a new Quotation first.").format(quotation_name)}
+		return {
+			"ok": False,
+			"message": _("Quotation {0} no longer exists. Create a new Quotation first.").format(
+				quotation_name
+			),
+		}
 	frappe.has_permission("Quotation", "read", quotation_name, throw=True)
 	if docstatus == 0:
 		return {
 			"ok": False,
-			"message": _("Quotation {0} is still a Draft. Submit it in Desk before creating a Sales Order.").format(
-				quotation_name
-			),
+			"message": _(
+				"Quotation {0} is still a Draft. Submit it in Desk before creating a Sales Order."
+			).format(quotation_name),
 		}
 	if docstatus == 2:
 		return {"ok": False, "message": _("Quotation {0} is cancelled.").format(quotation_name)}
@@ -156,7 +161,10 @@ def _permitted_projects(project: str | None = None) -> list[dict]:
 
 def _quotes_pipeline(project_map: dict[str, dict]) -> dict:
 	if not frappe.has_permission("Quotation", "read"):
-		return {"stats": {"total": 0, "draft": 0, "submitted": 0, "ordered": 0, "total_value": 0.0}, "items": []}
+		return {
+			"stats": {"total": 0, "draft": 0, "submitted": 0, "ordered": 0, "total_value": 0.0},
+			"items": [],
+		}
 	names = list(project_map.keys())
 	design_stats = _aggregate_design_stats(names)
 	rows = frappe.get_list(
@@ -262,7 +270,18 @@ def _production_pipeline(project_map: dict[str, dict]) -> dict:
 		wos = frappe.get_list(
 			"Work Order",
 			filters={"sales_order": ["in", so_names], "docstatus": ["!=", 2]},
-			fields=["name", "production_item", "item_name", "sales_order", "qty", "produced_qty", "status", "docstatus", "planned_start_date", "modified"],
+			fields=[
+				"name",
+				"production_item",
+				"item_name",
+				"sales_order",
+				"qty",
+				"produced_qty",
+				"status",
+				"docstatus",
+				"planned_start_date",
+				"modified",
+			],
 			order_by="modified desc",
 			limit_page_length=200,
 		)
@@ -294,7 +313,17 @@ def _production_pipeline(project_map: dict[str, dict]) -> dict:
 		frappe.get_list(
 			"Material Request",
 			filters={"fen_project": ["in", names], "docstatus": ["!=", 2]},
-			fields=["name", "fen_project", "material_request_type", "set_warehouse", "status", "docstatus", "per_ordered", "transaction_date", "modified"],
+			fields=[
+				"name",
+				"fen_project",
+				"material_request_type",
+				"set_warehouse",
+				"status",
+				"docstatus",
+				"per_ordered",
+				"transaction_date",
+				"modified",
+			],
 			order_by="modified desc",
 			limit_page_length=200,
 		)
@@ -324,7 +353,18 @@ def _production_pipeline(project_map: dict[str, dict]) -> dict:
 		frappe.get_list(
 			"Purchase Order",
 			filters={"fen_project": ["in", names], "docstatus": ["!=", 2]},
-			fields=["name", "fen_project", "supplier_name", "supplier", "status", "docstatus", "per_received", "grand_total", "transaction_date", "modified"],
+			fields=[
+				"name",
+				"fen_project",
+				"supplier_name",
+				"supplier",
+				"status",
+				"docstatus",
+				"per_received",
+				"grand_total",
+				"transaction_date",
+				"modified",
+			],
 			order_by="modified desc",
 			limit_page_length=200,
 		)
@@ -387,7 +427,17 @@ def _install_pipeline(project_map: dict[str, dict]) -> dict:
 			dns = frappe.get_list(
 				"Delivery Note",
 				filters={"name": ["in", list(dn_to_proj.keys())], "docstatus": ["!=", 2]},
-				fields=["name", "customer_name", "customer", "posting_date", "status", "docstatus", "total_qty", "per_installed", "modified"],
+				fields=[
+					"name",
+					"customer_name",
+					"customer",
+					"posting_date",
+					"status",
+					"docstatus",
+					"total_qty",
+					"per_installed",
+					"modified",
+				],
 				order_by="modified desc",
 				limit_page_length=200,
 			)
@@ -413,9 +463,7 @@ def _install_pipeline(project_map: dict[str, dict]) -> dict:
 					}
 				)
 
-	pending_orders = [
-		so for so in sales_orders if so["docstatus"] == 1 and flt(so["per_delivered"]) < 100
-	]
+	pending_orders = [so for so in sales_orders if so["docstatus"] == 1 and flt(so["per_delivered"]) < 100]
 	return {
 		"stats": {
 			"total_deliveries": len(deliveries),
@@ -550,7 +598,13 @@ def _project_sales_orders(project_map: dict[str, dict]) -> list[dict]:
 
 
 def _empty_design_stat() -> dict:
-	return {"design_count": 0, "window_qty": 0, "total_area_sqft": 0.0, "total_weight_kg": 0.0, "total_value": 0.0}
+	return {
+		"design_count": 0,
+		"window_qty": 0,
+		"total_area_sqft": 0.0,
+		"total_weight_kg": 0.0,
+		"total_value": 0.0,
+	}
 
 
 def _aggregate_design_stats(project_names: list[str]) -> dict[str, dict]:
@@ -687,4 +741,3 @@ def quotation_details(quotation_name: str) -> dict:
 			for row in (q.taxes or [])
 		],
 	}
-

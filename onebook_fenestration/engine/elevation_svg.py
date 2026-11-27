@@ -47,7 +47,9 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 	if width <= 0 or height <= 0 or "root" not in design:
 		return ""
 
-	finish = finish_color if (finish_color and re.match(r"^#[0-9a-fA-F]{6}$", finish_color)) else DEFAULT_FINISH
+	finish = (
+		finish_color if (finish_color and re.match(r"^#[0-9a-fA-F]{6}$", finish_color)) else DEFAULT_FINISH
+	)
 	sash_fill = _lighten(finish, 0.1)
 
 	scale = min((VIEW_W - 2 * PAD) / width, (VIEW_H - 2 * PAD) / height)
@@ -73,7 +75,11 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 
 	# Outer Frame
 	frame_config = design.get("frameConfig") or "4-side"
-	bottom_face = 0.0 if frame_config == "3-side" else (round(FRAME_FACE * 0.45) if frame_config == "3-side-threshold" else FRAME_FACE)
+	bottom_face = (
+		0.0
+		if frame_config == "3-side"
+		else (round(FRAME_FACE * 0.45) if frame_config == "3-side-threshold" else FRAME_FACE)
+	)
 	fw = width * scale
 	fh = height * scale
 	fx = px(0)
@@ -86,10 +92,18 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 			f'<rect x="{_fmt(fx)}" y="{_fmt(fy)}" width="{_fmt(fw)}" height="{_fmt(fh)}" '
 			f'fill="{finish}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
 		)
-		parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-		parts.append(f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-		parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy + fh)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + fh - ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-		parts.append(f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy + fh)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + fh - ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+		parts.append(
+			f'<line x1="{_fmt(fx)}" y1="{_fmt(fy)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+		)
+		parts.append(
+			f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+		)
+		parts.append(
+			f'<line x1="{_fmt(fx)}" y1="{_fmt(fy + fh)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + fh - ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+		)
+		parts.append(
+			f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy + fh)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + fh - ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+		)
 	else:
 		u_path = (
 			f"M {_fmt(fx)} {_fmt(fy + fh)} L {_fmt(fx)} {_fmt(fy)} L {_fmt(fx + fw)} {_fmt(fy)} "
@@ -98,15 +112,23 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 			f"L {_fmt(fx + ff)} {_fmt(fy + fh)} Z"
 		)
 		parts.append(f'<path d="{u_path}" fill="{finish}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-		parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-		parts.append(f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+		parts.append(
+			f'<line x1="{_fmt(fx)}" y1="{_fmt(fy)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+		)
+		parts.append(
+			f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+		)
 		if frame_config == "3-side-threshold":
 			parts.append(
 				f'<rect x="{_fmt(fx + ff)}" y="{_fmt(fy + fh - bff)}" width="{_fmt(fw - 2 * ff)}" height="{_fmt(bff)}" '
 				f'fill="#64748B" stroke="{STROKE_COLOR}" stroke-width="1"/>'
 			)
-			parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy + fh - bff)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + fh - bff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-			parts.append(f'<line x1="{_fmt(fx + fw - ff)}" y1="{_fmt(fy + fh - bff)}" x2="{_fmt(fx + fw)}" y2="{_fmt(fy + fh - bff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+			parts.append(
+				f'<line x1="{_fmt(fx)}" y1="{_fmt(fy + fh - bff)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + fh - bff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+			)
+			parts.append(
+				f'<line x1="{_fmt(fx + fw - ff)}" y1="{_fmt(fy + fh - bff)}" x2="{_fmt(fx + fw)}" y2="{_fmt(fy + fh - bff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+			)
 
 	# Bars (Mullions & Transoms)
 	for bar in bars:
@@ -157,10 +179,18 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 			)
 			# Sash miter lines
 			sf = SASH_FACE * scale
-			parts.append(f'<line x1="{_fmt(cx)}" y1="{_fmt(cy)}" x2="{_fmt(cx + sf)}" y2="{_fmt(cy + sf)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-			parts.append(f'<line x1="{_fmt(cx + cw)}" y1="{_fmt(cy)}" x2="{_fmt(cx + cw - sf)}" y2="{_fmt(cy + sf)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-			parts.append(f'<line x1="{_fmt(cx)}" y1="{_fmt(cy + ch)}" x2="{_fmt(cx + sf)}" y2="{_fmt(cy + ch - sf)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-			parts.append(f'<line x1="{_fmt(cx + cw)}" y1="{_fmt(cy + ch)}" x2="{_fmt(cx + cw - sf)}" y2="{_fmt(cy + ch - sf)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+			parts.append(
+				f'<line x1="{_fmt(cx)}" y1="{_fmt(cy)}" x2="{_fmt(cx + sf)}" y2="{_fmt(cy + sf)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+			)
+			parts.append(
+				f'<line x1="{_fmt(cx + cw)}" y1="{_fmt(cy)}" x2="{_fmt(cx + cw - sf)}" y2="{_fmt(cy + sf)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+			)
+			parts.append(
+				f'<line x1="{_fmt(cx)}" y1="{_fmt(cy + ch)}" x2="{_fmt(cx + sf)}" y2="{_fmt(cy + ch - sf)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+			)
+			parts.append(
+				f'<line x1="{_fmt(cx + cw)}" y1="{_fmt(cy + ch)}" x2="{_fmt(cx + cw - sf)}" y2="{_fmt(cy + ch - sf)}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+			)
 
 			# Sash glass pane
 			gx = cx + sf
@@ -210,16 +240,30 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 	# Overall dimensions
 	# Width dimension below
 	dim_y = py(0) + 24
-	parts.append(f'<line x1="{_fmt(fx)}" x2="{_fmt(fx + fw)}" y1="{_fmt(dim_y)}" y2="{_fmt(dim_y)}" stroke="{DIM_COLOR}"/>')
-	parts.append(f'<line x1="{_fmt(fx)}" x2="{_fmt(fx)}" y1="{_fmt(dim_y - 5)}" y2="{_fmt(dim_y + 5)}" stroke="{DIM_COLOR}"/>')
-	parts.append(f'<line x1="{_fmt(fx + fw)}" x2="{_fmt(fx + fw)}" y1="{_fmt(dim_y - 5)}" y2="{_fmt(dim_y + 5)}" stroke="{DIM_COLOR}"/>')
-	parts.append(f'<text x="{_fmt(fx + fw / 2)}" y="{_fmt(dim_y - 4)}" text-anchor="middle" font-size="12" font-weight="600" fill="{DIM_COLOR}">{_fmt(width)}</text>')
+	parts.append(
+		f'<line x1="{_fmt(fx)}" x2="{_fmt(fx + fw)}" y1="{_fmt(dim_y)}" y2="{_fmt(dim_y)}" stroke="{DIM_COLOR}"/>'
+	)
+	parts.append(
+		f'<line x1="{_fmt(fx)}" x2="{_fmt(fx)}" y1="{_fmt(dim_y - 5)}" y2="{_fmt(dim_y + 5)}" stroke="{DIM_COLOR}"/>'
+	)
+	parts.append(
+		f'<line x1="{_fmt(fx + fw)}" x2="{_fmt(fx + fw)}" y1="{_fmt(dim_y - 5)}" y2="{_fmt(dim_y + 5)}" stroke="{DIM_COLOR}"/>'
+	)
+	parts.append(
+		f'<text x="{_fmt(fx + fw / 2)}" y="{_fmt(dim_y - 4)}" text-anchor="middle" font-size="12" font-weight="600" fill="{DIM_COLOR}">{_fmt(width)}</text>'
+	)
 
 	# Height dimension to the left
 	dim_x = fx - 24
-	parts.append(f'<line x1="{_fmt(dim_x)}" x2="{_fmt(dim_x)}" y1="{_fmt(fy)}" y2="{_fmt(fy + fh)}" stroke="{DIM_COLOR}"/>')
-	parts.append(f'<line x1="{_fmt(dim_x - 5)}" x2="{_fmt(dim_x + 5)}" y1="{_fmt(fy)}" y2="{_fmt(fy)}" stroke="{DIM_COLOR}"/>')
-	parts.append(f'<line x1="{_fmt(dim_x - 5)}" x2="{_fmt(dim_x + 5)}" y1="{_fmt(fy + fh)}" y2="{_fmt(fy + fh)}" stroke="{DIM_COLOR}"/>')
+	parts.append(
+		f'<line x1="{_fmt(dim_x)}" x2="{_fmt(dim_x)}" y1="{_fmt(fy)}" y2="{_fmt(fy + fh)}" stroke="{DIM_COLOR}"/>'
+	)
+	parts.append(
+		f'<line x1="{_fmt(dim_x - 5)}" x2="{_fmt(dim_x + 5)}" y1="{_fmt(fy)}" y2="{_fmt(fy)}" stroke="{DIM_COLOR}"/>'
+	)
+	parts.append(
+		f'<line x1="{_fmt(dim_x - 5)}" x2="{_fmt(dim_x + 5)}" y1="{_fmt(fy + fh)}" y2="{_fmt(fy + fh)}" stroke="{DIM_COLOR}"/>'
+	)
 	parts.append(
 		f'<text transform="translate({_fmt(dim_x - 4)} {_fmt(fy + fh / 2)}) rotate(-90)" '
 		f'text-anchor="middle" font-size="12" font-weight="600" fill="{DIM_COLOR}">{_fmt(height)}</text>'
@@ -227,4 +271,3 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 
 	parts.append("</svg>")
 	return "".join(parts)
-

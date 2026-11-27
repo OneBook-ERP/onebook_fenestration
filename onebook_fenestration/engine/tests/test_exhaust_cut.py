@@ -10,7 +10,9 @@ class TestExhaustCut(unittest.TestCase):
 		return {"width": 600, "height": 500, "root": {"type": kind, "glass": "6CTG", "fan": True}}
 
 	def test_legacy_defaults_and_invalid_sizes(self):
-		self.assertEqual(exhaust_cut({"fan": True}, 600, 500), {"diameter": 180, "centerX": 300, "centerY": 250})
+		self.assertEqual(
+			exhaust_cut({"fan": True}, 600, 500), {"diameter": 180, "centerX": 300, "centerY": 250}
+		)
 		for config in ({"diameter": 0}, {"diameter": 700}, {"centerX": 10}, {"centerY": float("nan")}):
 			with self.assertRaises(ValueError):
 				exhaust_cut({"fan": True, "fanCut": config}, 600, 500)
@@ -52,6 +54,7 @@ class TestExhaustCut(unittest.TestCase):
 		from math import pi
 
 		from onebook_fenestration.engine.weights import weights
+
 		design = self.design()
 		design["root"]["steelThickness"] = 2
 		snap = snapshot()
@@ -59,14 +62,23 @@ class TestExhaustCut(unittest.TestCase):
 		pane = result.glass[0]
 		self.assertEqual(pane.material, "steel")
 		_, weight = weights([], [pane], snap)
-		expected = (pane.width * pane.height - pi * 90 ** 2) / 1e6 * 2 * 7.85
+		expected = (pane.width * pane.height - pi * 90**2) / 1e6 * 2 * 7.85
 		self.assertAlmostEqual(weight, expected, delta=0.001)
 
 	def test_only_exhaust_panel_is_steel_and_removal_restores_glass(self):
-		design = {"width": 1200, "height": 1200, "root": {"type": "split", "dir": "v", "at": [600], "children": [
-			{"type": "fixed", "glass": "6CTG"},
-			{"type": "fixed", "glass": "6CTG", "fan": True},
-		]}}
+		design = {
+			"width": 1200,
+			"height": 1200,
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [600],
+				"children": [
+					{"type": "fixed", "glass": "6CTG"},
+					{"type": "fixed", "glass": "6CTG", "fan": True},
+				],
+			},
+		}
 		snap = snapshot()
 		result = compute(design, snap)
 		self.assertEqual([p.material for p in result.glass], ["glass", "steel"])
@@ -77,23 +89,34 @@ class TestExhaustCut(unittest.TestCase):
 		self.assertIsNotNone(pieces[1].cutout)
 		from onebook_fenestration.engine.pricing import price
 		from onebook_fenestration.engine.tests.test_pricing import _inputs
+
 		cost = price(result, snap, _inputs(result))
-		self.assertAlmostEqual(cost.variables["glass_cost"], result.glass[0].width * result.glass[0].height / 1e6 * 1000, places=2)
+		self.assertAlmostEqual(
+			cost.variables["glass_cost"],
+			result.glass[0].width * result.glass[0].height / 1e6 * 1000,
+			places=2,
+		)
 		self.assertTrue(any(i.code == "steel_rate_missing" and i.path == "F1.1" for i in cost.issues))
 		design["root"]["children"][1]["fan"] = False
 		result = compute(design, snap)
 		self.assertEqual([p.material for p in result.glass], ["glass", "glass"])
-		self.assertFalse(any(i.code == "steel_rate_missing" for i in price(result, snap, _inputs(result)).issues))
+		self.assertFalse(
+			any(i.code == "steel_rate_missing" for i in price(result, snap, _inputs(result)).issues)
+		)
 
 	def test_invalid_steel_thickness_is_reported(self):
 		for thickness in (0, -1, True, float("nan")):
 			design = self.design()
 			design["root"]["steelThickness"] = thickness
-			self.assertTrue(any(i.code == "invalid_steel_thickness" for i in compute(design, snapshot()).issues))
+			self.assertTrue(
+				any(i.code == "invalid_steel_thickness" for i in compute(design, snapshot()).issues)
+			)
 
 	def test_default_centre_does_not_move_when_diameter_changes(self):
 		for diameter in (100, 180, 300):
 			cut = exhaust_cut({"fan": True, "fanCut": {"diameter": diameter}}, 600, 500)
 			self.assertEqual((cut["centerX"], cut["centerY"]), (300, 250))
-		cut = exhaust_cut({"fan": True, "fanCut": {"diameter": 100, "centerX": 200, "centerY": 150}}, 600, 500)
+		cut = exhaust_cut(
+			{"fan": True, "fanCut": {"diameter": 100, "centerX": 200, "centerY": 150}}, 600, 500
+		)
 		self.assertEqual((cut["centerX"], cut["centerY"]), (200, 150))

@@ -22,11 +22,15 @@ BEAD, ADAPTOR = "bead", "glass_adaptor"
 _MM_RE = re.compile(r"(\d+(?:\.\d+)?)\s*mm", re.IGNORECASE)
 
 
-def frame_context(design: dict | None, snapshot: SeriesSnapshot, members: list[CutMember] | None = None) -> dict:
+def frame_context(
+	design: dict | None, snapshot: SeriesSnapshot, members: list[CutMember] | None = None
+) -> dict:
 	"""Resolve selected frame profile code, face width, frame depth (thickness), and frame configuration."""
 	design = design if isinstance(design, dict) else {}
 	frame_code = design.get("frameProfileId")
-	frame_profile = resolve_override(design, snapshot, frame_code if isinstance(frame_code, str) else None, "frame", FRAME_PANEL)
+	frame_profile = resolve_override(
+		design, snapshot, frame_code if isinstance(frame_code, str) else None, "frame", FRAME_PANEL
+	)
 	if not frame_profile and members:
 		frame_member = next((m for m in members if m.role == "frame"), None)
 		if frame_member:
@@ -82,12 +86,13 @@ def glass_members(
 			continue
 		cell = cell_by_path.get(pane.path)
 		in_sash = pane.panel != FRAME_PANEL
-		opening_type, application = detect_design_context(design, cell.node if cell else None, is_sash_pane=in_sash)
+		opening_type, application = detect_design_context(
+			design, cell.node if cell else None, is_sash_pane=in_sash
+		)
 		# Only door sashes use a glazing bead; window sashes do not get sash beading.
 		is_window_sash = in_sash and application != "door"
 		if is_window_sash and (
-			not pane.bead
-			or (cell is not None and cell.node.get("sashConfig") == "window")
+			not pane.bead or (cell is not None and cell.node.get("sashConfig") == "window")
 		):
 			continue
 		override = _glazing_override(pane, cell, role, design, snapshot)
@@ -127,15 +132,21 @@ def glass_members(
 					host,
 					application,
 				)
-				if global_rule is not None and (global_rule.get("no_bead") or not global_rule.get("bead_profile")):
+				if global_rule is not None and (
+					global_rule.get("no_bead") or not global_rule.get("bead_profile")
+				):
 					# Rule explicitly configures No Beading for this (application, host, thickness)
 					continue
 				bead_code = (global_rule or {}).get("bead_profile") or ""
 			if not bead_code:
-				glass_rule = match_glass_glazing_rule(glass_spec.glazing_rules if glass_spec else None, snapshot.code, host)
+				glass_rule = match_glass_glazing_rule(
+					glass_spec.glazing_rules if glass_spec else None, snapshot.code, host
+				)
 				bead_code = (glass_rule or {}).get("bead_profile") or ""
 			if not bead_code and snapshot.section_config:
-				rule = match_bead_gasket_rule(snapshot.section_config, opening_type, application, glass_t, host)
+				rule = match_bead_gasket_rule(
+					snapshot.section_config, opening_type, application, glass_t, host
+				)
 				bead_code = (rule or {}).get("bead_profile") or ""
 			resolved = _resolve_bead_code(bead_code, snapshot)
 			if resolved:
@@ -279,7 +290,15 @@ def _pane_members(
 		for rule in matching_rules(snapshot, role, variables):
 			length = float(round(evaluate_number(rule.length, variables, rule.id), 1))
 			members.append(
-				CutMember(pane.panel, role, position, profile_override or rule.profile, length, rule.angles, pane.path)
+				CutMember(
+					pane.panel,
+					role,
+					position,
+					profile_override or rule.profile,
+					length,
+					rule.angles,
+					pane.path,
+				)
 			)
 	return members
 

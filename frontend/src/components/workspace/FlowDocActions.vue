@@ -1,5 +1,8 @@
 <template>
-	<div v-if="submitActions.length || createActions.length" class="inline-flex flex-wrap items-center gap-1.5">
+	<div
+		v-if="submitActions.length || createActions.length"
+		class="inline-flex flex-wrap items-center gap-1.5"
+	>
 		<Button
 			v-for="act in submitActions"
 			:key="act.id"
@@ -22,7 +25,7 @@
 				:disabled="Boolean(busyId)"
 				@click="toggleMenu"
 			>
-				{{ createLabel || 'Create' }} ▾
+				{{ createLabel || "Create" }} ▾
 			</Button>
 
 			<div
@@ -46,7 +49,9 @@
 				</div>
 
 				<div v-else data-testid="flow-create-prompt" class="space-y-2.5 p-3 text-xs">
-					<div class="flex items-center justify-between gap-2 border-b border-gray-100 pb-2">
+					<div
+						class="flex items-center justify-between gap-2 border-b border-gray-100 pb-2"
+					>
 						<button
 							type="button"
 							class="text-[11px] font-medium text-gray-500 hover:text-gray-800"
@@ -54,7 +59,9 @@
 						>
 							← Back
 						</button>
-						<span class="truncate font-semibold text-gray-800">{{ promptAction.label }}</span>
+						<span class="truncate font-semibold text-gray-800">{{
+							promptAction.label
+						}}</span>
 					</div>
 
 					<label v-if="promptAction.requires_supplier" class="block space-y-1">
@@ -72,7 +79,9 @@
 					</label>
 
 					<label v-if="promptAction.supports_po_no" class="block space-y-1">
-						<span class="block text-[11px] font-medium text-gray-600">Customer / Distributor PO #</span>
+						<span class="block text-[11px] font-medium text-gray-600"
+							>Customer / Distributor PO #</span
+						>
 						<input
 							v-model="poNo"
 							type="text"
@@ -93,7 +102,13 @@
 					</label>
 
 					<div class="flex items-center justify-end gap-1.5 pt-1">
-						<Button size="sm" variant="subtle" :disabled="Boolean(busyId)" @click="closeMenu">Cancel</Button>
+						<Button
+							size="sm"
+							variant="subtle"
+							:disabled="Boolean(busyId)"
+							@click="closeMenu"
+							>Cancel</Button
+						>
 						<Button
 							size="sm"
 							variant="solid"
@@ -112,126 +127,133 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Button, toast } from 'frappe-ui'
-import { createFlowDoc, submitFlowDoc, type FlowAction, type FlowMutationResult } from '@/api'
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { Button, toast } from "frappe-ui";
+import { createFlowDoc, submitFlowDoc, type FlowAction, type FlowMutationResult } from "@/api";
 
 const props = defineProps<{
-	actions?: FlowAction[]
-	suppliers?: Array<{ name: string; supplier_name?: string }>
-	size?: 'sm' | 'md'
-	createLabel?: string
-	createVariant?: 'solid' | 'outline' | 'subtle'
-}>()
+	actions?: FlowAction[];
+	suppliers?: Array<{ name: string; supplier_name?: string }>;
+	size?: "sm" | "md";
+	createLabel?: string;
+	createVariant?: "solid" | "outline" | "subtle";
+}>();
 
 const emit = defineEmits<{
-	done: [result: Extract<FlowMutationResult, { ok: true }>]
-}>()
+	done: [result: Extract<FlowMutationResult, { ok: true }>];
+}>();
 
-const busyId = ref('')
-const menuOpen = ref(false)
-const menuRef = ref<HTMLElement | null>(null)
-const promptAction = ref<FlowAction | null>(null)
-const chosenSupplier = ref('')
-const poNo = ref('')
-const submitImmediately = ref(false)
+const busyId = ref("");
+const menuOpen = ref(false);
+const menuRef = ref<HTMLElement | null>(null);
+const promptAction = ref<FlowAction | null>(null);
+const chosenSupplier = ref("");
+const poNo = ref("");
+const submitImmediately = ref(false);
 
-const buttonSize = computed(() => props.size ?? 'sm')
-const submitActions = computed(() => (props.actions ?? []).filter((a) => a.kind === 'submit'))
-const createActions = computed(() => (props.actions ?? []).filter((a) => a.kind === 'create'))
-const createButtonVariant = computed(() => props.createVariant ?? (submitActions.value.length ? 'outline' : 'solid'))
+const buttonSize = computed(() => props.size ?? "sm");
+const submitActions = computed(() => (props.actions ?? []).filter((a) => a.kind === "submit"));
+const createActions = computed(() => (props.actions ?? []).filter((a) => a.kind === "create"));
+const createButtonVariant = computed(
+	() => props.createVariant ?? (submitActions.value.length ? "outline" : "solid")
+);
 
 function shortCreateLabel(label: string): string {
-	return label.replace(/^Create\s+/i, '').trim() || label
+	return label.replace(/^Create\s+/i, "").trim() || label;
 }
 
 function toggleMenu() {
 	if (menuOpen.value) {
-		closeMenu()
+		closeMenu();
 	} else {
-		menuOpen.value = true
+		menuOpen.value = true;
 	}
 }
 
 function closeMenu() {
-	menuOpen.value = false
-	promptAction.value = null
+	menuOpen.value = false;
+	promptAction.value = null;
 }
 
 function pickCreateAction(act: FlowAction) {
 	if (act.requires_supplier || act.supports_po_no) {
-		promptAction.value = act
+		promptAction.value = act;
 		if (act.requires_supplier) {
 			if (!chosenSupplier.value && props.suppliers?.length === 1) {
-				chosenSupplier.value = props.suppliers[0].name
+				chosenSupplier.value = props.suppliers[0].name;
 			}
 		} else {
-			chosenSupplier.value = ''
+			chosenSupplier.value = "";
 		}
-		submitImmediately.value = false
-		return
+		submitImmediately.value = false;
+		return;
 	}
-	closeMenu()
-	void runCreate(act)
+	closeMenu();
+	void runCreate(act);
 }
 
 function confirmPrompt() {
-	if (!promptAction.value) return
+	if (!promptAction.value) return;
 	void runCreate(promptAction.value, {
 		supplier: chosenSupplier.value || undefined,
 		poNo: poNo.value.trim() || undefined,
 		submit: submitImmediately.value,
-	})
+	});
 }
 
 async function runSubmit(act: FlowAction) {
-	if (!act.doctype || !act.name) return
-	busyId.value = act.id
+	if (!act.doctype || !act.name) return;
+	busyId.value = act.id;
 	try {
-		const res = await submitFlowDoc(act.doctype, act.name)
+		const res = await submitFlowDoc(act.doctype, act.name);
 		if (!res.ok) {
-			toast.error(res.message)
-			return
+			toast.error(res.message);
+			return;
 		}
-		toast.success(`${res.doctype} ${res.name} submitted`)
-		emit('done', res)
+		toast.success(`${res.doctype} ${res.name} submitted`);
+		emit("done", res);
 	} catch (err) {
-		toast.error(err instanceof Error ? err.message : 'Submit failed')
+		toast.error(err instanceof Error ? err.message : "Submit failed");
 	} finally {
-		busyId.value = ''
+		busyId.value = "";
 	}
 }
 
 async function runCreate(
 	act: FlowAction,
-	opts: { supplier?: string; poNo?: string; submit?: boolean } = {},
+	opts: { supplier?: string; poNo?: string; submit?: boolean } = {}
 ) {
-	if (!act.source_doctype || !act.source_name || !act.target_doctype) return
-	busyId.value = act.id
+	if (!act.source_doctype || !act.source_name || !act.target_doctype) return;
+	busyId.value = act.id;
 	try {
-		const res = await createFlowDoc(act.source_doctype, act.source_name, act.target_doctype, opts)
+		const res = await createFlowDoc(
+			act.source_doctype,
+			act.source_name,
+			act.target_doctype,
+			opts
+		);
 		if (!res.ok) {
-			toast.error(res.message)
-			return
+			toast.error(res.message);
+			return;
 		}
-		const verb = res.docstatus === 1 ? 'created & submitted' : 'created'
-		toast.success(`${res.doctype} ${res.name} ${verb}`)
-		poNo.value = ''
-		closeMenu()
-		emit('done', res)
+		const verb = res.docstatus === 1 ? "created & submitted" : "created";
+		toast.success(`${res.doctype} ${res.name} ${verb}`);
+		poNo.value = "";
+		closeMenu();
+		emit("done", res);
 	} catch (err) {
-		toast.error(err instanceof Error ? err.message : 'Create failed')
+		toast.error(err instanceof Error ? err.message : "Create failed");
 	} finally {
-		busyId.value = ''
+		busyId.value = "";
 	}
 }
 
 function handleOutsideClick(event: MouseEvent) {
 	if (menuOpen.value && menuRef.value && !menuRef.value.contains(event.target as Node)) {
-		closeMenu()
+		closeMenu();
 	}
 }
 
-onMounted(() => document.addEventListener('click', handleOutsideClick))
-onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
+onMounted(() => document.addEventListener("click", handleOutsideClick));
+onBeforeUnmount(() => document.removeEventListener("click", handleOutsideClick));
 </script>

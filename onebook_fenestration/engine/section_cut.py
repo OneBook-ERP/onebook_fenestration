@@ -97,7 +97,9 @@ def cross_section(
 
 
 class _Cut:
-	def __init__(self, design, snapshot, axis, result: EngineResult, bars: list[Bar], widths: dict[str, float]):
+	def __init__(
+		self, design, snapshot, axis, result: EngineResult, bars: list[Bar], widths: dict[str, float]
+	):
 		self.design = design
 		self.snapshot, self.axis, self.bars, self.widths = snapshot, axis, bars, widths
 		self.along, self.size, self.low, self.high, self.bar_kind, self.perp, self.perp_size = AXES[axis]
@@ -120,7 +122,9 @@ class _Cut:
 					self.cell_sash_profiles.setdefault(m.path, m.profile)
 			if m.profile and canonical_role in ("frame", "sash", "mullion", "transom"):
 				self.role_profiles.setdefault(canonical_role, m.profile)
-		self.has_door_sash = self._design_has_door_sash(design.get("root") if isinstance(design, dict) else None)
+		self.has_door_sash = self._design_has_door_sash(
+			design.get("root") if isinstance(design, dict) else None
+		)
 		self.pieces: list[SectionPiece] = []
 		self.dims: list[Dim] = []
 		self.missing: dict[str, float] = {}
@@ -169,7 +173,10 @@ class _Cut:
 			at = (lo + hi) / 2
 		edges = sorted({edge for cell in cells for edge in self._perp_span(cell)})
 		bands = [(edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
-		lo, hi = min(bands, key=lambda band: -1 if band[0] <= at < band[1] else min(abs(at - band[0]), abs(at - band[1])))
+		lo, hi = min(
+			bands,
+			key=lambda band: -1 if band[0] <= at < band[1] else min(abs(at - band[0]), abs(at - band[1])),
+		)
 		return (lo + hi) / 2
 
 	def _place_cell(self, cell: Cell, lo: float, hi: float):
@@ -183,7 +190,9 @@ class _Cut:
 			self._place_profiles("sash", cell.path, self.high, sash_hi, cell=cell)
 		elif kind == "fixed":
 			self._place_glass(
-				cell, lo + self._deduction("fixed_glass_side", cell, self.low), hi - self._deduction("fixed_glass_side", cell, self.high)
+				cell,
+				lo + self._deduction("fixed_glass_side", cell, self.low),
+				hi - self._deduction("fixed_glass_side", cell, self.high),
 			)
 
 		elif kind == "louver":
@@ -197,10 +206,21 @@ class _Cut:
 			spec = self.snapshot.glasses.get(cell.node.get("glass")) if material == "glass" else None
 			thickness = spec.thickness_mm if spec else 4.0
 			if end > start and height > 0:
-				self.pieces.append(SectionPiece(
-					"louver", "Louver", "louver", cell.path, _mm(start), _mm(end),
-					path=cell.path, blades=cell.node.get("blades", 7), opening_height=_mm(height), blade_width=width, thickness=thickness,
-				))
+				self.pieces.append(
+					SectionPiece(
+						"louver",
+						"Louver",
+						"louver",
+						cell.path,
+						_mm(start),
+						_mm(end),
+						path=cell.path,
+						blades=cell.node.get("blades", 7),
+						opening_height=_mm(height),
+						blade_width=width,
+						thickness=thickness,
+					)
+				)
 
 	def _place_glass(self, cell: Cell, lo: float, hi: float):
 		"""The pane centred in its opening, with its beads / adaptors from the rebate edge (glass edge + clearance)."""
@@ -213,13 +233,15 @@ class _Cut:
 		if clearance is None or clearance == 0:
 			clearance_low = max(
 				0.0,
-				self._deduction("fixed_glass_side", cell, self.low) - self._deduction("bar_end", cell, self.low)
+				self._deduction("fixed_glass_side", cell, self.low)
+				- self._deduction("bar_end", cell, self.low)
 				if cell.node.get("type") == "fixed"
 				else 0.0,
 			)
 			clearance_high = max(
 				0.0,
-				self._deduction("fixed_glass_side", cell, self.high) - self._deduction("bar_end", cell, self.high)
+				self._deduction("fixed_glass_side", cell, self.high)
+				- self._deduction("bar_end", cell, self.high)
 				if cell.node.get("type") == "fixed"
 				else 0.0,
 			)
@@ -232,7 +254,9 @@ class _Cut:
 		thickness = pane.thickness or (spec.thickness_mm if spec else 0.0)
 		in_sash = pane.panel != FRAME_PANEL
 		glass_cfg = self._config_placement("glass", cell=cell, glass_t=thickness, in_sash=in_sash)
-		opening_type, application = detect_design_context(self.design, cell.node if cell else None, is_sash_pane=in_sash)
+		opening_type, application = detect_design_context(
+			self.design, cell.node if cell else None, is_sash_pane=in_sash
+		)
 		gaskets_meta = resolve_pane_glazing_gaskets(
 			self.snapshot,
 			thickness,
@@ -280,14 +304,20 @@ class _Cut:
 			return None
 		half_chord = sqrt(radius * radius - distance * distance)
 		center = start + (cut["centerX"] if self.axis == "h" else pane.height - cut["centerY"])
-		return {"start": _mm(center - half_chord), "end": _mm(center + half_chord), "diameter": cut["diameter"]}
+		return {
+			"start": _mm(center - half_chord),
+			"end": _mm(center + half_chord),
+			"diameter": cut["diameter"],
+		}
 
 	def _place_bar(self, edge: float, at: float):
 		bar = next(
 			(
 				b
 				for b in self.bars
-				if b.kind == self.bar_kind and abs(b.at - edge) < 1e-6 and b.start <= at < b.start + b.length_span
+				if b.kind == self.bar_kind
+				and abs(b.at - edge) < 1e-6
+				and b.start <= at < b.start + b.length_span
 			),
 			None,
 		)
@@ -300,8 +330,18 @@ class _Cut:
 	def _place_profiles(self, role: str, path: str, side: str, edge: float, cell: Cell | None = None):
 		"""Members of `role` on `side`, their outer face at `edge`: low side grows up the cut, high side down."""
 		members = self.members.get((role, path, side), [])
-		if not members and role == "bead" and cell and cell.node.get("type") == "fixed" and cell.node.get("bead", True) is not False:
-			profiles = self.design.get("profiles") if isinstance(self.design, dict) and isinstance(self.design.get("profiles"), dict) else {}
+		if (
+			not members
+			and role == "bead"
+			and cell
+			and cell.node.get("type") == "fixed"
+			and cell.node.get("bead", True) is not False
+		):
+			profiles = (
+				self.design.get("profiles")
+				if isinstance(self.design, dict) and isinstance(self.design.get("profiles"), dict)
+				else {}
+			)
 			bead_code = (
 				cell.node.get("beadProfileId")
 				or profiles.get(f"{cell.path}:bead")
@@ -392,7 +432,15 @@ class _Cut:
 			mirrored=mirrored,
 		)
 
-	def _add_profile(self, member: CutMember, panel: str, start: float, end: float, mirrored: bool, cell: Cell | None = None):
+	def _add_profile(
+		self,
+		member: CutMember,
+		panel: str,
+		start: float,
+		end: float,
+		mirrored: bool,
+		cell: Cell | None = None,
+	):
 		start, end = _mm(start), _mm(end)
 		pane = self.panes.get(cell.path) if cell is not None else None
 		glass_t = 0.0
@@ -412,7 +460,19 @@ class _Cut:
 			code=member.profile,
 			adjacent=adjacent,
 		)
-		self.pieces.append(SectionPiece("profile", member.profile, member.role, panel, start, end, mirrored, path=member.path, config_placement=cfg))
+		self.pieces.append(
+			SectionPiece(
+				"profile",
+				member.profile,
+				member.role,
+				panel,
+				start,
+				end,
+				mirrored,
+				path=member.path,
+				config_placement=cfg,
+			)
+		)
 		self.dims.append(Dim(start, end, _label(end - start), "profiles"))
 
 	def _width(self, member: CutMember) -> float:
@@ -435,7 +495,11 @@ class _Cut:
 
 	def _issues(self) -> list[Issue]:
 		return [
-			Issue("warn", "no_section_width", f"Profile {code} has no section width; drawn {_label(width)} mm wide from the series deductions")
+			Issue(
+				"warn",
+				"no_section_width",
+				f"Profile {code} has no section width; drawn {_label(width)} mm wide from the series deductions",
+			)
 			for code, width in sorted(self.missing.items())
 		]
 

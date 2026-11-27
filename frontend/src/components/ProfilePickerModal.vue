@@ -1,141 +1,150 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { transformedPathViewBox } from '@/design/svgBounds'
-import { profileThumbTransform } from '@/studio/sectionSvg'
+import { computed, ref, watch } from "vue";
+import { transformedPathViewBox } from "@/design/svgBounds";
+import { profileThumbTransform } from "@/studio/sectionSvg";
 
 export interface ProfileItem {
-	code: string
-	name?: string
-	series?: string
-	role?: string
-	width_mm?: number
-	depth_mm?: number
-	maxWidth?: number
-	svg?: string
-	section_rotation?: string | number | null
-	section_flip_x?: number | boolean | null
-	section_flip_y?: number | boolean | null
-	outline_transformed?: boolean
-	hasOutline?: boolean
-	currentSeries?: boolean
+	code: string;
+	name?: string;
+	series?: string;
+	role?: string;
+	width_mm?: number;
+	depth_mm?: number;
+	maxWidth?: number;
+	svg?: string;
+	section_rotation?: string | number | null;
+	section_flip_x?: number | boolean | null;
+	section_flip_y?: number | boolean | null;
+	outline_transformed?: boolean;
+	hasOutline?: boolean;
+	currentSeries?: boolean;
 }
 
 const props = withDefaults(
 	defineProps<{
-		modelValue: boolean
-		title?: string
-		targetRole?: 'frame' | 'sash' | 'mullion' | 'transom' | 'bead' | 'all'
-		currentProfile?: string
-		series?: string
-		profiles: ProfileItem[]
+		modelValue: boolean;
+		title?: string;
+		targetRole?: "frame" | "sash" | "mullion" | "transom" | "bead" | "all";
+		currentProfile?: string;
+		series?: string;
+		profiles: ProfileItem[];
 	}>(),
 	{
-		title: 'Select Profile',
-		targetRole: 'all',
-		currentProfile: '',
-		series: '',
-	},
-)
+		title: "Select Profile",
+		targetRole: "all",
+		currentProfile: "",
+		series: "",
+	}
+);
 
 const emit = defineEmits<{
-	'update:modelValue': [val: boolean]
-	select: [code: string]
-}>()
+	"update:modelValue": [val: boolean];
+	select: [code: string];
+}>();
 
-const searchQuery = ref('')
-const selectedRoleFilter = ref<string>(props.targetRole !== 'all' ? props.targetRole : 'all')
-const selectedSeriesFilter = ref<string>('all')
-const viewMode = ref<'card' | 'list'>('card')
-const showAllProfiles = ref(false)
+const searchQuery = ref("");
+const selectedRoleFilter = ref<string>(props.targetRole !== "all" ? props.targetRole : "all");
+const selectedSeriesFilter = ref<string>("all");
+const viewMode = ref<"card" | "list">("card");
+const showAllProfiles = ref(false);
 
 watch(
 	() => props.targetRole,
 	(newRole) => {
-		if (newRole && newRole !== 'all') {
-			selectedRoleFilter.value = newRole
+		if (newRole && newRole !== "all") {
+			selectedRoleFilter.value = newRole;
 		}
 	},
-	{ immediate: true },
-)
+	{ immediate: true }
+);
 
 watch(
 	() => props.modelValue,
 	(open) => {
 		if (open) {
-			searchQuery.value = ''
-			if (props.targetRole !== 'all') {
-				selectedRoleFilter.value = props.targetRole
+			searchQuery.value = "";
+			if (props.targetRole !== "all") {
+				selectedRoleFilter.value = props.targetRole;
 			}
 		}
-	},
-)
+	}
+);
 
 const ALL_ROLES = [
-	{ label: 'All Roles', value: 'all' },
-	{ label: 'Frame', value: 'frame' },
-	{ label: 'Sash', value: 'sash' },
-	{ label: 'Mullion', value: 'mullion' },
-	{ label: 'Transom', value: 'transom' },
-	{ label: 'Beading', value: 'bead' },
-	{ label: 'Accessory', value: 'accessory' },
-]
+	{ label: "All Roles", value: "all" },
+	{ label: "Frame", value: "frame" },
+	{ label: "Sash", value: "sash" },
+	{ label: "Mullion", value: "mullion" },
+	{ label: "Transom", value: "transom" },
+	{ label: "Beading", value: "bead" },
+	{ label: "Accessory", value: "accessory" },
+];
 
 const visibleRoles = computed(() => {
-	if (props.targetRole === 'frame') return [{ label: 'Frame', value: 'frame' }]
-	if (props.targetRole === 'sash') return [{ label: 'Sash', value: 'sash' }]
-	if (props.targetRole === 'mullion' || props.targetRole === 'transom') {
+	if (props.targetRole === "frame") return [{ label: "Frame", value: "frame" }];
+	if (props.targetRole === "sash") return [{ label: "Sash", value: "sash" }];
+	if (props.targetRole === "mullion" || props.targetRole === "transom") {
 		return [
-			{ label: 'Mullion', value: 'mullion' },
-			{ label: 'Transom', value: 'transom' },
-		]
+			{ label: "Mullion", value: "mullion" },
+			{ label: "Transom", value: "transom" },
+		];
 	}
-	if (props.targetRole === 'bead') return [{ label: 'Beading', value: 'bead' }]
-	return ALL_ROLES
-})
+	if (props.targetRole === "bead") return [{ label: "Beading", value: "bead" }];
+	return ALL_ROLES;
+});
 
 const availableSeries = computed(() => {
-	const set = new Set<string>()
+	const set = new Set<string>();
 	for (const p of props.profiles) {
-		if (p.series) set.add(p.series)
+		if (p.series) set.add(p.series);
 	}
-	return ['all', ...Array.from(set).sort()]
-})
+	return ["all", ...Array.from(set).sort()];
+});
 
 const filteredProfiles = computed(() => {
-	const q = searchQuery.value.trim().toLowerCase()
-	const target = props.targetRole !== 'all' ? props.targetRole : selectedRoleFilter.value
+	const q = searchQuery.value.trim().toLowerCase();
+	const target = props.targetRole !== "all" ? props.targetRole : selectedRoleFilter.value;
 	const matchesTarget = (role?: string) => {
-		if (target === 'all') return true
-		if (target === 'mullion' || target === 'transom') return role === 'mullion' || role === 'transom'
-		return role === target
-	}
-	return props.profiles.filter((p) => {
-		const pRole = (p.role || '').toLowerCase()
-		if (target !== 'all') {
-			if (pRole && !matchesTarget(pRole)) return false
-			if (!pRole && !showAllProfiles.value) return false
-		}
-		if (!showAllProfiles.value && (!p.currentSeries || !p.hasOutline)) return false
-		if (selectedSeriesFilter.value !== 'all') {
-			if ((p.series || '').toLowerCase() !== selectedSeriesFilter.value.toLowerCase()) return false
-		}
-		if (q) {
-			const matchCode = (p.code || '').toLowerCase().includes(q)
-			const matchName = (p.name || '').toLowerCase().includes(q)
-			const matchSeries = (p.series || '').toLowerCase().includes(q)
-			if (!matchCode && !matchName && !matchSeries) return false
-		}
-		return true
-	}).sort((a, b) => Number(matchesTarget(b.role)) - Number(matchesTarget(a.role)) || Number(Boolean(b.currentSeries)) - Number(Boolean(a.currentSeries)) || a.code.localeCompare(b.code))
-})
+		if (target === "all") return true;
+		if (target === "mullion" || target === "transom")
+			return role === "mullion" || role === "transom";
+		return role === target;
+	};
+	return props.profiles
+		.filter((p) => {
+			const pRole = (p.role || "").toLowerCase();
+			if (target !== "all") {
+				if (pRole && !matchesTarget(pRole)) return false;
+				if (!pRole && !showAllProfiles.value) return false;
+			}
+			if (!showAllProfiles.value && (!p.currentSeries || !p.hasOutline)) return false;
+			if (selectedSeriesFilter.value !== "all") {
+				if ((p.series || "").toLowerCase() !== selectedSeriesFilter.value.toLowerCase())
+					return false;
+			}
+			if (q) {
+				const matchCode = (p.code || "").toLowerCase().includes(q);
+				const matchName = (p.name || "").toLowerCase().includes(q);
+				const matchSeries = (p.series || "").toLowerCase().includes(q);
+				if (!matchCode && !matchName && !matchSeries) return false;
+			}
+			return true;
+		})
+		.sort(
+			(a, b) =>
+				Number(matchesTarget(b.role)) - Number(matchesTarget(a.role)) ||
+				Number(Boolean(b.currentSeries)) - Number(Boolean(a.currentSeries)) ||
+				a.code.localeCompare(b.code)
+		);
+});
 
 function onSelectProfile(code: string) {
-	emit('select', code)
-	emit('update:modelValue', false)
+	emit("select", code);
+	emit("update:modelValue", false);
 }
 
 function close() {
-	emit('update:modelValue', false)
+	emit("update:modelValue", false);
 }
 </script>
 
@@ -152,15 +161,26 @@ function close() {
 			<!-- Header -->
 			<div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
 				<div class="flex items-center gap-3">
-					<div class="flex size-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-						<svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<div
+						class="flex size-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600"
+					>
+						<svg
+							class="size-5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<rect x="3" y="3" width="18" height="18" rx="2" />
 							<path d="M3 9h18M9 21V9" />
 						</svg>
 					</div>
 					<div>
 						<h3 class="text-base font-semibold text-gray-900">{{ title }}</h3>
-						<p class="text-xs text-gray-500">Search and visually select aluminium extrusion profiles by cross-section</p>
+						<p class="text-xs text-gray-500">
+							Search and visually select aluminium extrusion profiles by
+							cross-section
+						</p>
 					</div>
 				</div>
 				<button
@@ -169,14 +189,22 @@ function close() {
 					class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
 					@click="close"
 				>
-					<svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<svg
+						class="size-5"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<path d="M18 6 6 18M6 6l12 12" />
 					</svg>
 				</button>
 			</div>
 
 			<!-- Search & Filter Controls Toolbar -->
-			<div class="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-gray-50/70 px-6 py-3">
+			<div
+				class="flex flex-wrap items-center gap-3 border-b border-gray-100 bg-gray-50/70 px-6 py-3"
+			>
 				<!-- Search box -->
 				<div class="relative flex-1 min-w-[220px]">
 					<input
@@ -186,7 +214,13 @@ function close() {
 						placeholder="Search profile code, name, series..."
 						class="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-1.5 pl-9 text-xs text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
 					/>
-					<svg class="pointer-events-none absolute left-3 top-2.5 size-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<svg
+						class="pointer-events-none absolute left-3 top-2.5 size-4 text-gray-400"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<circle cx="11" cy="11" r="8" />
 						<path d="m21 21-4.3-4.3" />
 					</svg>
@@ -211,7 +245,8 @@ function close() {
 					</button>
 				</div>
 				<label class="flex items-center gap-1.5 text-xs font-medium text-gray-600">
-					<input v-model="showAllProfiles" type="checkbox" class="accent-blue-600" /> All profiles
+					<input v-model="showAllProfiles" type="checkbox" class="accent-blue-600" /> All
+					profiles
 				</label>
 
 				<!-- Series Filter Dropdown -->
@@ -222,7 +257,11 @@ function close() {
 						class="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-blue-500 focus:outline-hidden"
 					>
 						<option value="all">All Series</option>
-						<option v-for="s in availableSeries.filter((x) => x !== 'all')" :key="s" :value="s">
+						<option
+							v-for="s in availableSeries.filter((x) => x !== 'all')"
+							:key="s"
+							:value="s"
+						>
 							{{ s }}
 						</option>
 					</select>
@@ -233,7 +272,12 @@ function close() {
 					<button
 						type="button"
 						data-testid="view-mode-card"
-						:class="['rounded px-2 py-1 text-xs font-medium transition-colors', viewMode === 'card' ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-700']"
+						:class="[
+							'rounded px-2 py-1 text-xs font-medium transition-colors',
+							viewMode === 'card'
+								? 'bg-gray-100 text-gray-900 font-semibold'
+								: 'text-gray-500 hover:text-gray-700',
+						]"
 						@click="viewMode = 'card'"
 					>
 						Cards
@@ -241,7 +285,12 @@ function close() {
 					<button
 						type="button"
 						data-testid="view-mode-list"
-						:class="['rounded px-2 py-1 text-xs font-medium transition-colors', viewMode === 'list' ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-700']"
+						:class="[
+							'rounded px-2 py-1 text-xs font-medium transition-colors',
+							viewMode === 'list'
+								? 'bg-gray-100 text-gray-900 font-semibold'
+								: 'text-gray-500 hover:text-gray-700',
+						]"
 						@click="viewMode = 'list'"
 					>
 						List
@@ -252,17 +301,31 @@ function close() {
 			<!-- Profiles Gallery / List Body -->
 			<div class="flex-1 overflow-y-auto p-6 max-h-[60vh]">
 				<!-- Empty Search State -->
-				<div v-if="!filteredProfiles.length" class="flex flex-col items-center justify-center py-16 text-center text-gray-500">
-					<svg class="size-12 text-gray-300 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+				<div
+					v-if="!filteredProfiles.length"
+					class="flex flex-col items-center justify-center py-16 text-center text-gray-500"
+				>
+					<svg
+						class="size-12 text-gray-300 mb-3"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
 						<circle cx="11" cy="11" r="8" />
 						<path d="m21 21-4.3-4.3" />
 					</svg>
 					<p class="text-sm font-medium text-gray-700">No profiles found</p>
-					<p class="text-xs text-gray-400 mt-1">Try adjusting your search query or filters.</p>
+					<p class="text-xs text-gray-400 mt-1">
+						Try adjusting your search query or filters.
+					</p>
 				</div>
 
 				<!-- Card View Mode -->
-				<div v-else-if="viewMode === 'card'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+				<div
+					v-else-if="viewMode === 'card'"
+					class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+				>
 					<button
 						v-for="p in filteredProfiles"
 						:key="p.code"
@@ -277,7 +340,9 @@ function close() {
 						@click="onSelectProfile(p.code)"
 					>
 						<!-- Profile SVG Section Preview -->
-						<div class="relative flex h-32 w-full items-center justify-center rounded-lg bg-gray-50/80 p-3 overflow-hidden border border-gray-100 group-hover:bg-white transition-colors">
+						<div
+							class="relative flex h-32 w-full items-center justify-center rounded-lg bg-gray-50/80 p-3 overflow-hidden border border-gray-100 group-hover:bg-white transition-colors"
+						>
 							<svg
 								v-if="p.svg"
 								xmlns="http://www.w3.org/2000/svg"
@@ -296,7 +361,10 @@ function close() {
 									/>
 								</g>
 							</svg>
-							<div v-else class="text-center font-mono text-xs font-semibold text-gray-400">
+							<div
+								v-else
+								class="text-center font-mono text-xs font-semibold text-gray-400"
+							>
 								{{ p.code }}
 							</div>
 							<span
@@ -310,7 +378,9 @@ function close() {
 						<!-- Details -->
 						<div class="mt-3 flex flex-col gap-1">
 							<div class="flex items-center justify-between">
-								<span class="font-mono text-xs font-bold text-gray-900 group-hover:text-blue-600">
+								<span
+									class="font-mono text-xs font-bold text-gray-900 group-hover:text-blue-600"
+								>
 									{{ p.code }}
 								</span>
 								<span
@@ -319,13 +389,23 @@ function close() {
 								>
 									{{ p.role }}
 								</span>
-							<span v-if="p.currentSeries" class="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">series</span>
+								<span
+									v-if="p.currentSeries"
+									class="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+									>series</span
+								>
 							</div>
-							<p v-if="p.name && p.name !== p.code" class="truncate text-xs text-gray-600" :title="p.name">
+							<p
+								v-if="p.name && p.name !== p.code"
+								class="truncate text-xs text-gray-600"
+								:title="p.name"
+							>
 								{{ p.name }}
 							</p>
-							<div class="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-								<span>{{ p.series || 'Standard' }}</span>
+							<div
+								class="flex items-center justify-between text-[11px] text-gray-400 mt-1"
+							>
+								<span>{{ p.series || "Standard" }}</span>
 								<span v-if="p.width_mm && p.depth_mm" class="font-mono">
 									{{ Math.round(p.width_mm) }} × {{ Math.round(p.depth_mm) }} mm
 								</span>
@@ -335,7 +415,10 @@ function close() {
 				</div>
 
 				<!-- List View Mode -->
-				<div v-else class="flex flex-col divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white overflow-hidden">
+				<div
+					v-else
+					class="flex flex-col divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white overflow-hidden"
+				>
 					<button
 						v-for="p in filteredProfiles"
 						:key="p.code"
@@ -348,7 +431,9 @@ function close() {
 						@click="onSelectProfile(p.code)"
 					>
 						<!-- Thumbnail SVG -->
-						<div class="flex size-14 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-1.5 group-hover:bg-white">
+						<div
+							class="flex size-14 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-1.5 group-hover:bg-white"
+						>
 							<svg
 								v-if="p.svg"
 								xmlns="http://www.w3.org/2000/svg"
@@ -367,13 +452,17 @@ function close() {
 									/>
 								</g>
 							</svg>
-							<span v-else class="font-mono text-[10px] text-gray-400">{{ p.code }}</span>
+							<span v-else class="font-mono text-[10px] text-gray-400">{{
+								p.code
+							}}</span>
 						</div>
 
 						<!-- Info -->
 						<div class="flex flex-1 flex-col">
 							<div class="flex items-center gap-2">
-								<span class="font-mono text-sm font-bold text-gray-900 group-hover:text-blue-600">
+								<span
+									class="font-mono text-sm font-bold text-gray-900 group-hover:text-blue-600"
+								>
 									{{ p.code }}
 								</span>
 								<span
@@ -393,10 +482,16 @@ function close() {
 
 						<!-- Dimensions -->
 						<div class="text-right">
-							<div v-if="p.maxWidth" class="font-mono text-xs font-semibold text-gray-900">
+							<div
+								v-if="p.maxWidth"
+								class="font-mono text-xs font-semibold text-gray-900"
+							>
 								Max width: {{ Math.round(p.maxWidth) }} mm
 							</div>
-							<div v-if="p.width_mm && p.depth_mm" class="font-mono text-[11px] text-gray-400">
+							<div
+								v-if="p.width_mm && p.depth_mm"
+								class="font-mono text-[11px] text-gray-400"
+							>
 								{{ Math.round(p.width_mm) }} × {{ Math.round(p.depth_mm) }} mm
 							</div>
 						</div>
@@ -405,8 +500,12 @@ function close() {
 			</div>
 
 			<!-- Footer -->
-			<div class="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-3 text-xs text-gray-500">
-				<span>Showing {{ filteredProfiles.length }} of {{ profiles.length }} profiles</span>
+			<div
+				class="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-3 text-xs text-gray-500"
+			>
+				<span
+					>Showing {{ filteredProfiles.length }} of {{ profiles.length }} profiles</span
+				>
 				<button
 					type="button"
 					class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"

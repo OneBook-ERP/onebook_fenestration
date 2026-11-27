@@ -92,22 +92,42 @@ git checkout -b feat/engine-core
 ```python
 # test_formula.py
 class TestFormula(unittest.TestCase):
-    def test_arithmetic(self):
-        self.assertEqual(evaluate("span - d_start - d_end", {"span": 457.5, "d_start": 18, "d_end": 5.5}, "r1"), 434.0)
-    def test_math_funcs(self):
-        self.assertEqual(evaluate("ceil(len/500)", {"len": 1220}, "r2"), 3)
-    def test_bool(self):
-        self.assertIs(evaluate("position == 'B'", {"position": "B"}, "r3"), True)
-    def test_unknown_variable_names_rule(self):
-        with self.assertRaises(RuleError) as cm:
-            evaluate("foo + 1", {}, "hw_hole_cap")
-        self.assertIn("hw_hole_cap", str(cm.exception)); self.assertIn("foo + 1", str(cm.exception))
-    def test_syntax_error_names_rule(self):
-        with self.assertRaises(RuleError):
-            evaluate("len /", {"len": 1}, "r4")
-    def test_snapshot_from_dict_roundtrip_minimal(self):
-        s = SeriesSnapshot.from_dict({"code": "X", "version": "1", "deductions": {}, "profiles": {}, "member_rules": [], "hardware_rules": [], "validation_rules": [], "glasses": {}, "constants": {}})
-        self.assertEqual(s.code, "X")
+	def test_arithmetic(self):
+		self.assertEqual(
+			evaluate("span - d_start - d_end", {"span": 457.5, "d_start": 18, "d_end": 5.5}, "r1"), 434.0
+		)
+
+	def test_math_funcs(self):
+		self.assertEqual(evaluate("ceil(len/500)", {"len": 1220}, "r2"), 3)
+
+	def test_bool(self):
+		self.assertIs(evaluate("position == 'B'", {"position": "B"}, "r3"), True)
+
+	def test_unknown_variable_names_rule(self):
+		with self.assertRaises(RuleError) as cm:
+			evaluate("foo + 1", {}, "hw_hole_cap")
+		self.assertIn("hw_hole_cap", str(cm.exception))
+		self.assertIn("foo + 1", str(cm.exception))
+
+	def test_syntax_error_names_rule(self):
+		with self.assertRaises(RuleError):
+			evaluate("len /", {"len": 1}, "r4")
+
+	def test_snapshot_from_dict_roundtrip_minimal(self):
+		s = SeriesSnapshot.from_dict(
+			{
+				"code": "X",
+				"version": "1",
+				"deductions": {},
+				"profiles": {},
+				"member_rules": [],
+				"hardware_rules": [],
+				"validation_rules": [],
+				"glasses": {},
+				"constants": {},
+			}
+		)
+		self.assertEqual(s.code, "X")
 ```
 
 Note: `variables` may contain strings (e.g. `position`); the signature's `float` is the common case.
@@ -166,23 +186,51 @@ git commit -m "feat(engine): types and safe formula evaluator"
 
 ```python
 def test_w01_two_cells(self):
-    cells, bars = layout(load("w01.json"))
-    self.assertEqual([(c.x, c.w, c.h) for c in cells], [(0, 457.5, 1220), (457.5, 457.5, 1220)])
-    self.assertEqual(cells[0].sides, {"L": "frame", "R": "mullion", "B": "frame", "T": "frame"})
-    self.assertEqual(cells[1].sides, {"L": "mullion", "R": "frame", "B": "frame", "T": "frame"})
-    self.assertEqual(bars, [Bar("mullion", "M1", 1220, ("frame", "frame"))])
+	cells, bars = layout(load("w01.json"))
+	self.assertEqual([(c.x, c.w, c.h) for c in cells], [(0, 457.5, 1220), (457.5, 457.5, 1220)])
+	self.assertEqual(cells[0].sides, {"L": "frame", "R": "mullion", "B": "frame", "T": "frame"})
+	self.assertEqual(cells[1].sides, {"L": "mullion", "R": "frame", "B": "frame", "T": "frame"})
+	self.assertEqual(bars, [Bar("mullion", "M1", 1220, ("frame", "frame"))])
+
+
 def test_nested_transom_ends_on_mullion(self):
-    d = {"width": 1500, "height": 1500, "root": {"type": "split", "dir": "v", "at": [750], "children": [
-        {"type": "fixed", "glass": "6CTG"},
-        {"type": "split", "dir": "h", "at": [1000], "children": [{"type": "sash", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"}]}]}}
-    cells, bars = layout(d)
-    self.assertEqual(len(cells), 3)
-    self.assertEqual(bars[1], Bar("transom", "T1", 750, ("mullion", "frame")))
+	d = {
+		"width": 1500,
+		"height": 1500,
+		"root": {
+			"type": "split",
+			"dir": "v",
+			"at": [750],
+			"children": [
+				{"type": "fixed", "glass": "6CTG"},
+				{
+					"type": "split",
+					"dir": "h",
+					"at": [1000],
+					"children": [{"type": "sash", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"}],
+				},
+			],
+		},
+	}
+	cells, bars = layout(d)
+	self.assertEqual(len(cells), 3)
+	self.assertEqual(bars[1], Bar("transom", "T1", 750, ("mullion", "frame")))
+
+
 def test_bad_split_positions(self):
-    for at in ([0], [915], [500, 400], []):
-        d = {"width": 915, "height": 1220, "root": {"type": "split", "dir": "v", "at": at, "children": [{"type": "fixed"}, {"type": "fixed"}]}}
-        with self.assertRaises(DesignError):
-            layout(d)
+	for at in ([0], [915], [500, 400], []):
+		d = {
+			"width": 915,
+			"height": 1220,
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": at,
+				"children": [{"type": "fixed"}, {"type": "fixed"}],
+			},
+		}
+		with self.assertRaises(DesignError):
+			layout(d)
 ```
 
 - [ ] **Step 2: Run; expect FAIL**
@@ -228,19 +276,29 @@ def test_bad_split_positions(self):
 
 ```python
 def test_w01_cut_list(self):
-    m = compute_members("w01.json")  # helper: layout + cut_members
-    got = sorted((x.panel, x.position, x.profile, x.length, x.angles) for x in m)
-    self.assertEqual(got, sorted([
-        ("F1", "B", "E104156", 915.0, (45, 135)), ("F1", "T", "E104156", 915.0, (45, 135)),
-        ("F1", "L", "E104156", 1220.0, (45, 135)), ("F1", "R", "E104156", 1220.0, (45, 135)),
-        ("F1", "H", "E104159", 1172.0, (90, 90)),
-        *[(p, s, "E104160", 434.0, (45, 135)) for p in ("F1-S1", "F1-S2") for s in ("B", "T")],
-        *[(p, s, "E104160", 1184.0, (45, 135)) for p in ("F1-S1", "F1-S2") for s in ("L", "R")]]))
+	m = compute_members("w01.json")  # helper: layout + cut_members
+	got = sorted((x.panel, x.position, x.profile, x.length, x.angles) for x in m)
+	self.assertEqual(
+		got,
+		sorted(
+			[
+				("F1", "B", "E104156", 915.0, (45, 135)),
+				("F1", "T", "E104156", 915.0, (45, 135)),
+				("F1", "L", "E104156", 1220.0, (45, 135)),
+				("F1", "R", "E104156", 1220.0, (45, 135)),
+				("F1", "H", "E104159", 1172.0, (90, 90)),
+				*[(p, s, "E104160", 434.0, (45, 135)) for p in ("F1-S1", "F1-S2") for s in ("B", "T")],
+				*[(p, s, "E104160", 1184.0, (45, 135)) for p in ("F1-S1", "F1-S2") for s in ("L", "R")],
+			]
+		),
+	)
+
+
 def test_tiny_cell_gives_issue_not_crash(self):
-    d = {"width": 60, "height": 1220, "root": {"type": "sash", "glass": "6CTG"}}
-    members, issues, _ = run(d)
-    self.assertTrue(any(i.code == "non_positive_size" for i in issues))
-    self.assertEqual(len([x for x in members if x.panel == "F1"]), 4)
+	d = {"width": 60, "height": 1220, "root": {"type": "sash", "glass": "6CTG"}}
+	members, issues, _ = run(d)
+	self.assertTrue(any(i.code == "non_positive_size" for i in issues))
+	self.assertEqual(len([x for x in members if x.panel == "F1"]), 4)
 ```
 
 - [ ] **Step 2: Run; expect FAIL**
@@ -272,13 +330,17 @@ def test_tiny_cell_gives_issue_not_crash(self):
 
 ```python
 def test_w01_glass(self):
-    panes = run_glaze("w01.json")[0]
-    self.assertEqual([(p.panel, p.number, p.width, p.height) for p in panes],
-                     [("F1-S1", 1, 333.0, 1083.0), ("F1-S2", 2, 333.0, 1083.0)])
+	panes = run_glaze("w01.json")[0]
+	self.assertEqual(
+		[(p.panel, p.number, p.width, p.height) for p in panes],
+		[("F1-S1", 1, 333.0, 1083.0), ("F1-S2", 2, 333.0, 1083.0)],
+	)
+
+
 def test_w01_glazing_gasket_lengths(self):
-    bom = run_glaze("w01.json")[1]
-    g23 = sorted(b.length for b in bom if b.item == "G23")
-    self.assertEqual(g23, [305.0] * 4 + [1055.0] * 4)
+	bom = run_glaze("w01.json")[1]
+	g23 = sorted(b.length for b in bom if b.item == "G23")
+	self.assertEqual(g23, [305.0] * 4 + [1055.0] * 4)
 ```
 
 - [ ] **Step 2: Run; expect FAIL**
@@ -346,27 +408,76 @@ Notes on the table:
 
 ```python
 def totals(result):  # item -> summed qty
-    ...
+	...
 def test_w01_hardware_totals(self):
-    t = totals(compute(load("w01.json"), SNAP).bom)
-    self.assertEqual({k: t[k] for k in ["H401","H266","H912","H913","H904","H903","H902","H901","H911","H412","H411","H416","H429","H425","H422C","H423","H905"]},
-        {"H401":12,"H266":12,"H912":10,"H913":2,"H904":10,"H903":10,"H902":6,"H901":6,"H911":10,"H412":4,"H411":2,"H416":2,"H429":12,"H425":2,"H422C":2,"H423":4,"H905":16})
+	t = totals(compute(load("w01.json"), SNAP).bom)
+	self.assertEqual(
+		{
+			k: t[k]
+			for k in [
+				"H401",
+				"H266",
+				"H912",
+				"H913",
+				"H904",
+				"H903",
+				"H902",
+				"H901",
+				"H911",
+				"H412",
+				"H411",
+				"H416",
+				"H429",
+				"H425",
+				"H422C",
+				"H423",
+				"H905",
+			]
+		},
+		{
+			"H401": 12,
+			"H266": 12,
+			"H912": 10,
+			"H913": 2,
+			"H904": 10,
+			"H903": 10,
+			"H902": 6,
+			"H901": 6,
+			"H911": 10,
+			"H412": 4,
+			"H411": 2,
+			"H416": 2,
+			"H429": 12,
+			"H425": 2,
+			"H422C": 2,
+			"H423": 4,
+			"H905": 16,
+		},
+	)
+
+
 def test_w01_consumables(self):
-    bom = compute(load("w01.json"), SNAP).bom
-    self.assertEqual(next(b.length for b in bom if b.item == "H915"), 8.54)
-    self.assertEqual(next(b.qty for b in bom if b.item == "H914"), 1.423)
-def test_w02_frame_hardware(self):   # 915 x 610, from W02 PDF
-    t = totals(compute(load("w02.json"), SNAP).bom)
-    self.assertEqual((t["H912"], t["H902"], t["H911"]), (8, 4, 8))
+	bom = compute(load("w01.json"), SNAP).bom
+	self.assertEqual(next(b.length for b in bom if b.item == "H915"), 8.54)
+	self.assertEqual(next(b.qty for b in bom if b.item == "H914"), 1.423)
+
+
+def test_w02_frame_hardware(self):  # 915 x 610, from W02 PDF
+	t = totals(compute(load("w02.json"), SNAP).bom)
+	self.assertEqual((t["H912"], t["H902"], t["H911"]), (8, 4, 8))
+
+
 def test_w01_weights_match_eva(self):
-    r = compute(load("w01.json"), SNAP)
-    self.assertAlmostEqual(r.shutter_kg["F1-S1"], 8.489, delta=0.02)
-    self.assertAlmostEqual(r.window_kg, 20.698, delta=0.02)
-    self.assertEqual((r.area_m2, r.area_sqft), (1.116, 12.013))
+	r = compute(load("w01.json"), SNAP)
+	self.assertAlmostEqual(r.shutter_kg["F1-S1"], 8.489, delta=0.02)
+	self.assertAlmostEqual(r.window_kg, 20.698, delta=0.02)
+	self.assertEqual((r.area_m2, r.area_sqft), (1.116, 12.013))
+
+
 def test_wall_12x6_shutter_fails_stay(self):
-    r = compute(load("wall_12x6.json"), SNAP)   # 3638 x 1809, v-split at [1212.7, 2425.3]: sash|fixed|sash
-    self.assertTrue(any(i.code == "v_shutter_kg" and i.panel == "F1-S1" for i in r.issues))
-    self.assertAlmostEqual(r.shutter_kg["F1-S1"], 32.9, delta=0.2)
+	r = compute(load("wall_12x6.json"), SNAP)  # 3638 x 1809, v-split at [1212.7, 2425.3]: sash|fixed|sash
+	self.assertTrue(any(i.code == "v_shutter_kg" and i.panel == "F1-S1" for i in r.issues))
+	self.assertAlmostEqual(r.shutter_kg["F1-S1"], 32.9, delta=0.2)
 ```
 
 - `w02.json`: 915×610 frame. A `v` split at `[685]` (from the EvA elevation: 685 | 230); left child `louver` (`5TGT`, `blades: 9`), right child `fixed` (`6CTG`). Only frame-driven totals are asserted, because louver detail is a placeholder.
@@ -399,22 +510,28 @@ def test_wall_12x6_shutter_fails_stay(self):
 
 ```python
 def test_flush_cap_properties(self):
-    p = analyze_dxf(fixture("flush_cap.dxf"))
-    self.assertAlmostEqual(p.area_mm2, 1412.0, delta=1.0)
-    self.assertAlmostEqual(p.width_mm, 154.3, delta=0.2)
-    self.assertAlmostEqual(p.depth_mm, 48.0, delta=0.2)
-    self.assertAlmostEqual(p.kg_per_m, 3.812, delta=0.005)
-    self.assertEqual(p.loops, 2)
-    self.assertTrue(p.svg_path.startswith("M"))
-def test_rectangle_inertia(self):   # 40 x 20 mm, units mm, built with ezdxf in a tempdir
-    p = analyze_dxf(make_rect_dxf(40, 20, insunits=4))
-    self.assertAlmostEqual(p.ix_mm4, 40 * 20**3 / 12, delta=1)
-    self.assertAlmostEqual(p.iy_mm4, 20 * 40**3 / 12, delta=1)
+	p = analyze_dxf(fixture("flush_cap.dxf"))
+	self.assertAlmostEqual(p.area_mm2, 1412.0, delta=1.0)
+	self.assertAlmostEqual(p.width_mm, 154.3, delta=0.2)
+	self.assertAlmostEqual(p.depth_mm, 48.0, delta=0.2)
+	self.assertAlmostEqual(p.kg_per_m, 3.812, delta=0.005)
+	self.assertEqual(p.loops, 2)
+	self.assertTrue(p.svg_path.startswith("M"))
+
+
+def test_rectangle_inertia(self):  # 40 x 20 mm, units mm, built with ezdxf in a tempdir
+	p = analyze_dxf(make_rect_dxf(40, 20, insunits=4))
+	self.assertAlmostEqual(p.ix_mm4, 40 * 20**3 / 12, delta=1)
+	self.assertAlmostEqual(p.iy_mm4, 20 * 40**3 / 12, delta=1)
+
+
 def test_units_missing_warns(self):
-    self.assertIn("units_assumed_mm", analyze_dxf(make_rect_dxf(40, 20, insunits=0)).warnings)
+	self.assertIn("units_assumed_mm", analyze_dxf(make_rect_dxf(40, 20, insunits=0)).warnings)
+
+
 def test_no_closed_loops(self):
-    with self.assertRaises(SectionError):
-        analyze_dxf(make_line_only_dxf())
+	with self.assertRaises(SectionError):
+		analyze_dxf(make_line_only_dxf())
 ```
 
 - [ ] **Step 2: Install the dependency and run; expect FAIL**

@@ -49,7 +49,11 @@ class FenestrationProfile(Document):
 	def rotation_changed(self) -> bool:
 		# a new doc reports every field as changed; there only a non-zero transform means anything
 		if self.is_new():
-			return bool(int(self.section_rotation or 0) or int(getattr(self, "section_flip_x", 0) or 0) or int(getattr(self, "section_flip_y", 0) or 0))
+			return bool(
+				int(self.section_rotation or 0)
+				or int(getattr(self, "section_flip_x", 0) or 0)
+				or int(getattr(self, "section_flip_y", 0) or 0)
+			)
 		return (
 			self.has_value_changed("section_rotation")
 			or self.has_value_changed("section_flip_x")
@@ -68,7 +72,9 @@ class FenestrationProfile(Document):
 				cint(getattr(self, "section_flip_y", 0)),
 			)
 		except ValueError as exc:
-			frappe.throw(_("Could not rotate the section outline: {0}").format(str(exc)), title=_("Section outline"))
+			frappe.throw(
+				_("Could not rotate the section outline: {0}").format(str(exc)), title=_("Section outline")
+			)
 
 	def validate_bar_lengths(self):
 		"""Bar lengths are comma-separated positive numbers, e.g. "4880, 5800"."""
@@ -81,9 +87,9 @@ class FenestrationProfile(Document):
 				valid = False
 			if not valid:
 				frappe.throw(
-					_("Bar Lengths must be comma-separated positive numbers, e.g. 4880, 5800 (got {0})").format(
-						frappe.bold(part.strip())
-					),
+					_(
+						"Bar Lengths must be comma-separated positive numbers, e.g. 4880, 5800 (got {0})"
+					).format(frappe.bold(part.strip())),
 					title=_("Invalid Bar Lengths"),
 				)
 

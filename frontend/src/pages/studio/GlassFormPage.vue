@@ -1,8 +1,13 @@
 <template>
 	<div class="mx-auto max-w-5xl p-6">
-		<header class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4">
+		<header
+			class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4"
+		>
 			<div>
-				<nav aria-label="Breadcrumb" class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5">
+				<nav
+					aria-label="Breadcrumb"
+					class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5"
+				>
 					<router-link to="/series-studio?tab=glass" class="hover:text-ink-gray-8">
 						Series Studio
 					</router-link>
@@ -11,13 +16,23 @@
 						Fenestration Glass
 					</router-link>
 					<span aria-hidden="true">/</span>
-					<span class="font-medium text-ink-gray-8">{{ isEdit ? form.glass_code : 'New Fenestration Glass' }}</span>
+					<span class="font-medium text-ink-gray-8">{{
+						isEdit ? form.glass_code : "New Fenestration Glass"
+					}}</span>
 				</nav>
 				<div class="flex flex-wrap items-center gap-3">
 					<h1 class="text-xl font-semibold text-ink-gray-9">
-						{{ isEdit ? `${form.glass_code} · ${form.glass_name || 'Glass'}` : (form.glass_name || 'New Fenestration Glass') }}
+						{{
+							isEdit
+								? `${form.glass_code} · ${form.glass_name || "Glass"}`
+								: form.glass_name || "New Fenestration Glass"
+						}}
 					</h1>
-					<Badge v-if="form.thickness_mm" theme="blue" :label="`${form.thickness_mm} mm`" />
+					<Badge
+						v-if="form.thickness_mm"
+						theme="blue"
+						:label="`${form.thickness_mm} mm`"
+					/>
 				</div>
 			</div>
 
@@ -78,9 +93,12 @@
 			</section>
 
 			<!-- Subtle link to Global Bead & Gasket Configuration -->
-			<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-gray-2 bg-surface-gray-1/60 px-4 py-3 text-xs text-ink-gray-6">
+			<div
+				class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-gray-2 bg-surface-gray-1/60 px-4 py-3 text-xs text-ink-gray-6"
+			>
 				<span>
-					Beading and glazing gaskets are configured globally by glass thickness across all Profile Series.
+					Beading and glazing gaskets are configured globally by glass thickness across
+					all Profile Series.
 				</span>
 				<router-link
 					to="/series-studio/glazing-config"
@@ -94,86 +112,88 @@
 </template>
 
 <script setup lang="ts">
-import { Alert, Badge, Button, Combobox, FormControl, toast, useList } from 'frappe-ui'
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { getFenestrationGlassDoc, saveFenestrationGlass } from '@/studio/api'
+import { Alert, Badge, Button, Combobox, FormControl, toast, useList } from "frappe-ui";
+import { computed, onMounted, reactive, ref } from "vue";
+import { useRouter } from "vue-router";
+import { getFenestrationGlassDoc, saveFenestrationGlass } from "@/studio/api";
 
-const props = defineProps<{ name?: string }>()
-const router = useRouter()
+const props = defineProps<{ name?: string }>();
+const router = useRouter();
 
-const isEdit = computed(() => Boolean(props.name))
-const loadingDoc = ref(false)
-const saving = ref(false)
-const error = ref('')
+const isEdit = computed(() => Boolean(props.name));
+const loadingDoc = ref(false);
+const saving = ref(false);
+const error = ref("");
 
 const form = reactive({
-	glass_code: '',
-	glass_name: '',
+	glass_code: "",
+	glass_name: "",
 	thickness_mm: 5,
-	item: '',
-})
+	item: "",
+});
 
 const itemsResource = useList<{ name: string; item_name?: string; fen_item_kind?: string }>({
-	doctype: 'Item',
-	fields: ['name', 'item_name', 'fen_item_kind'],
+	doctype: "Item",
+	fields: ["name", "item_name", "fen_item_kind"],
 	limit: 500,
-})
+});
 
 const itemOptions = computed(() =>
 	(itemsResource.data ?? []).map((i) => ({
 		label: i.item_name ? `${i.name} — ${i.item_name}` : i.name,
 		value: i.name,
-	})),
-)
+	}))
+);
 
 const canSave = computed(() =>
 	Boolean(
-		String(form.glass_code ?? '').trim() &&
-			String(form.glass_name ?? '').trim() &&
+		String(form.glass_code ?? "").trim() &&
+			String(form.glass_name ?? "").trim() &&
 			Number(form.thickness_mm) > 0 &&
-			!saving.value,
-	),
-)
+			!saving.value
+	)
+);
 
 onMounted(async () => {
-	if (!props.name) return
-	loadingDoc.value = true
+	if (!props.name) return;
+	loadingDoc.value = true;
 	try {
-		const doc = await getFenestrationGlassDoc(props.name)
-		form.glass_code = doc.glass_code || doc.name
-		form.glass_name = doc.glass_name || ''
-		form.thickness_mm = Number(doc.thickness_mm || 5)
-		form.item = doc.item || ''
+		const doc = await getFenestrationGlassDoc(props.name);
+		form.glass_code = doc.glass_code || doc.name;
+		form.glass_name = doc.glass_name || "";
+		form.thickness_mm = Number(doc.thickness_mm || 5);
+		form.item = doc.item || "";
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not load glass specification'
+		error.value = e instanceof Error ? e.message : "Could not load glass specification";
 	} finally {
-		loadingDoc.value = false
+		loadingDoc.value = false;
 	}
-})
+});
 
 async function save() {
-	if (!canSave.value) return
-	saving.value = true
-	error.value = ''
+	if (!canSave.value) return;
+	saving.value = true;
+	error.value = "";
 	try {
 		const savedName = await saveFenestrationGlass(
 			{
-				glass_code: String(form.glass_code ?? '').trim(),
-				glass_name: String(form.glass_name ?? '').trim(),
+				glass_code: String(form.glass_code ?? "").trim(),
+				glass_name: String(form.glass_name ?? "").trim(),
 				thickness_mm: Number(form.thickness_mm),
-				item: String(form.item ?? '').trim() || null,
+				item: String(form.item ?? "").trim() || null,
 			},
-			props.name || null,
-		)
-		toast.success(isEdit.value ? 'Glass specification updated' : 'Glass specification created')
+			props.name || null
+		);
+		toast.success(
+			isEdit.value ? "Glass specification updated" : "Glass specification created"
+		);
 		if (!isEdit.value) {
-			router.replace(`/series-studio/glass/${encodeURIComponent(savedName)}`)
+			router.replace(`/series-studio/glass/${encodeURIComponent(savedName)}`);
 		}
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not save glass specification'
+		error.value = e instanceof Error ? e.message : "Could not save glass specification";
 	} finally {
-		saving.value = false
+		saving.value = false;
 	}
 }
 </script>

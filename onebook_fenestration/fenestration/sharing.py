@@ -94,7 +94,11 @@ def project_has_permission(doc, ptype: str | None = None, user: str | None = Non
 			return True
 
 	if is_hilux_staff(user):
-		if cint(doc.get("fen_is_dealer_private")) and not cint(doc.get("fen_shared_with_hilux")) and doc.get("owner") != user:
+		if (
+			cint(doc.get("fen_is_dealer_private"))
+			and not cint(doc.get("fen_shared_with_hilux"))
+			and doc.get("owner") != user
+		):
 			return False
 		return True
 
@@ -145,7 +149,11 @@ def design_has_permission(doc, ptype: str | None = None, user: str | None = None
 	if user == "Administrator" or "System Manager" in frappe.get_roles(user):
 		return True
 
-	project_name = doc.get("project") if not isinstance(doc, str) else frappe.db.get_value("Window Design", doc, "project")
+	project_name = (
+		doc.get("project")
+		if not isinstance(doc, str)
+		else frappe.db.get_value("Window Design", doc, "project")
+	)
 	if not project_name:
 		return True
 	return project_has_permission(project_name, ptype=ptype, user=user)
@@ -191,7 +199,9 @@ def share_project_with_hilux(
 	errored = [d.design_ref or d.name for d in designs if cint(d.error_count) > 0]
 	if errored:
 		frappe.throw(
-			_("Fix engineering errors in these designs before sharing with Hilux: {0}").format(", ".join(errored))
+			_("Fix engineering errors in these designs before sharing with Hilux: {0}").format(
+				", ".join(errored)
+			)
 		)
 
 	shared_on = now_datetime()
@@ -230,7 +240,11 @@ def unlock_project_designs(project: str, reason: str | None = None) -> dict:
 	"""Unlock a shared project's window designs for revision."""
 	frappe.has_permission("Fenestration Project", "write", project, throw=True)
 	doc = frappe.get_doc("Fenestration Project", project)
-	if not is_hilux_staff() and doc.fen_manufacturing_status in ("Materials Procured", "In Fabrication", "Dispatched to Dealer"):
+	if not is_hilux_staff() and doc.fen_manufacturing_status in (
+		"Materials Procured",
+		"In Fabrication",
+		"Dispatched to Dealer",
+	):
 		frappe.throw(_("Cannot unlock designs once Hilux has started procurement or fabrication."))
 
 	doc.db_set("fen_design_locked", 0)
@@ -254,7 +268,12 @@ def update_manufacturing_status(project: str, status: str) -> dict:
 	frappe.has_permission("Fenestration Project", "write", project, throw=True)
 	doc = frappe.get_doc("Fenestration Project", project)
 	updates = {"fen_manufacturing_status": status}
-	if status in ("Accepted for Manufacturing", "Materials Procured", "In Fabrication", "Dispatched to Dealer"):
+	if status in (
+		"Accepted for Manufacturing",
+		"Materials Procured",
+		"In Fabrication",
+		"Dispatched to Dealer",
+	):
 		updates["fen_design_locked"] = 1
 	doc.db_set(updates)
 	return {
@@ -330,7 +349,13 @@ def _notify_hilux_team(project_doc, designs: list[dict], users: list[str], notes
 		len(designs),
 		total_qty,
 	)
-	body = notes.strip() if notes else _("Window designs, cutting sheets, assembly details, and BOM takeoff are ready for manufacturing.")
+	body = (
+		notes.strip()
+		if notes
+		else _(
+			"Window designs, cutting sheets, assembly details, and BOM takeoff are ready for manufacturing."
+		)
+	)
 	for user in users:
 		try:
 			frappe.get_doc(
@@ -350,4 +375,3 @@ def _notify_hilux_team(project_doc, designs: list[dict], users: list[str], notes
 				title=f"Failed notifying {user} for shared project {project_doc.name}",
 				message=frappe.get_traceback(),
 			)
-

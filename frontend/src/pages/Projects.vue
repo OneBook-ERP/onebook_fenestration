@@ -26,7 +26,9 @@
 					</div>
 					<div class="mt-0.5 text-[11px] text-gray-500">{{ card.sublabel }}</div>
 				</div>
-				<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+				<div
+					class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"
+				>
 					<span :class="[card.icon, 'size-4']" />
 				</div>
 			</div>
@@ -119,9 +121,11 @@
 								/>
 							</div>
 							<div class="mt-0.5 flex items-center gap-2 text-[12px] text-gray-500">
-								<span class="truncate">{{ p.customer || 'No customer' }}</span>
+								<span class="truncate">{{ p.customer || "No customer" }}</span>
 								<span class="text-gray-300">·</span>
-								<span class="shrink-0 font-mono text-[11px] text-gray-400">{{ p.name }}</span>
+								<span class="shrink-0 font-mono text-[11px] text-gray-400">{{
+									p.name
+								}}</span>
 							</div>
 						</div>
 
@@ -137,13 +141,13 @@
 
 						<!-- Designs Count -->
 						<div class="text-[12.5px] text-gray-700">
-							{{ p.design_count }} {{ p.design_count === 1 ? 'design' : 'designs' }}
+							{{ p.design_count }} {{ p.design_count === 1 ? "design" : "designs" }}
 						</div>
 
 						<!-- Window Quantity & Area -->
 						<div>
 							<div class="text-[12.5px] font-medium text-gray-800">
-								{{ p.window_qty }} {{ p.window_qty === 1 ? 'window' : 'windows' }}
+								{{ p.window_qty }} {{ p.window_qty === 1 ? "window" : "windows" }}
 							</div>
 							<div v-if="p.total_area_sqft > 0" class="text-[11px] text-gray-400">
 								{{ p.total_area_sqft }} sq.ft
@@ -156,13 +160,19 @@
 								v-for="(step, idx) in progressSteps"
 								:key="step"
 								class="h-1.5 flex-1 rounded-full transition-colors"
-								:class="idx < stageStepIndex(p.stage) ? stageBarClass(p.stage) : 'bg-gray-200'"
+								:class="
+									idx < stageStepIndex(p.stage)
+										? stageBarClass(p.stage)
+										: 'bg-gray-200'
+								"
 							/>
 						</div>
 
 						<!-- Series Version -->
-						<div class="flex items-center justify-end gap-1.5 text-[12px] text-gray-500">
-							<span class="truncate">{{ p.default_series_version || '—' }}</span>
+						<div
+							class="flex items-center justify-end gap-1.5 text-[12px] text-gray-500"
+						>
+							<span class="truncate">{{ p.default_series_version || "—" }}</span>
 							<span class="lucide-chevron-right size-3.5 shrink-0 text-gray-400" />
 						</div>
 					</RouterLink>
@@ -188,9 +198,18 @@
 					type="select"
 					label="Customer Type"
 					:options="[
-						{ label: 'Dealer (Design & Share to Hilux to Manufacture)', value: 'Dealer' },
-						{ label: 'Fabrication Partner (Raw Aluminium Frames & Materials Only)', value: 'Fabrication Partner' },
-						{ label: 'Own Client (Direct Homeowner / Apartment — Supply & Install)', value: 'Own Client' },
+						{
+							label: 'Dealer (Design & Share to Hilux to Manufacture)',
+							value: 'Dealer',
+						},
+						{
+							label: 'Fabrication Partner (Raw Aluminium Frames & Materials Only)',
+							value: 'Fabrication Partner',
+						},
+						{
+							label: 'Own Client (Direct Homeowner / Apartment — Supply & Install)',
+							value: 'Own Client',
+						},
 					]"
 				/>
 				<FormControl
@@ -202,16 +221,18 @@
 				<Alert v-if="error" theme="red" :title="error" />
 			</div>
 			<template #actions>
-				<Button variant="solid" :loading="saving" :disabled="!canCreate" @click="create">Create project</Button>
+				<Button variant="solid" :loading="saving" :disabled="!canCreate" @click="create"
+					>Create project</Button
+				>
 			</template>
 		</Dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { Alert, Badge, Button, Combobox, Dialog, FormControl, useList } from 'frappe-ui'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { Alert, Badge, Button, Combobox, Dialog, FormControl, useList } from "frappe-ui";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import { RouterLink, useRouter } from "vue-router";
 import {
 	createProject,
 	getProjectOverview,
@@ -219,221 +240,230 @@ import {
 	type ProjectOverview,
 	type ProjectOverviewRow,
 	type ProjectStage,
-} from '@/api'
+} from "@/api";
 
 interface ProjectRow {
-	name: string
-	project_title: string
-	customer: string
-	default_series_version?: string | null
-	modified: string
+	name: string;
+	project_title: string;
+	customer: string;
+	default_series_version?: string | null;
+	modified: string;
 }
 
-const STAGES: ProjectStage[] = ['Draft', 'Designing', 'Quotation', 'Order', 'Production']
-const progressSteps = ['Designing', 'Quotation', 'Order', 'Production']
+const STAGES: ProjectStage[] = ["Draft", "Designing", "Quotation", "Order", "Production"];
+const progressSteps = ["Designing", "Quotation", "Order", "Production"];
 
-const router = useRouter()
-const search = ref('')
-const stageFilter = ref<'all' | ProjectStage>('all')
-const partnerFilter = ref<'all' | 'shared' | PartnerType>('all')
-const showNew = ref(false)
-const saving = ref(false)
-const error = ref('')
+const router = useRouter();
+const search = ref("");
+const stageFilter = ref<"all" | ProjectStage>("all");
+const partnerFilter = ref<"all" | "shared" | PartnerType>("all");
+const showNew = ref(false);
+const saving = ref(false);
+const error = ref("");
 const form = reactive({
-	project_title: '',
+	project_title: "",
 	customer: null as string | null,
-	default_series_version: '',
-	fen_partner_type: 'Dealer' as PartnerType,
-})
+	default_series_version: "",
+	fen_partner_type: "Dealer" as PartnerType,
+});
 
-const overview = ref<ProjectOverview | null>(null)
+const overview = ref<ProjectOverview | null>(null);
 
 const projects = useList<ProjectRow>({
-	doctype: 'Fenestration Project',
-	fields: ['name', 'project_title', 'customer', 'default_series_version', 'modified'],
-	orderBy: 'modified desc',
+	doctype: "Fenestration Project",
+	fields: ["name", "project_title", "customer", "default_series_version", "modified"],
+	orderBy: "modified desc",
 	limit: 100,
-})
+});
 const customers = useList<{ name: string; fen_partner_type?: PartnerType }>({
-	doctype: 'Customer',
-	fields: ['name', 'fen_partner_type'],
-	orderBy: 'name asc',
+	doctype: "Customer",
+	fields: ["name", "fen_partner_type"],
+	orderBy: "name asc",
 	limit: 500,
-})
+});
 watch(
 	() => form.customer,
 	(custName) => {
-		if (!custName) return
-		const found = (customers.data ?? []).find((c) => c.name === custName)
+		if (!custName) return;
+		const found = (customers.data ?? []).find((c) => c.name === custName);
 		if (found?.fen_partner_type) {
-			form.fen_partner_type = found.fen_partner_type
+			form.fen_partner_type = found.fen_partner_type;
 		}
-	},
-)
+	}
+);
 const versions = useList<{ name: string; series: string; creation: string }>({
-	doctype: 'Series Version',
-	fields: ['name', 'series', 'creation'],
+	doctype: "Series Version",
+	fields: ["name", "series", "creation"],
 	filters: { docstatus: 1 },
 	limit: 100,
-})
+});
 
 onMounted(async () => {
 	try {
-		if (typeof getProjectOverview === 'function') {
-			overview.value = await getProjectOverview()
+		if (typeof getProjectOverview === "function") {
+			overview.value = await getProjectOverview();
 		}
 	} catch {
 		// Fall back to basic useList data if overview endpoint is unavailable
 	}
-})
+});
 
 const allProjects = computed<ProjectOverviewRow[]>(() => {
-	if (overview.value?.projects) return overview.value.projects
+	if (overview.value?.projects) return overview.value.projects;
 	return (projects.data ?? []).map((p) => ({
 		...p,
 		design_count: 0,
 		window_qty: 0,
 		total_area_sqft: 0,
-		stage: 'Draft' as ProjectStage,
-	}))
-})
+		stage: "Draft" as ProjectStage,
+	}));
+});
 
 const stats = computed(() => {
-	if (overview.value?.stats) return overview.value.stats
+	if (overview.value?.stats) return overview.value.stats;
 	return {
 		total_projects: allProjects.value.length,
 		total_designs: 0,
 		total_windows: 0,
 		quoted_or_ordered: 0,
 		in_production: 0,
-	}
-})
+	};
+});
 
 const statCards = computed(() => [
 	{
-		label: 'Total Projects',
+		label: "Total Projects",
 		value: stats.value.total_projects,
-		sublabel: `${allProjects.value.filter((p) => p.stage === 'Designing').length} in design`,
-		icon: 'lucide-folder-kanban',
+		sublabel: `${allProjects.value.filter((p) => p.stage === "Designing").length} in design`,
+		icon: "lucide-folder-kanban",
 	},
 	{
-		label: 'Total Designs',
+		label: "Total Designs",
 		value: stats.value.total_designs,
-		sublabel: 'Active window elevations',
-		icon: 'lucide-panels-top-left',
+		sublabel: "Active window elevations",
+		icon: "lucide-panels-top-left",
 	},
 	{
-		label: 'Total Windows',
+		label: "Total Windows",
 		value: stats.value.total_windows,
-		sublabel: 'Total unit quantity',
-		icon: 'lucide-layout-grid',
+		sublabel: "Total unit quantity",
+		icon: "lucide-layout-grid",
 	},
 	{
-		label: 'Quoted & Orders',
+		label: "Quoted & Orders",
 		value: stats.value.quoted_or_ordered,
 		sublabel: `${stats.value.in_production} in production`,
-		icon: 'lucide-file-check',
+		icon: "lucide-file-check",
 	},
-])
+]);
 
 const stagePills = computed(() => [
-	{ key: 'all' as const, label: 'All', count: allProjects.value.length },
+	{ key: "all" as const, label: "All", count: allProjects.value.length },
 	...STAGES.map((stage) => ({
 		key: stage,
 		label: stage,
 		count: allProjects.value.filter((p) => p.stage === stage).length,
 	})),
-])
+]);
 
 const filtered = computed(() => {
-	const q = search.value.trim().toLowerCase()
+	const q = search.value.trim().toLowerCase();
 	return allProjects.value.filter((p) => {
-		if (stageFilter.value !== 'all' && p.stage !== stageFilter.value) return false
-		if (partnerFilter.value === 'shared' && !p.fen_shared_with_hilux) return false
+		if (stageFilter.value !== "all" && p.stage !== stageFilter.value) return false;
+		if (partnerFilter.value === "shared" && !p.fen_shared_with_hilux) return false;
 		if (
-			(partnerFilter.value === 'Dealer' ||
-				partnerFilter.value === 'Fabrication Partner' ||
-				partnerFilter.value === 'Own Client') &&
-			(p.fen_partner_type || 'Dealer') !== partnerFilter.value
+			(partnerFilter.value === "Dealer" ||
+				partnerFilter.value === "Fabrication Partner" ||
+				partnerFilter.value === "Own Client") &&
+			(p.fen_partner_type || "Dealer") !== partnerFilter.value
 		) {
-			return false
+			return false;
 		}
-		if (!q) return true
-		return [p.name, p.project_title, p.customer, p.stage, p.fen_partner_type, p.fen_manufacturing_status].some((v) =>
-			(v ?? '').toLowerCase().includes(q),
-		)
-	})
-})
+		if (!q) return true;
+		return [
+			p.name,
+			p.project_title,
+			p.customer,
+			p.stage,
+			p.fen_partner_type,
+			p.fen_manufacturing_status,
+		].some((v) => (v ?? "").toLowerCase().includes(q));
+	});
+});
 
-const customerOptions = computed(() => (customers.data ?? []).map((c) => ({ label: c.name, value: c.name })))
+const customerOptions = computed(() =>
+	(customers.data ?? []).map((c) => ({ label: c.name, value: c.name }))
+);
 const versionOptions = computed(() => {
-	const newestFirst = [...(versions.data ?? [])].sort((a, b) => b.creation.localeCompare(a.creation))
-	const latest = new Set<string>()
+	const newestFirst = [...(versions.data ?? [])].sort((a, b) =>
+		b.creation.localeCompare(a.creation)
+	);
+	const latest = new Set<string>();
 	return newestFirst.map((v) => {
-		const isLatest = !latest.has(v.series)
-		latest.add(v.series)
-		return { label: isLatest ? `${v.name} (latest)` : v.name, value: v.name }
-	})
-})
-const canCreate = computed(() => !!form.project_title.trim() && !!form.default_series_version)
+		const isLatest = !latest.has(v.series);
+		latest.add(v.series);
+		return { label: isLatest ? `${v.name} (latest)` : v.name, value: v.name };
+	});
+});
+const canCreate = computed(() => !!form.project_title.trim() && !!form.default_series_version);
 
-function partnerBadgeTheme(partnerType?: PartnerType): 'gray' | 'blue' | 'violet' {
-	if (partnerType === 'Fabrication Partner') return 'blue'
-	if (partnerType === 'Own Client') return 'violet'
-	return 'gray'
+function partnerBadgeTheme(partnerType?: PartnerType): "gray" | "blue" | "violet" {
+	if (partnerType === "Fabrication Partner") return "blue";
+	if (partnerType === "Own Client") return "violet";
+	return "gray";
 }
 
 function stageStepIndex(stage: ProjectStage): number {
-	const idx = progressSteps.indexOf(stage)
-	return idx === -1 ? 0 : idx + 1
+	const idx = progressSteps.indexOf(stage);
+	return idx === -1 ? 0 : idx + 1;
 }
 
 function stageBadgeClass(stage: ProjectStage): string {
 	switch (stage) {
-		case 'Designing':
-			return 'bg-blue-50 text-blue-700'
-		case 'Quotation':
-			return 'bg-amber-50 text-amber-700'
-		case 'Order':
-			return 'bg-indigo-50 text-indigo-700'
-		case 'Production':
-			return 'bg-emerald-50 text-emerald-700'
+		case "Designing":
+			return "bg-blue-50 text-blue-700";
+		case "Quotation":
+			return "bg-amber-50 text-amber-700";
+		case "Order":
+			return "bg-indigo-50 text-indigo-700";
+		case "Production":
+			return "bg-emerald-50 text-emerald-700";
 		default:
-			return 'bg-gray-100 text-gray-600'
+			return "bg-gray-100 text-gray-600";
 	}
 }
 
 function stageBarClass(stage: ProjectStage): string {
 	switch (stage) {
-		case 'Designing':
-			return 'bg-blue-500'
-		case 'Quotation':
-			return 'bg-amber-500'
-		case 'Order':
-			return 'bg-indigo-500'
-		case 'Production':
-			return 'bg-emerald-500'
+		case "Designing":
+			return "bg-blue-500";
+		case "Quotation":
+			return "bg-amber-500";
+		case "Order":
+			return "bg-indigo-500";
+		case "Production":
+			return "bg-emerald-500";
 		default:
-			return 'bg-gray-300'
+			return "bg-gray-300";
 	}
 }
 
 async function create() {
-	saving.value = true
-	error.value = ''
+	saving.value = true;
+	error.value = "";
 	try {
 		const name = await createProject({
 			project_title: form.project_title.trim(),
 			customer: form.customer?.trim() || undefined,
 			default_series_version: form.default_series_version,
 			fen_partner_type: form.fen_partner_type,
-		})
-		showNew.value = false
-		router.push(`/projects/${name}`)
+		});
+		showNew.value = false;
+		router.push(`/projects/${name}`);
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : 'Could not create the project.'
+		error.value = e instanceof Error ? e.message : "Could not create the project.";
 	} finally {
-		saving.value = false
+		saving.value = false;
 	}
 }
 </script>

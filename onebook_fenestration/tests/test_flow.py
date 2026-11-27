@@ -15,7 +15,11 @@ class TestFlowHelpers(unittest.TestCase):
 			patch.object(flow, "_", side_effect=lambda msg: msg),
 			patch.object(flow, "nowdate", return_value="2026-11-19"),
 			patch.object(flow.frappe, "db", MagicMock()),
-			patch.object(flow.frappe, "throw", side_effect=lambda msg: (_ for _ in ()).throw(frappe.ValidationError(msg))),
+			patch.object(
+				flow.frappe,
+				"throw",
+				side_effect=lambda msg: (_ for _ in ()).throw(frappe.ValidationError(msg)),
+			),
 		]
 		for p in self.patches:
 			p.start()
@@ -109,7 +113,16 @@ class TestFlowHelpers(unittest.TestCase):
 
 		q["docstatus"] = 1
 		so = [{"name": "SO-1", "docstatus": 1, "per_delivered": 0, "per_billed": 0}]
-		po = [{"name": "PO-1", "docstatus": 1, "per_received": 0, "per_billed": 0, "grand_total": 100, "advance_paid": 0}]
+		po = [
+			{
+				"name": "PO-1",
+				"docstatus": 1,
+				"per_received": 0,
+				"per_billed": 0,
+				"grand_total": 100,
+				"advance_paid": 0,
+			}
+		]
 		flow._attach_actions(
 			quotation=q,
 			sales_orders=so,
