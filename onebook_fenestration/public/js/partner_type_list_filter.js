@@ -56,4 +56,3 @@
 
 	TARGET_DOCTYPES.forEach(wrapDoctypeListSettings);
 })();
-
