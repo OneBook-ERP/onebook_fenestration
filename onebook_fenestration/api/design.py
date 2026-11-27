@@ -4,19 +4,23 @@ import json
 import frappe
 from frappe import _
 
-from onebook_fenestration.engine import DesignError, RuleError, cross_section as cut_design
+from onebook_fenestration.engine import DesignError, RuleError
+from onebook_fenestration.engine import cross_section as cut_design
+from onebook_fenestration.engine.elevation_svg import generate_elevation_svg
+from onebook_fenestration.engine.engine import compute as compute_engine
+from onebook_fenestration.engine.layout import layout
 from onebook_fenestration.fenestration.doctype.window_design.window_design import (
 	locking_document,
 	pricing_to_dict,
 	result_to_dict,
 )
-from onebook_fenestration.series_studio.outline import rotate_path
-from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.pricing.rates import (
 	missing_defaults_message,
 	price_design,
 	resolve_pricing_defaults,
 )
+from onebook_fenestration.series_studio.outline import transform_path
+from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 
 @frappe.whitelist()
@@ -51,37 +55,306 @@ def cross_section(design: dict | str, series_version: str, axis: str, at: float 
 		return error
 	try:
 		at = None if at in (None, "") else float(at)
-	except (TypeError, ValueError):
+	except TypeError, ValueError:
 		return {"ok": False, "error_type": "design", "message": f"cut position must be a number, got {at!r}"}
 	try:
 		snapshot = get_snapshot(series_version)
-		profiles = _profile_sections(sorted(snapshot.profiles))
-		widths = {code: p.width_mm for code, p in profiles.items() if p.width_mm}
-		section = cut_design(design, snapshot, axis, at, widths)
+		# The profile-width pass only changes section geometry. Reuse the same
+		# full design result so sash layouts and glazing are not recalculated.
+		computed = compute_engine(design, snapshot)
+		# First discover the profiles on the cut without loading any profile SVGs.
+		# The series snapshot includes every profile in the catalogue; fetching their
+		# large section_svg fields here made each section request transfer the whole catalogue.
+		section = cut_design(design, snapshot, axis, at, result=computed)
+		codes = {piece.code for piece in section.pieces if piece.kind == "profile"}
+		profiles = _profile_sections(sorted(codes))
+		widths = {
+			# width_mm is already the outline's extent along the cut after section_rotation.
+			code: float(p.width_mm or p.depth_mm or 0)
+			for code, p in profiles.items()
+			if (p.width_mm or p.depth_mm)
+		}
+		# Recut with real profile widths, preserving the CAD placement and warnings.
+		section = cut_design(design, snapshot, axis, at, widths, result=computed)
+
 	except DesignError as exc:
 		return {"ok": False, "error_type": "design", "message": str(exc)}
 	except RuleError as exc:
 		return {"ok": False, "error_type": "series", "message": str(exc)}
 	codes = {piece.code for piece in section.pieces if piece.kind == "profile"}
 	outlines = {code: _outline(p) for code, p in sorted(profiles.items()) if code in codes and p.section_svg}
-	return {"ok": True, "result": json.loads(json.dumps(dataclasses.asdict(section))), "outlines": outlines}
+	return {
+		"ok": True,
+		"result": json.loads(json.dumps(dataclasses.asdict(section))),
+		"outlines": outlines,
+		"section_config": snapshot.section_config or {},
+	}
+
+
+@frappe.whitelist()
+def window_assembly(design: dict | str, series_version: str) -> dict:
+	"""Complete physical member list for the 3D viewer.
+
+	This deliberately reuses the manufacturing layout, cut-member and glazing
+	calculation.  Unlike ``cross_section`` (one linear slice), it identifies
+	every rail and pane once with its plan-space rectangle.
+	"""
+	design, error = _checked_input(design, series_version)
+	if error:
+		return error
+	try:
+		snapshot = get_snapshot(series_version)
+		result = compute_engine(design, snapshot)
+		cells, bars = layout(design)
+		profiles = _profile_sections(sorted(snapshot.profiles))
+	except DesignError as exc:
+		return {"ok": False, "error_type": "design", "message": str(exc)}
+	except RuleError as exc:
+		return {"ok": False, "error_type": "series", "message": str(exc)}
+
+	by_path = {cell.path: cell for cell in cells}
+	by_bar = {bar.id: bar for bar in bars}
+	member_rows = []
+	for index, member in enumerate(result.members):
+		if member.role in ("bead", "glass_adaptor"):
+			# Glass-side profiles have their rectangle reconstructed from the
+			# owning pane below; they are still explicit physical instances.
+			pane = next((p for p in result.glass if p.path == member.path), None)
+			if not pane:
+				continue
+			x, y, w, h = _pane_rect(pane, by_path[member.path], snapshot)
+			member_rows.append(
+				_assembly_member(index, member, x, y, w, h, member.position in ("B", "T"), "mitre")
+			)
+			continue
+		if member.role in ("frame", "threshold", "door_bottom_adaptor"):
+			member_rows.append(
+				_assembly_member(
+					index,
+					member,
+					0,
+					0,
+					design["width"],
+					design["height"],
+					member.position in ("B", "T"),
+					"mitre",
+				)
+			)
+			continue
+		if member.role in ("mullion", "transom"):
+			bar = by_bar.get(member.path)
+			if not bar:
+				continue
+			# member.length is already span minus both end deductions. Start the
+			# bar at the first deduction or it runs through the frame and stops short.
+			d_start = float(snapshot.deductions.get(f"bar_end_{bar.ends[0]}", 0) or 0)
+			if bar.kind == "mullion":
+				member_rows.append(
+					_assembly_member(
+						index, member, bar.at, bar.start + d_start, 0, member.length, False, "butt"
+					)
+				)
+			else:
+				member_rows.append(
+					_assembly_member(
+						index, member, bar.start + d_start, bar.at, member.length, 0, True, "butt"
+					)
+				)
+			continue
+		if member.role in ("sash", "door_sash"):
+			cell = by_path.get(member.path)
+			if not cell:
+				continue
+			side = {s: snapshot.deductions[f"sash_side_{cell.sides[s]}"] for s in "LRBT"}
+			x, y = cell.x + side["L"], cell.y + side["B"]
+			w, h = cell.w - side["L"] - side["R"], cell.h - side["B"] - side["T"]
+			member_rows.append(
+				_assembly_member(index, member, x, y, w, h, member.position in ("B", "T"), "mitre")
+			)
+
+	pane_rows = []
+	for pane in result.glass:
+		x, y, w, h = _pane_rect(pane, by_path[pane.path], snapshot)
+		pane_rows.append(
+			{
+				"id": f"glass:{pane.path}",
+				"panel": pane.panel,
+				"path": pane.path,
+				"glass": pane.glass,
+				"x": x,
+				"y": y,
+				"width": w,
+				"height": h,
+				"thickness": pane.thickness or snapshot.glasses[pane.glass].thickness_mm,
+				"cutout": pane.cutout,
+				"material": pane.material,
+			}
+		)
+	codes = {m["profile"] for m in member_rows}
+	outlines = {code: _outline(p) for code, p in profiles.items() if code in codes and p.section_svg}
+	return {
+		"ok": True,
+		"result": {
+			"width": design["width"],
+			"height": design["height"],
+			"members": member_rows,
+			"panes": pane_rows,
+			"issues": [dataclasses.asdict(i) for i in result.issues],
+		},
+		"outlines": outlines,
+	}
+
+
+@frappe.whitelist()
+def profile_catalog(series_version: str = "", start: int = 0, page_length: int = 100) -> dict:
+	"""Permission-aware, paginated profile catalogue for member selection."""
+	try:
+		start, page_length = max(0, int(start)), min(200, max(1, int(page_length)))
+	except TypeError, ValueError:
+		return {"ok": False, "message": "start and page_length must be numbers"}
+	series = ""
+	if series_version and frappe.has_permission("Series Version", "read", series_version):
+		try:
+			series = get_snapshot(series_version).code
+		except RuleError, frappe.DoesNotExistError:
+			pass
+	fields = [
+		"name",
+		"profile_code",
+		"profile_name",
+		"series",
+		"role",
+		"width_mm",
+		"depth_mm",
+		"section_svg",
+		"section_rotation",
+		"section_flip_x",
+		"section_flip_y",
+	]
+	try:
+		rows = frappe.get_list(
+			"Fenestration Profile",
+			fields=fields,
+			order_by="profile_code asc",
+			start=start,
+			page_length=page_length,
+		)
+	except frappe.db.OperationalError:
+		rows = frappe.get_list(
+			"Fenestration Profile",
+			fields=fields[:-2],
+			order_by="profile_code asc",
+			start=start,
+			page_length=page_length,
+		)
+	count = len(frappe.get_list("Fenestration Profile", pluck="name", limit_page_length=0))
+	items = []
+	for row in rows:
+		d = row.as_dict() if callable(getattr(row, "as_dict", None)) else dict(row)
+		d["code"] = d.get("profile_code") or d.get("name")
+		d["has_outline"] = bool(d.get("section_svg"))
+		d["current_series"] = bool(series and d.get("series") == series)
+		d["outline_transformed"] = False
+		if d.get("section_svg") and (
+			int(d.get("section_rotation") or 0)
+			or int(d.get("section_flip_x") or 0)
+			or int(d.get("section_flip_y") or 0)
+		):
+			transformed = _outline(d)
+			d["section_svg"] = transformed["svg"]
+			if transformed.get("width") is not None:
+				d["width_mm"] = transformed["width"]
+			if transformed.get("depth") is not None:
+				d["depth_mm"] = transformed["depth"]
+			d["outline_transformed"] = True
+		items.append(d)
+	return {
+		"ok": True,
+		"items": items,
+		"total": count,
+		"next_start": start + len(items) if start + len(items) < count else None,
+		"series": series,
+	}
+
+
+def _assembly_member(index, member, x, y, width, height, horizontal, end_treatment):
+	return {
+		"id": f"member:{index}:{member.path}:{member.position}",
+		"panel": member.panel,
+		"path": member.path,
+		"role": member.role,
+		"position": member.position,
+		"profile": member.profile,
+		"x": x,
+		"y": y,
+		"width": width,
+		"height": height,
+		"axis": "x" if horizontal else "y",
+		"length": member.length,
+		"end_treatment": end_treatment,
+	}
+
+
+def _pane_rect(pane, cell, snapshot):
+	if cell.node["type"] == "sash":
+		side = {s: snapshot.deductions[f"sash_side_{cell.sides[s]}"] for s in "LRBT"}
+		x = cell.x + side["L"] + snapshot.deductions["sash_glass"]
+		y = cell.y + side["B"] + snapshot.deductions["sash_glass"]
+	else:
+		side = {s: snapshot.deductions[f"fixed_glass_side_{cell.sides[s]}"] for s in "LRBT"}
+		x, y = cell.x + side["L"], cell.y + side["B"]
+	return round(x, 2), round(y, 2), pane.width, pane.height
 
 
 def _outline(profile) -> dict:
-	"""The stored outline turned by the profile's `section_rotation`: face along x, bbox at 0,0."""
-	if not int(profile.section_rotation or 0):
-		return {"svg": profile.section_svg, "width": profile.width_mm, "depth": profile.depth_mm}
-	svg, width, depth = rotate_path(profile.section_svg, profile.section_rotation)
+	"""The stored outline flipped and turned by the profile's defaults: face along x, bbox at 0,0."""
+	from frappe.utils import cint
+
+	def _get(key, default=None):
+		return profile.get(key, default) if isinstance(profile, dict) else getattr(profile, key, default)
+
+	rot = cint(_get("section_rotation", 0))
+	fx = bool(cint(_get("section_flip_x", 0)))
+	fy = bool(cint(_get("section_flip_y", 0)))
+	svg_raw = _get("section_svg")
+	w_raw = _get("width_mm")
+	d_raw = _get("depth_mm")
+	if not rot and not fx and not fy:
+		return {"svg": svg_raw, "width": w_raw, "depth": d_raw}
+	svg, width, depth = transform_path(svg_raw, rot, fx, fy)
 	return {"svg": svg, "width": width, "depth": depth}
 
 
 def _profile_sections(codes: list[str]) -> dict:
 	"""Outline and face size of each profile; read without per-user permission, like the series snapshot itself."""
-	rows = frappe.get_all(
-		"Fenestration Profile",
-		filters={"name": ("in", codes or [""])},
-		fields=["name", "section_svg", "section_rotation", "width_mm", "depth_mm"],
-	)
+	fields = [
+		"name",
+		"section_svg",
+		"section_rotation",
+		"section_flip_x",
+		"section_flip_y",
+		"width_mm",
+		"depth_mm",
+	]
+	try:
+		rows = frappe.get_all(
+			"Fenestration Profile",
+			filters={"name": ("in", codes or [""])},
+			fields=fields,
+		)
+	except frappe.db.OperationalError:
+		try:
+			rows = frappe.get_all(
+				"Fenestration Profile",
+				filters={"name": ("in", codes or [""])},
+				fields=["name", "section_svg", "section_rotation", "width_mm", "depth_mm"],
+			)
+		except frappe.db.OperationalError:
+			rows = frappe.get_all(
+				"Fenestration Profile",
+				filters={"name": ("in", codes or [""])},
+				fields=["name", "section_svg", "width_mm", "depth_mm"],
+			)
 	return {row.name: row for row in rows}
 
 
@@ -102,18 +375,32 @@ def _checked_input(design: dict | str, series_version: str) -> tuple[dict | None
 
 
 def series_info(series_version: str) -> dict:
-	"""What the designer needs to know of a version: its glass codes and its sash option defaults."""
+	"""What the designer needs to know of a version: its glass codes, profiles, and its sash option defaults."""
 	snapshot = get_snapshot(series_version)
+	role_defaults = {}
+	for r in snapshot.member_rules:
+		role_defaults.setdefault(r.role, r.profile)
+	profiles = _profile_sections(sorted(snapshot.profiles))
+	profile_widths = {
+		code: float(p.width_mm or p.depth_mm or 0)
+		for code, p in profiles.items()
+		if (p.width_mm or p.depth_mm)
+	}
 	return {
 		"glasses": sorted(snapshot.glasses),
+		"profiles": sorted(snapshot.profiles),
+		"role_defaults": role_defaults,
+		"profile_widths": profile_widths,
 		"defaults": {
 			"limiter": snapshot.constants.get("default_limiter", 0) == 1,
 			"mesh": snapshot.constants.get("default_mesh", 0) == 1,
 		},
+		"section_config": snapshot.section_config or {},
+		"supported_products": list(getattr(snapshot, "supported_products", ()) or ()),
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_design(
 	project: str,
 	design_ref: str,
@@ -122,6 +409,7 @@ def save_design(
 	svg: str = "",
 	qty: int = 1,
 	design_name: str = "",
+	floor: str = "",
 	location: str = "",
 	name: str | None = None,
 	finish: str | None = None,
@@ -130,6 +418,7 @@ def save_design(
 	"""Insert a Window Design, or update `name`; results are recomputed by the doc's validate."""
 	frappe.has_permission("Window Design", "write" if name else "create", doc=name, throw=True)
 	frappe.has_permission("Fenestration Project", "write", project, throw=True)
+	frappe.has_permission("Series Version", "read", series_version, throw=True)
 	if isinstance(design, str):
 		try:
 			design = json.loads(design)
@@ -144,9 +433,13 @@ def save_design(
 			"design_json": json.dumps(design),
 			"qty": qty,
 			"design_name": design_name,
+			"floor": floor,
 			"location": location,
 		}
 	)
+	if not svg and design:
+		finish_color = frappe.db.get_value("Profile Finish", finish, "color") if finish else None
+		svg = generate_elevation_svg(design, finish_color or "#8A8F98")
 	if svg:
 		doc.design_svg = svg
 	if finish:
@@ -193,6 +486,7 @@ def get_design(name: str) -> dict:
 		"design_ref",
 		"design_name",
 		"qty",
+		"floor",
 		"location",
 		"series_version",
 		"design_svg",
@@ -218,20 +512,33 @@ COPY_FIELDS = (
 	"finish",
 	"price_structure",
 	"qty",
+	"floor",
 	"location",
 	"design_name",
 	"design_svg",
 )
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def copy_design(name: str) -> str:
 	"""Copy a design's inputs into a new, unlocked design in the same project and mark the original superseded by it;
 	returns the copy's name."""
-	frappe.has_permission("Window Design", "read", name, throw=True)
+	from frappe.utils import cint
+
+	frappe.has_permission("Window Design", "write", name, throw=True)
 	source = frappe.get_doc("Window Design", name)
 	frappe.has_permission("Fenestration Project", "write", source.project, throw=True)
 	frappe.has_permission("Window Design", "create", throw=True)
+	if (
+		source.project
+		and frappe.db.has_column("Fenestration Project", "fen_design_locked")
+		and cint(frappe.db.get_value("Fenestration Project", source.project, "fen_design_locked"))
+	):
+		frappe.throw(
+			_(
+				"Project {0} is locked for Hilux manufacturing. Unlock the project for revision before copying designs."
+			).format(source.project)
+		)
 	taken = set(frappe.get_all("Window Design", {"project": source.project}, pluck="design_ref"))
 	number = 1
 	while f"{source.design_ref}-R{number}" in taken:
@@ -252,5 +559,7 @@ def get_fenestration_defaults() -> dict:
 		frappe.throw(_("Login required"), frappe.PermissionError)
 	return {
 		"default_finish": frappe.db.get_single_value("Fenestration Settings", "default_finish"),
-		"default_price_structure": frappe.db.get_single_value("Fenestration Settings", "default_price_structure"),
+		"default_price_structure": frappe.db.get_single_value(
+			"Fenestration Settings", "default_price_structure"
+		),
 	}

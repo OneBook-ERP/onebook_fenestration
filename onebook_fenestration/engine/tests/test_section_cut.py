@@ -66,7 +66,7 @@ class TestSectionCut(unittest.TestCase):
 				("profile", "CS4801"),
 			],
 		)
-		frame_b, bead_b, glass, bead_t, frame_t = section.pieces
+		_frame_b, bead_b, glass, bead_t, frame_t = section.pieces
 		self.assertEqual((glass.start, glass.end), (29.5, 1470.5))
 		self.assertEqual(glass.end - glass.start, 1441)
 		self.assertEqual((bead_b.start, bead_b.end, bead_b.role, bead_b.panel), (25.5, 45.5, "bead", "F1"))
@@ -78,7 +78,19 @@ class TestSectionCut(unittest.TestCase):
 		roles = [p.role for p in section.pieces]
 		self.assertEqual(
 			roles,
-			["frame", "bead", "glass", "bead", "mullion", "sash", "glass_adaptor", "glass", "glass_adaptor", "sash", "frame"],
+			[
+				"frame",
+				"bead",
+				"glass",
+				"bead",
+				"mullion",
+				"sash",
+				"glass_adaptor",
+				"glass",
+				"glass_adaptor",
+				"sash",
+				"frame",
+			],
 		)
 		sash_glass = section.pieces[7]
 		self.assertEqual(sash_glass.end - sash_glass.start, 613)
@@ -112,9 +124,50 @@ class TestSectionCut(unittest.TestCase):
 		cells = [(d.start, d.end) for d in section.dims if d.chain == "cells"]
 		self.assertEqual(cells, [(0, 1000), (1000, 1500)])
 
+	def test_nested_fixed_panes_remain_reachable_in_both_sections(self):
+		design = {
+			"width": 915,
+			"height": 610,
+			"beadProfileId": "E104161",
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [631],
+				"children": [
+					{"type": "fixed", "glass": "6CTG"},
+					{
+						"type": "split",
+						"dir": "h",
+						"at": [371.2],
+						"children": [
+							{"type": "fixed", "glass": "6CTG"},
+							{"type": "fixed", "glass": "6CTG"},
+						],
+					},
+				],
+			},
+		}
+		bottom = cross_section(design, snapshot(), "h", at=185.6, widths=CS400_WIDTHS)
+		top = cross_section(design, snapshot(), "h", at=490.6, widths=CS400_WIDTHS)
+		vertical = cross_section(design, snapshot(), "v", at=773, widths=CS400_WIDTHS)
+		self.assertAlmostEqual(top.at, 490.6)
+		self.assertEqual({p.path for p in top.pieces if p.role == "bead"}, {"F1.0", "F1.1.1"})
+		self.assertEqual({p.path for p in bottom.pieces if p.role == "bead"}, {"F1.0", "F1.1.0"})
+		self.assertEqual({p.path for p in vertical.pieces if p.role == "bead"}, {"F1.1.0", "F1.1.1"})
+		self.assertEqual([p.panel for p in top.pieces if p.role == "mullion"], ["M1"])
+		self.assertEqual([p.panel for p in vertical.pieces if p.role == "transom"], ["T1"])
+		self.assertEqual((top.length, vertical.length), (915, 610))
+
 	def test_cut_position_snaps_to_cell(self):
 		design, snap = load("w01.json"), snapshot()
-		cases = [("h", None, 610), ("h", 5000, 610), ("h", -10, 610), ("v", None, 228.75), ("v", 457.5, 686.25), ("v", 2000, 686.25)]
+		cases = [
+			("h", None, 610),
+			("h", 5000, 610),
+			("h", -10, 610),
+			("v", None, 228.75),
+			("v", 457.5, 686.25),
+			("v", 2000, 686.25),
+		]
 		for axis, at, expected in cases:
 			with self.subTest(axis=axis, at=at):
 				section = cross_section(design, snap, axis, at, CS400_WIDTHS)
@@ -155,9 +208,33 @@ class TestSectionCut(unittest.TestCase):
 
 	def test_w02_louver_has_no_glass(self):
 		section = cross_section(load("w02.json"), snapshot(), "v", widths=CS400_WIDTHS)
-		self.assertEqual([p.role for p in section.pieces], ["frame", "frame"])
+		self.assertEqual([p.role for p in section.pieces], ["frame", "louver", "frame"])
+		louver = section.pieces[1]
+		self.assertEqual(
+			(louver.path, louver.blades, louver.start, louver.end, louver.opening_height),
+			("F1.0", 9, 24, 586, 562),
+		)
 		section = cross_section(load("w02.json"), snapshot(), "h", widths=CS400_WIDTHS)
-		self.assertEqual([p.role for p in section.pieces], ["frame", "mullion", "glass", "frame"])
+		self.assertEqual([p.role for p in section.pieces], ["frame", "louver", "mullion", "glass", "frame"])
+
+	def test_louver_width_is_carried_to_both_cut_axes(self):
+		design = load("w02.json")
+		design["root"]["children"][0]["bladeWidth"] = 82.5
+		for axis in ("h", "v"):
+			cut = cross_section(design, snapshot(), axis, widths=CS400_WIDTHS)
+			louver = next(piece for piece in cut.pieces if piece.kind == "louver")
+			self.assertEqual(louver.blade_width, 82.5)
+			self.assertEqual(louver.blades, 9)
+
+	def test_glass_louver_uses_selected_glass_thickness(self):
+		design = load("w02.json")
+		leaf = design["root"]["children"][0]
+		leaf.update({"bladeMaterial": "glass", "glass": "6CTG"})
+		cut = cross_section(design, snapshot(), "v", widths=CS400_WIDTHS)
+		self.assertEqual(next(p for p in cut.pieces if p.kind == "louver").thickness, 6)
+		leaf["bladeMaterial"] = "metal"
+		cut = cross_section(design, snapshot(), "v", widths=CS400_WIDTHS)
+		self.assertEqual(next(p for p in cut.pieces if p.kind == "louver").thickness, 4)
 
 	def test_glass_piece_has_thickness(self):
 		section = cross_section(load("w01.json"), snapshot(), "h", widths=CS400_WIDTHS)
@@ -166,3 +243,23 @@ class TestSectionCut(unittest.TestCase):
 		self.assertEqual({p.thickness for p in glass}, {6})
 		self.assertEqual({p.thickness for p in section.pieces if p.kind == "profile"}, {0})
 		self.assertEqual(asdict(glass[0])["thickness"], 6)
+
+	def test_sliding_horizontal_cut_omits_casement_mullions(self):
+		design = {
+			"width": 1200,
+			"height": 1200,
+			"isSliding": True,
+			"trackCount": 2,
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [600],
+				"children": [
+					{"type": "sash", "glass": "6CTG", "isSliding": True, "slideDir": "right", "trackIdx": 0},
+					{"type": "sash", "glass": "6CTG", "isSliding": True, "slideDir": "left", "trackIdx": 1},
+				],
+			},
+		}
+		cs = cross_section(design, cs4800(), "h")
+		roles = [p.role for p in cs.pieces]
+		self.assertNotIn("mullion", roles)

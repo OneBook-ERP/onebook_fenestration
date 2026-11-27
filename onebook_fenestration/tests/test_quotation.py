@@ -1,4 +1,5 @@
 import json
+import unittest
 from datetime import datetime
 from unittest.mock import patch
 
@@ -45,6 +46,8 @@ class TestQuotation(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		if not frappe.db.exists("DocType", "GST Settings") or not frappe.db.exists("Company", COMPANY):
+			raise unittest.SkipTest(f"Requires {COMPANY!r} and india_compliance GST Settings fixtures")
 		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
 		cls.set_up_prices()
 		cls.project = frappe.get_doc(
@@ -80,6 +83,8 @@ class TestQuotation(IntegrationTestCase):
 	@classmethod
 	def set_up_parties(cls):
 		"""A company address (india_compliance needs one on every quotation) and test customers."""
+		if not frappe.db.exists("DocType", "GST Settings") or not frappe.db.exists("Company", COMPANY):
+			raise unittest.SkipTest(f"Requires {COMPANY!r} and india_compliance GST Settings fixtures")
 		if not company_address(COMPANY):
 			cls.make_address(
 				"Fen Test Office", "Tamil Nadu", "639001", "Company", COMPANY, gstin="33AAHCH3108G1Z0"
@@ -408,7 +413,12 @@ class TestQuotation(IntegrationTestCase):
 
 	def test_gate_message_names_missing_items(self):
 		project, designs = self.make_quote_project()
-		pricing = {"issues": [{"code": "no_rate", "message": "G21 (Fen Test Cost): no rate"}, {"code": "no_rate", "message": "G23 (Fen Test Cost): no rate"}]}
+		pricing = {
+			"issues": [
+				{"code": "no_rate", "message": "G21 (Fen Test Cost): no rate"},
+				{"code": "no_rate", "message": "G23 (Fen Test Cost): no rate"},
+			]
+		}
 		frappe.db.set_value(
 			"Window Design",
 			designs[1].name,
@@ -420,9 +430,21 @@ class TestQuotation(IntegrationTestCase):
 	def test_gate_refuses_missing_glazing_gasket(self):
 		project, designs = self.make_quote_project()
 		issues = [
-			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-S1: no glazing gasket rule for glass 8LAM"},
-			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-S2: no glazing gasket rule for glass 8LAM"},
-			{"severity": "warn", "code": "no_glazing_gasket", "message": "F1-F3: no glazing gasket rule for glass 10TG"},
+			{
+				"severity": "warn",
+				"code": "no_glazing_gasket",
+				"message": "F1-S1: no glazing gasket rule for glass 8LAM",
+			},
+			{
+				"severity": "warn",
+				"code": "no_glazing_gasket",
+				"message": "F1-S2: no glazing gasket rule for glass 8LAM",
+			},
+			{
+				"severity": "warn",
+				"code": "no_glazing_gasket",
+				"message": "F1-F3: no glazing gasket rule for glass 10TG",
+			},
 		]
 		frappe.db.set_value("Window Design", designs[1].name, "result_json", json.dumps({"issues": issues}))
 		out = api_make_quotation(project.name)
@@ -437,7 +459,8 @@ class TestQuotation(IntegrationTestCase):
 	def test_status_reports_rounded_total(self):
 		quotation = self.quote()
 		self.assertEqual(
-			quote_status(quotation.fen_project)["rounded_total"], quotation.rounded_total or quotation.grand_total
+			quote_status(quotation.fen_project)["rounded_total"],
+			quotation.rounded_total or quotation.grand_total,
 		)
 		frappe.db.set_value("Quotation", quotation.name, "rounded_total", 4321)
 		self.assertEqual(quote_status(quotation.fen_project)["rounded_total"], 4321)
@@ -461,7 +484,9 @@ class TestQuotation(IntegrationTestCase):
 		self.assertEqual(quotation.currency, "INR")
 		self.assertEqual(quotation.conversion_rate, 1)
 		self.assertEqual(quotation.plc_conversion_rate, 1)
-		self.assertEqual(quotation.items[0].rate, frappe.db.get_value("Window Design", designs[0].name, "unit_price"))
+		self.assertEqual(
+			quotation.items[0].rate, frappe.db.get_value("Window Design", designs[0].name, "unit_price")
+		)
 		quotation.db_set({"currency": "USD", "conversion_rate": 83})
 		again = frappe.get_doc("Quotation", make_quotation(project.name))
 		self.assertEqual((again.currency, again.conversion_rate), ("INR", 1))
@@ -533,7 +558,11 @@ class TestQuotation(IntegrationTestCase):
 
 	def test_design_hash_is_stable_and_sensitive(self):
 		design = frappe._dict(
-			design_json=json.dumps({"a": 1, "b": 2}), series_version="V", finish="F", price_structure="P", unit_price=10
+			design_json=json.dumps({"a": 1, "b": 2}),
+			series_version="V",
+			finish="F",
+			price_structure="P",
+			unit_price=10,
 		)
 		same = frappe._dict(design, design_json=json.dumps({"b": 2, "a": 1}))
 		self.assertEqual(design_hash(design), design_hash(same))

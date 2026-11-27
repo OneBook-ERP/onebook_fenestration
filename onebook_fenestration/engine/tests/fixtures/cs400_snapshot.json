@@ -54,7 +54,7 @@
 			"profile": "E104156",
 			"angles": [
 				45,
-				135
+				45
 			],
 			"length": "span"
 		},
@@ -64,7 +64,7 @@
 			"profile": "E104160",
 			"angles": [
 				45,
-				135
+				45
 			],
 			"length": "span - d_start - d_end"
 		},

@@ -17,7 +17,9 @@ class TestSaveDesign(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
-		cls.project = frappe.get_doc({"doctype": "Fenestration Project", "project_title": "Save Project"}).insert()
+		cls.project = frappe.get_doc(
+			{"doctype": "Fenestration Project", "project_title": "Save Project"}
+		).insert()
 
 	@classmethod
 	def tearDownClass(cls):
@@ -37,8 +39,8 @@ class TestSaveDesign(IntegrationTestCase):
 	def test_svg_sanitizer_strips_scripts_and_handlers(self):
 		dirty = (
 			f'<svg xmlns="{SVG_NS}" viewBox="0 0 10 10" onload="x()">'
-			'<script>alert(1)</script>'
-			'<foreignObject><div>hi</div></foreignObject>'
+			"<script>alert(1)</script>"
+			"<foreignObject><div>hi</div></foreignObject>"
 			'<a href="javascript:x()"><rect x="0" y="0"/></a>'
 			'<rect data-path="F1.0" x="1" y="1" width="5" height="5" onclick="evil()" href="http://e"/>'
 			"</svg>"
@@ -145,7 +147,9 @@ class TestSaveDesign(IntegrationTestCase):
 	def test_save_design_rejects_user_without_project_write(self):
 		email = "no-roles-save@example.com"
 		if not frappe.db.exists("User", email):
-			frappe.get_doc({"doctype": "User", "email": email, "first_name": "No Roles", "send_welcome_email": 0}).insert()
+			frappe.get_doc(
+				{"doctype": "User", "email": email, "first_name": "No Roles", "send_welcome_email": 0}
+			).insert()
 		frappe.set_user(email)
 		try:
 			with self.assertRaises(frappe.PermissionError):

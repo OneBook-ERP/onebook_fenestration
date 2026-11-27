@@ -5,12 +5,31 @@ from onebook_fenestration.engine import RuleError, compute
 from onebook_fenestration.engine.pricing import CostHead, PricingInput, price
 from onebook_fenestration.engine.tests.helpers import load, snapshot
 
-ITEMS = ("profile", "profile_waste", "powder", "anodize", "wood", "hardware", "glass", "glass_waste", "fabrication", "installation")
+ITEMS = (
+	"profile",
+	"profile_waste",
+	"powder",
+	"anodize",
+	"wood",
+	"hardware",
+	"glass",
+	"glass_waste",
+	"fabrication",
+	"installation",
+)
 STANDARD = (
 	CostHead("profile", "Profile Cost", "Formula", formula="profile_cost"),
 	CostHead("profile_waste", "Profile Wastage", "Percentage", rate=5, base="profile"),
-	CostHead("powder", "Powder Coating", "Per Visible Perimeter Sqft", rate=25, condition="finish_type == 'Powder Coat'"),
-	CostHead("anodize", "Anodizing", "Per Total Perimeter Sqft", rate=40, condition="finish_type == 'Anodized'"),
+	CostHead(
+		"powder",
+		"Powder Coating",
+		"Per Visible Perimeter Sqft",
+		rate=25,
+		condition="finish_type == 'Powder Coat'",
+	),
+	CostHead(
+		"anodize", "Anodizing", "Per Total Perimeter Sqft", rate=40, condition="finish_type == 'Anodized'"
+	),
 	CostHead("wood", "Wood Finish", "Per Visible Perimeter Sqft", rate=70, condition="finish_type == 'Wood'"),
 	CostHead("hardware", "Hardware Cost", "Formula", formula="hardware_cost + gasket_cost"),
 	CostHead("glass", "Glass Cost", "Formula", formula="glass_cost"),
@@ -49,7 +68,9 @@ class TestPricing(unittest.TestCase):
 		out = price(result, snap, _inputs(result))
 		kg = sum(m.length / 1000 * snap.profiles[m.profile].kg_per_m for m in result.members)
 		self.assertAlmostEqual(out.variables["profile_cost"], round(kg * 300, 2), places=2)
-		self.assertAlmostEqual(out.variables["glass_cost"], sum(g.width * g.height / 1e6 * 1000 for g in result.glass), places=2)
+		self.assertAlmostEqual(
+			out.variables["glass_cost"], sum(g.width * g.height / 1e6 * 1000 for g in result.glass), places=2
+		)
 		hw = sum(b.qty * 10 for b in result.bom if b.group != "Gasket")
 		gk = sum(b.length / 1000 * 20 for b in result.bom if b.group == "Gasket")
 		self.assertGreater(gk, 0)

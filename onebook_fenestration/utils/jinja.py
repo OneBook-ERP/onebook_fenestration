@@ -8,6 +8,11 @@ from onebook_fenestration.fenestration.print_context import (
 	quote_totals,
 )
 from onebook_fenestration.production.cutting_plan import schedule_context
+from onebook_fenestration.production.cutting_sheet import (
+	project_cutting_sheet,
+	render_cutting_sheet,
+	window_cutting_sheet,
+)
 
 
 def fen_svg_data_uri(svg: str | None) -> str:
@@ -39,3 +44,15 @@ def fen_assembly_summary(doc) -> list[dict]:
 
 def fen_assembly_detail(doc) -> list[dict]:
 	return assembly_detail(doc)
+
+
+def fen_window_cutting_sheet(doc) -> dict:
+	return window_cutting_sheet(doc)
+
+
+def fen_project_cutting_sheet(doc) -> dict:
+	return project_cutting_sheet(doc)
+
+
+def fen_cutting_sheet_html(doc, mode: str = "window", no_letterhead: bool = False, footer: str = "") -> str:
+	return render_cutting_sheet(doc, mode=mode, no_letterhead=no_letterhead, footer=footer)

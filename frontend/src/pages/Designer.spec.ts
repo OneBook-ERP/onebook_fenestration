@@ -4,7 +4,7 @@ import { toast } from 'frappe-ui'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { h } from 'vue'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
-import { computeDesign, copyDesign, crossSection, getDesign, getFenestrationDefaults, saveDesign } from '@/api'
+import { computeDesign, copyDesign, crossSection, getDesign, getFenestrationDefaults, profileCatalog, saveDesign } from '@/api'
 import { routes } from '@/router'
 import { useDesignerStore } from '@/stores/designer'
 import { layoutGeom } from '@/design/geometry'
@@ -15,7 +15,9 @@ vi.mock('@/api', () => ({
 	getDesign: vi.fn(),
 	copyDesign: vi.fn(),
 	crossSection: vi.fn(),
+	windowAssembly: vi.fn().mockResolvedValue({ ok: true, result: { members: [], panes: [] }, outlines: {} }),
 	getFenestrationDefaults: vi.fn(),
+	profileCatalog: vi.fn().mockResolvedValue({ ok: true, items: [], next_start: null }),
 	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
 }))
 vi.mock('frappe-ui', async (orig) => ({
@@ -114,19 +116,24 @@ describe('Designer page', () => {
 		}))
 		vi.mocked(saveDesign).mockReset()
 		vi.mocked(getDesign).mockReset()
+		vi.mocked(profileCatalog).mockReset()
+		vi.mocked(profileCatalog).mockResolvedValue({ ok: true, items: [], next_start: null } as never)
 		vi.mocked(toast.error).mockReset()
 	})
 	afterEach(() => vi.useRealTimers())
 
 	it('uses a column layout on phone and side-by-side from md', async () => {
 		const { wrapper } = await setup()
-		const body = wrapper.get('nav[aria-label="Tools"]').element.parentElement!
+		const aside = wrapper.find('aside')
+		expect(aside.exists()).toBe(true)
+		const body = aside.element.parentElement!
 		expect(body.className).toContain('flex-col')
 		expect(body.className).toContain('md:flex-row')
-		const nav = wrapper.get('nav[aria-label="Tools"]').classes()
-		for (const c of ['flex-row', 'overflow-x-auto', 'md:flex-col', 'md:w-36']) expect(nav).toContain(c)
+		expect(aside.classes()).toContain('md:w-72')
 		expect(wrapper.get('main').classes()).toContain('min-h-[50vh]')
 		expect(wrapper.get('main').classes()).toContain('md:min-h-0')
+		expect(wrapper.find('[data-testid="eva-fab-dock"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="eva-3d-fabs"]').exists()).toBe(true)
 	})
 
 	it('applies the template from the query on a new design', async () => {
@@ -180,12 +187,9 @@ describe('Designer page', () => {
 
 	it('tools explain their disabled state', async () => {
 		const { wrapper } = await setup()
-		const hint = 'Select a panel on the drawing to use these tools'
-		expect(wrapper.find('nav[aria-label="Tools"]').text()).not.toContain(hint)
 		expect(button(wrapper, 'Sash').attributes('disabled')).toBeUndefined()
 		useDesignerStore().select('nope')
 		await flushPromises()
-		expect(wrapper.find('nav[aria-label="Tools"]').text()).toContain(hint)
 		expect(button(wrapper, 'Sash').attributes('disabled')).toBeDefined()
 	})
 
@@ -218,6 +222,20 @@ describe('Designer page', () => {
 		expect(args.design.width).toBe(915)
 		expect(args.design_ref).toBe('W01')
 		expect(router.currentRoute.value.path).toBe('/projects/P1/designs/WD-1')
+	})
+
+	it('save while in 3d view still sends valid svg', async () => {
+		vi.mocked(saveDesign).mockResolvedValue({ ok: true, name: 'WD-1', results: {} } as never)
+		const { wrapper } = await setup()
+		await field(wrapper, 'Design ref').setValue('W02')
+		const btn3d = wrapper.findAll('button').find((b) => b.text() === '3D')
+		await btn3d?.trigger('click')
+		await flushPromises()
+		await button(wrapper, 'Save').trigger('click')
+		await flushPromises()
+		const args = vi.mocked(saveDesign).mock.calls[0][0]
+		expect(args.svg.startsWith('<svg')).toBe(true)
+		expect(args.svg).toContain('</svg>')
 	})
 
 	it('save ok:false toasts the message', async () => {
@@ -443,10 +461,12 @@ describe('Designer page', () => {
 		expect(wrapper.find('header').text()).toContain('W01 · Fixed')
 	})
 
-	it('undo and redo are icon buttons with labels', async () => {
+	it('undo, redo, clear, and fit to view buttons appear in the center toolbar', async () => {
 		const { wrapper } = await setup()
-		expect(button(wrapper, 'Undo').text()).toBe('')
-		expect(button(wrapper, 'Redo').text()).toBe('')
+		expect(button(wrapper, 'Undo').text()).toBe('Undo')
+		expect(button(wrapper, 'Redo').text()).toBe('Redo')
+		expect(button(wrapper, 'Clear').text()).toBe('Clear')
+		expect(button(wrapper, 'Fit to view').text()).toBe('Fit to view')
 	})
 
 	it('unmount cancels pending compute', async () => {
@@ -464,6 +484,16 @@ describe('Designer page', () => {
 		await button(wrapper, 'Section').trigger('click')
 		await flushPromises()
 		expect(button(wrapper, 'Section').attributes('aria-pressed')).toBe('true')
+		expect(wrapper.get('main').classes()).toContain('md:flex-row')
+		expect(wrapper.find('[data-testid="section-split-pane"]').exists()).toBe(true)
+		const resizer = wrapper.find('[data-testid="workspace-resizer"]')
+		expect(resizer.exists()).toBe(true)
+		await resizer.trigger('pointerdown', { clientX: 500, button: 0, pointerId: 1 })
+		await resizer.trigger('pointermove', { clientX: 350, pointerId: 1 })
+		await resizer.trigger('pointerup', { pointerId: 1 })
+		expect(wrapper.get('[data-testid="designer-left-pane"]').attributes('style')).toContain('width: 35%')
+		await resizer.trigger('dblclick')
+		expect(wrapper.get('[data-testid="designer-left-pane"]').attributes('style')).toContain('width: 50%')
 		expect(seg('B–B horizontal')).toBeDefined()
 		expect(wrapper.findAll('[data-cut]')).toHaveLength(2)
 		expect(last().slice(1)).toEqual(['SV1', 'h', null])
@@ -510,4 +540,392 @@ describe('Designer page', () => {
 		expect(vi.mocked(crossSection).mock.calls.length).toBe(n)
 	})
 
+	it('edit group: delete enabled/disabled states and actions for sash, fan, and split', async () => {
+		const { wrapper } = await setup()
+		const store = useDesignerStore()
+
+		// Plain fixed glass panel
+		const editGroup = wrapper.find('[data-testid="edit-group-card"]')
+		expect(editGroup.exists()).toBe(true)
+		const delBtn = editGroup.find('button[aria-label="Delete"]')
+		expect(delBtn.attributes('aria-disabled')).toBe('true')
+		expect(delBtn.text()).toContain('Delete')
+
+		// Convert to sash
+		await button(wrapper, 'Sash').trigger('click')
+		await flushPromises()
+		expect(delBtn.attributes('aria-disabled')).toBe('false')
+		expect(delBtn.text()).toContain('Delete sash')
+
+		// Click delete -> becomes fixed glass, undo restores it
+		await delBtn.trigger('click')
+		await flushPromises()
+		expect(store.design.root.type).toBe('fixed')
+		store.undo()
+		await flushPromises()
+		expect(store.design.root.type).toBe('sash')
+
+		// Convert to louver -> selection chip stays single-line nowrap and delete button aligns cleanly
+		await button(wrapper, 'Louver').trigger('click')
+		await flushPromises()
+		expect(editGroup.text()).toContain('Louver F1 selected')
+		expect(delBtn.attributes('aria-disabled')).toBe('false')
+		expect(delBtn.text()).toContain('Delete louver')
+		const chipEl = editGroup.find('span[title="Louver F1 selected"]')
+		expect(chipEl.attributes('style')).toContain('white-space: nowrap')
+
+		// Reset panel button returns to fixed
+		const resetBtn = editGroup.find('button[aria-label="Reset panel"]')
+		expect(resetBtn.attributes('aria-disabled')).toBe('false')
+		await resetBtn.trigger('click')
+		await flushPromises()
+		expect(store.design.root.type).toBe('fixed')
+	})
+
+	it('keyboard shortcut: Delete key deletes selected item on canvas but not inside an input', async () => {
+		const { wrapper } = await setup()
+		const store = useDesignerStore()
+
+		// Convert to sash
+		await button(wrapper, 'Sash').trigger('click')
+		await flushPromises()
+		expect(store.design.root.type).toBe('sash')
+
+		// Dispatch Delete while typing in an input
+		const input = document.createElement('input')
+		document.body.appendChild(input)
+		input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }))
+		await flushPromises()
+		expect(store.design.root.type).toBe('sash')
+		document.body.removeChild(input)
+
+		// Dispatch Delete on canvas / window
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }))
+		await flushPromises()
+		expect(store.design.root.type).toBe('fixed')
+	})
+
+	it('Save button turns into Exit after saving, reverts to Save on any change, and Exit returns to project', async () => {
+		vi.mocked(saveDesign).mockResolvedValue({ ok: true, name: 'WD-1', results: {} } as never)
+		const { wrapper, router } = await setup()
+		await field(wrapper, 'Design ref').setValue('W01')
+		await flushPromises()
+
+		// Initially displays Save
+		expect(wrapper.find('button[aria-label="Save"]').exists()).toBe(true)
+		expect(wrapper.find('button[aria-label="Exit"]').exists()).toBe(false)
+
+		// Save turns the button into Exit
+		await button(wrapper, 'Save').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('button[aria-label="Exit"]').exists()).toBe(true)
+		expect(wrapper.find('button[aria-label="Save"]').exists()).toBe(false)
+
+		// Any subsequent change turns Exit back into Save
+		await field(wrapper, 'Location').setValue('Hall')
+		await flushPromises()
+		expect(wrapper.find('button[aria-label="Save"]').exists()).toBe(true)
+		expect(wrapper.find('button[aria-label="Exit"]').exists()).toBe(false)
+
+		// Saving again returns to Exit, and clicking Exit navigates back to project
+		await button(wrapper, 'Save').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('button[aria-label="Exit"]').exists()).toBe(true)
+		await button(wrapper, 'Exit').trigger('click')
+		await flushPromises()
+		expect(router.currentRoute.value.path).toBe('/projects/P1')
+	})
+
+	it('auto-prompts profile picker on adding mullion, sash, or bead-on but not louver', async () => {
+		vi.mocked(profileCatalog).mockResolvedValue({
+			ok: true,
+			next_start: null,
+			items: [
+				{
+					name: 'E104159',
+					profile_code: 'E104159',
+					profile_name: '40mm Casement Mullion',
+					role: 'mullion',
+					width_mm: 60,
+					depth_mm: 40,
+					section_svg: 'M 0 0 L 40 0 L 40 60 L 0 60 Z',
+					has_outline: true,
+					current_series: true,
+				},
+				{
+					name: 'E104160',
+					profile_code: 'E104160',
+					profile_name: '40mm Casement Sash',
+					role: 'sash',
+					width_mm: 60,
+					depth_mm: 40,
+					section_svg: 'M 0 0 L 40 0 L 40 60 L 0 60 Z',
+					has_outline: true,
+					current_series: true,
+				},
+				{
+					name: 'CS4807-CS400',
+					profile_code: 'CS4807-CS400',
+					profile_name: '6 & 8mm Glass Beading',
+					role: 'bead',
+					width_mm: 23,
+					depth_mm: 20,
+					section_svg: 'M 0 0 L 23 0 L 23 20 L 0 20 Z',
+					has_outline: true,
+					current_series: true,
+				},
+			],
+		} as never)
+
+		const { wrapper } = await setup()
+		const store = useDesignerStore()
+		await flushPromises()
+
+		// Split vertical -> immediately prompts mullion picker and assigns selection to M1
+		await wrapper.get('[data-path="F1"]').trigger('click')
+		await button(wrapper, 'Split vertical').trigger('click')
+		await flushPromises()
+		const mullionModal = wrapper.get('[data-testid="profile-picker-modal"]')
+		expect(mullionModal.text()).toContain('Select mullion profile')
+		await mullionModal.findAll('[data-testid="profile-card-item"]').find((c) => c.text().includes('E104159'))!.trigger('click')
+		await flushPromises()
+		expect((store.design as { profiles?: Record<string, string> }).profiles?.M1).toBe('E104159')
+
+		// Sash on F1.0 -> immediately prompts sash picker; cancelling keeps default
+		await wrapper.get('[data-path="F1.0"]').trigger('click')
+		await button(wrapper, 'Sash').trigger('click')
+		await flushPromises()
+		const sashModal = wrapper.get('[data-testid="profile-picker-modal"]')
+		expect(sashModal.text()).toContain('Select sash profile')
+		await sashModal.findAll('button').find((b) => b.text().trim() === 'Close')!.trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="profile-picker-modal"]').exists()).toBe(false)
+
+		// Louver on F1.1 -> no profile picker
+		await wrapper.get('[data-path="F1.1"]').trigger('click')
+		await button(wrapper, 'Louver').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="profile-picker-modal"]').exists()).toBe(false)
+
+		// Convert back to Fixed glass -> beading is automatically enabled without requiring a manual bead toggle
+		await button(wrapper, 'Fixed glass').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="profile-picker-modal"]').exists()).toBe(false)
+		expect((store.design.root as { children: { bead?: boolean }[] }).children[1].bead).toBe(true)
+	})
+
+	it('divider spec popover inserts exact number of mullions (no off-by-one) and handles drops cleanly', async () => {
+		const { wrapper } = await setup()
+		const store = useDesignerStore()
+		await flushPromises()
+
+		// Open Divider palette -> click Mullion -> confirm default count = 1
+		await wrapper.get('button[aria-label="Divider tools"]').trigger('click')
+		await flushPromises()
+		await wrapper.get('[data-testid="eva-divider-palette"] button[title="mullion"]').trigger('click')
+		await flushPromises()
+		const pop = wrapper.get('[data-testid="eva-divider-spec-popover"]')
+		await pop.findAll('button').find((b) => b.text().trim() === 'Confirm')!.trigger('click')
+		await flushPromises()
+
+		// Exactly 1 mullion (M1) -> 2 bays, NOT 2 mullions (3 bays)
+		const root = store.design.root as { type: string; at: number[]; children: unknown[] }
+		expect(root.type).toBe('split')
+		expect(root.at).toHaveLength(1)
+		expect(root.children).toHaveLength(2)
+
+		// Drop Bottom Hung onto F1.1 via canvas drop-tool event -> sets bottom hinge without popping blocking modal
+		const canvas = wrapper.findComponent({ name: 'WindowCanvas' })
+		canvas.vm.$emit('drop-tool', { kind: 'openable', id: 'Bottom Hung', cellPath: 'F1.1' })
+		await flushPromises()
+		expect((store.design.root as { children: { hinge?: string; type: string }[] }).children[1]).toMatchObject({
+			type: 'sash',
+			hinge: 'bottom',
+		})
+		expect(wrapper.find('[data-testid="profile-picker-modal"]').exists()).toBe(false)
+
+		// Apply 2 Track X-2X-X Panel -> exactly 3 panels with 1:2:1 ratios and center fixed
+		await wrapper.get('button[aria-label="Designs & Templates"]').trigger('click')
+		await flushPromises()
+		await wrapper.get('[data-testid="eva-designs-palette"] button[title="2 Track X-2X-X Panel"]').trigger('click')
+		await flushPromises()
+		const sRoot = store.design.root as { type: string; at: number[]; children: { isSliding?: boolean; slideFixed?: boolean }[] }
+		expect(store.design.isSliding).toBe(true)
+		expect(sRoot.children).toHaveLength(3)
+		expect(sRoot.at).toEqual([300, 900])
+		expect(sRoot.children[1].slideFixed).toBe(true)
+
+		// Switching to Approx 3D keeps the top-left Eva FAB dock visible and supports drag-and-drop
+		await button(wrapper, '3D').trigger('click')
+		await flushPromises()
+		expect(wrapper.get('[data-testid="eva-fab-dock"]').isVisible()).toBe(true)
+		expect(wrapper.find('[data-testid="sidebar-series-select"]').exists()).toBe(false)
+
+		;(window as unknown as { __fenDragPayload?: string }).__fenDragPayload = JSON.stringify({
+			kind: 'openable',
+			id: 'Top Hung',
+		})
+		await wrapper.get('[data-testid="approx-3d-view"]').trigger('drop', { clientX: 200, clientY: 200 })
+		await flushPromises()
+		expect(store.design.isSliding).toBe(false)
+	})
+
+	it('does not double-rotate pre-transformed profileCatalog outlines while rotating raw catalog rows', async () => {
+		vi.mocked(profileCatalog).mockResolvedValue({
+			ok: true,
+			next_start: null,
+			items: [
+				{
+					name: 'P1',
+					profile_code: 'P1',
+					profile_name: '40mm Casement Frame',
+					role: 'frame',
+					width_mm: 50,
+					depth_mm: 40,
+					section_svg: 'M 0 0 L 50 0 L 50 40 L 0 40 Z',
+					section_rotation: '90',
+					section_flip_x: 1,
+					outline_transformed: true,
+					has_outline: true,
+					current_series: true,
+				},
+			],
+		} as never)
+
+		const { wrapper } = await setup()
+		vi.advanceTimersByTime(500)
+		await flushPromises()
+
+		// Sidebar thumbnail uses pre-transformed SVG directly without re-applying transform
+		expect(wrapper.get('[data-testid="profile-thumb-frame"] svg g').attributes('transform')).toBeUndefined()
+
+		await wrapper.get('[data-testid="profile-picker-btn-frame"]').trigger('click')
+		await flushPromises()
+		await wrapper.get('[data-testid="profile-dropdown-frame"] [data-testid="profile-dropdown-browse-all"]').trigger('click')
+		await flushPromises()
+		const modal = wrapper.get('[data-testid="profile-picker-modal"]')
+		expect(modal.get('[data-testid="profile-card-item"] svg g').attributes('transform')).toBe('')
+	})
+
+	it('disables Cutting sheet button until saved and links to Window Cutting Sheet PDF once saved', async () => {
+		vi.mocked(getDesign).mockResolvedValue({ ...w01 } as never)
+		const { wrapper: unsaved } = await setup('/projects/P1/designs/new?series_version=SV1')
+		const unsavedBtn = unsaved.get('[data-testid="designer-cutting-sheet"]')
+		expect(unsavedBtn.attributes('disabled')).toBeDefined()
+		unsaved.unmount()
+
+		const { wrapper: saved } = await setup('/projects/P1/designs/WD-1')
+		const savedBtn = saved.get('[data-testid="designer-cutting-sheet"]')
+		expect(savedBtn.attributes('disabled')).toBeUndefined()
+		expect(savedBtn.attributes('href')).toContain('doctype=Window+Design')
+		expect(savedBtn.attributes('href')).toContain('name=WD-1')
+		expect(savedBtn.attributes('href')).toContain('format=Window+Cutting+Sheet')
+	})
+
+	it('keeps right 3D FABs and Inside/Outside pill visible with Section open, closes left FAB palette on click out, and drops tools in realistic 3D', async () => {
+		const { wrapper } = await setup()
+		const store = useDesignerStore()
+		await flushPromises()
+
+		// 1. Open Section split -> right 3D FABs & Inside/Outside pill stay visible inside left designer pane
+		await button(wrapper, 'Section').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="section-split-pane"]').exists()).toBe(true)
+		expect(wrapper.get('[data-testid="designer-left-pane"] [data-testid="eva-3d-fabs"]').isVisible()).toBe(true)
+		expect(wrapper.get('[data-testid="designer-left-pane"] [data-testid="eva-side-pill"]').isVisible()).toBe(true)
+
+		// 2. Left FAB palette closes when clicking outside
+		const palEl = wrapper.get('[data-testid="eva-divider-palette"]').element as HTMLElement
+		expect(palEl.style.display).toBe('none')
+		await wrapper.get('button[aria-label="Divider tools"]').trigger('click')
+		await flushPromises()
+		expect(palEl.style.display).toBe('')
+		await wrapper.get('[data-testid="designer-left-pane"]').trigger('pointerdown')
+		await flushPromises()
+		expect(palEl.style.display).toBe('none')
+
+		// 3. Switch to Realistic 3D view and drop a sash onto the 3D model
+		await wrapper.get('button[aria-label="Realistic 3D"]').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="window-3d-view"]').exists()).toBe(true)
+		;(window as unknown as { __fenDragPayload?: string }).__fenDragPayload = JSON.stringify({
+			kind: 'openable',
+			id: 'Left Openable',
+		})
+		await wrapper.get('[data-testid="window-3d-view"]').trigger('drop', { clientX: 200, clientY: 200 })
+		await flushPromises()
+		expect((store.design.root as { type: string }).type).toBe('sash')
+	})
+
+	it('prompts confirmation before replacing entire design when dropping onto empty space in 3D views and supports 1-step Undo', async () => {
+		const { wrapper } = await setup()
+		const store = useDesignerStore()
+		await flushPromises()
+
+		// Build a split casement design first so we verify the entire old design is cleared on replace
+		await button(wrapper, 'Split vertical').trigger('click')
+		await flushPromises()
+		expect(store.design.root.type).toBe('split')
+
+		// Switch to Approx 3D and drop onto empty canvas corner (10, 10) -> opens confirmation modal
+		await button(wrapper, '3D').trigger('click')
+		await flushPromises()
+		;(window as unknown as { __fenDragPayload?: string }).__fenDragPayload = JSON.stringify({
+			kind: 'openable',
+			id: 'Top Hung',
+		})
+		await wrapper.get('[data-testid="approx-3d-view"]').trigger('drop', { clientX: 10, clientY: 10 })
+		await flushPromises()
+
+		const modal = wrapper.get('[data-testid="replace-design-confirm-modal"]')
+		expect(modal.text()).toContain('Replace current design?')
+		expect(modal.text()).toContain('Top Hung')
+		// Old split design is still untouched before confirmation
+		expect(store.design.root.type).toBe('split')
+
+		// Cancelling preserves old design untouched
+		await modal.findAll('button').find((b) => b.text().trim() === 'Cancel')!.trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="replace-design-confirm-modal"]').exists()).toBe(false)
+		expect(store.design.root.type).toBe('split')
+
+		// Re-drop in empty space from Realistic 3D view and confirm replacement
+		await wrapper.get('button[aria-label="Realistic 3D"]').trigger('click')
+		await flushPromises()
+		wrapper.findComponent({ name: 'Window3DView' }).vm.$emit('drop-tool', {
+			kind: 'sliding',
+			id: '2 Track 2 Panel',
+			cellPath: '',
+			replaceDesign: true,
+		})
+		await flushPromises()
+
+		await wrapper.get('[data-testid="confirm-replace-design-btn"]').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-testid="replace-design-confirm-modal"]').exists()).toBe(false)
+		expect(store.design.isSliding).toBe(true)
+		expect(store.design.trackCount).toBe(2)
+
+		// Single Undo restores the previous 2-bay split design atomically
+		store.undo()
+		await flushPromises()
+		expect(store.design.isSliding).toBeFalsy()
+		expect(store.design.root.type).toBe('split')
+	})
+
+	it('seeds catalog profile widths before compute resolves so initial widths are available immediately', async () => {
+		vi.mocked(profileCatalog).mockResolvedValue({
+			ok: true,
+			next_start: null,
+			items: [
+				{ name: 'F1P', profile_code: 'F1P', profile_name: '44mm Frame', role: 'frame', width_mm: 44, depth_mm: 60, current_series: true },
+				{ name: 'S1P', profile_code: 'S1P', profile_name: '64mm Sash', role: 'sash', width_mm: 64, depth_mm: 55, current_series: true },
+			],
+		} as never)
+
+		await setup()
+		const store = useDesignerStore()
+		expect(store.catalogProfileWidths).toMatchObject({ F1P: 44, S1P: 64 })
+		expect(store.catalogRoleDefaults).toMatchObject({ frame: 'F1P', sash: 'S1P' })
+	})
 })

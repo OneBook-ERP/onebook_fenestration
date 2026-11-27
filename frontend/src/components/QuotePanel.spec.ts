@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { Combobox, toast } from 'frappe-ui'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { makeQuotation, quoteStatus, repriceProject, setProjectField } from '@/api'
+import { getQuotationDetails, makeQuotation, quoteStatus, repriceProject, setProjectField } from '@/api'
 import QuotePanel from './QuotePanel.vue'
 
 vi.mock('frappe-ui', async (orig) => ({
@@ -13,6 +13,7 @@ vi.mock('frappe-ui', async (orig) => ({
 }))
 vi.mock('@/api', async (orig) => ({
 	...(await orig<object>()),
+	getQuotationDetails: vi.fn(),
 	makeQuotation: vi.fn(),
 	quoteStatus: vi.fn(),
 	repriceProject: vi.fn(),
@@ -30,6 +31,7 @@ const btn = (w: ReturnType<typeof mount>, label: string) => w.findAll('button, a
 
 beforeEach(() => {
 	vi.clearAllMocks()
+	vi.mocked(getQuotationDetails).mockResolvedValue(null)
 	vi.mocked(quoteStatus).mockResolvedValue({ quotation: null })
 	vi.mocked(setProjectField).mockResolvedValue({})
 })
@@ -79,6 +81,7 @@ describe('QuotePanel', () => {
 		await btn(w, 'Create quotation').trigger('click')
 		await flushPromises()
 		expect(toast.error).toHaveBeenCalledWith('W01 has errors')
+		expect(w.get('[data-testid="quote-error"]').text()).toContain('W01 has errors')
 		expect(toast.success).not.toHaveBeenCalled()
 	})
 
@@ -208,5 +211,80 @@ describe('QuotePanel', () => {
 		})
 		const w = await setup({ ...base, quotation: 'QTN-1' })
 		expect(w.find('[data-testid="quote-stale"]').exists()).toBe(false)
+	})
+
+	it('prompts for a new quotation revision when a submitted quotation is stale', async () => {
+		vi.mocked(quoteStatus).mockResolvedValue({
+			quotation: 'QTN-1',
+			docstatus: 1,
+			grand_total: 100,
+			is_stale: true,
+			stale: { changed: ['W02'], added: [], removed: [], transport_changed: false },
+		})
+		const w = await setup({ ...base, quotation: 'QTN-1' })
+		const alert = w.get('[data-testid="quote-stale"]')
+		expect(alert.text()).toContain('Submitted')
+		expect(alert.text()).toContain('New quotation revision')
+		expect(btn(w, 'New quotation revision')).toBeTruthy()
+	})
+
+	it('renders read-only quotation details and an Edit in ERPNext link when details load', async () => {
+		vi.mocked(quoteStatus).mockResolvedValue({
+			quotation: 'QTN-1',
+			docstatus: 0,
+			grand_total: 15985,
+			is_stale: false,
+			stale: { changed: [], added: [], removed: [], transport_changed: false },
+		})
+		vi.mocked(getQuotationDetails).mockResolvedValue({
+			name: 'QTN-1',
+			status: 'Draft',
+			docstatus: 0,
+			customer_name: 'Go builder',
+			party_name: 'CUST-1',
+			transaction_date: '2026-11-18',
+			valid_till: '2026-12-18',
+			currency: 'INR',
+			net_total: 15485.38,
+			total_taxes_and_charges: 499.62,
+			grand_total: 15985,
+			rounded_total: 15985,
+			total_qty: 2,
+			order_type: 'Sales',
+			company: 'OneBook Fenestration',
+			address_display: 'Salem, TN',
+			contact_display: 'Ravi',
+			terms: '50% advance with PO',
+			items: [
+				{
+					idx: 1,
+					item_code: 'W01',
+					item_name: 'Fixed 1200x1200',
+					description: 'CS400-v1 Mill Finish',
+					qty: 1,
+					uom: 'Nos',
+					rate: 7230.11,
+					amount: 7230.11,
+				},
+			],
+			taxes: [
+				{
+					idx: 1,
+					description: 'IGST @ 18%',
+					rate: 18,
+					tax_amount: 499.62,
+					total: 15985,
+				},
+			],
+		})
+		const w = await setup({ ...base, quotation: 'QTN-1' })
+		const card = w.get('[data-testid="quotation-details-card"]')
+		expect(card.text()).toContain('Go builder')
+		expect(card.text()).toContain('Fixed 1200x1200')
+		expect(card.text()).toContain('IGST @ 18%')
+		expect(card.text()).toContain('50% advance with PO')
+		const editLink = card.find('a[href="/app/quotation/QTN-1"]')
+		expect(editLink.exists()).toBe(true)
+		expect(editLink.text()).toContain('Edit in ERPNext')
 	})
 })

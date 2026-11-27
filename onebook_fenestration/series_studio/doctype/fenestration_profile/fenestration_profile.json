@@ -3,31 +3,46 @@
  "creation": "2026-10-29 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
+ "icon": "ruler",
  "field_order": [
+  "profile_details_section",
   "profile_code",
   "profile_name",
   "series",
-  "item",
   "role",
-  "kg_per_m",
+  "profile_type",
+  "item",
+  "column_break_main",
   "bar_lengths",
+  "kg_per_m",
   "dxf_file",
   "use_computed_weight",
+  "section_preview_section",
+  "section_preview",
   "section_break",
   "area_mm2",
   "width_mm",
   "depth_mm",
   "section_rotation",
+  "section_flip_x",
+  "section_flip_y",
   "perimeter_mm",
   "total_perimeter_mm",
-  "visible_perimeter_mm",
+  "column_break_section",
   "ix_mm4",
   "iy_mm4",
   "computed_kg_per_m",
+  "visible_perimeter_mm",
+  "section_warnings",
   "section_svg",
-  "section_warnings"
+  "section_anchors_json"
  ],
  "fields": [
+  {
+   "fieldname": "profile_details_section",
+   "fieldtype": "Section Break",
+   "label": "Profile Configuration"
+  },
   {
    "fieldname": "profile_code",
    "fieldtype": "Data",
@@ -52,31 +67,45 @@
    "in_list_view": 1
   },
   {
-   "fieldname": "item",
-   "fieldtype": "Link",
-   "label": "Item",
-   "options": "Item"
-  },
-  {
    "fieldname": "role",
    "fieldtype": "Select",
    "label": "Role",
-   "options": "frame\nsash\nmullion\ntransom\nbead\naccessory",
+   "options": "frame\nsash\nmullion\ntransom\nbead\ngasket\naccessory",
    "reqd": 1,
    "in_list_view": 1
   },
   {
-   "fieldname": "kg_per_m",
-   "fieldtype": "Float",
-   "label": "Weight (kg/m)",
-   "reqd": 1
+   "fieldname": "profile_type",
+   "fieldtype": "Select",
+   "label": "Profile Type",
+   "options": "Both\nWindow\nDoor",
+   "default": "Both",
+   "depends_on": "eval:!in_list(['bead', 'gasket'], doc.role)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "ERPNext Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "bar_lengths",
    "fieldtype": "Data",
    "label": "Bar Lengths (mm)",
    "reqd": 1,
-   "description": "Comma-separated mm, e.g. 4880, 5800"
+   "description": "Comma-separated stock lengths in mm, e.g. 4880, 5800"
+  },
+  {
+   "fieldname": "kg_per_m",
+   "fieldtype": "Float",
+   "label": "Weight (kg/m)",
+   "reqd": 1,
+   "precision": "3"
   },
   {
    "fieldname": "dxf_file",
@@ -86,31 +115,45 @@
   {
    "fieldname": "use_computed_weight",
    "fieldtype": "Check",
-   "label": "Use Computed Weight"
+   "label": "Use Computed Weight from DXF"
+  },
+  {
+   "fieldname": "section_preview_section",
+   "fieldtype": "Section Break",
+   "label": "Section (from DXF)",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "section_preview",
+   "fieldtype": "HTML",
+   "label": "Section Preview"
   },
   {
    "fieldname": "section_break",
    "fieldtype": "Section Break",
-   "label": "Section (from DXF)",
+   "label": "Computed Section Properties",
    "collapsible": 1
   },
   {
    "fieldname": "area_mm2",
    "fieldtype": "Float",
    "label": "Area (mm²)",
-   "read_only": 1
+   "read_only": 1,
+   "precision": "1"
   },
   {
    "fieldname": "width_mm",
    "fieldtype": "Float",
    "label": "Width (mm)",
-   "read_only": 1
+   "read_only": 1,
+   "precision": "1"
   },
   {
    "fieldname": "depth_mm",
    "fieldtype": "Float",
    "label": "Depth (mm)",
-   "read_only": 1
+   "read_only": 1,
+   "precision": "1"
   },
   {
    "fieldname": "section_rotation",
@@ -121,38 +164,66 @@
    "description": "Rotate the imported outline so the profile face runs along the cut and the outside is at the top. Width and depth follow the rotation."
   },
   {
+   "fieldname": "section_flip_x",
+   "fieldtype": "Check",
+   "label": "Flip Horizontal",
+   "default": "0"
+  },
+  {
+   "fieldname": "section_flip_y",
+   "fieldtype": "Check",
+   "label": "Flip Vertical",
+   "default": "0"
+  },
+  {
    "fieldname": "perimeter_mm",
    "fieldtype": "Float",
-   "label": "Perimeter (mm)",
-   "read_only": 1
+   "label": "Outer Perimeter (mm)",
+   "read_only": 1,
+   "precision": "1"
   },
   {
    "fieldname": "total_perimeter_mm",
    "fieldtype": "Float",
    "label": "Total Perimeter (mm)",
-   "read_only": 1
+   "read_only": 1,
+   "precision": "1"
   },
   {
-   "fieldname": "visible_perimeter_mm",
-   "fieldtype": "Float",
-   "label": "Visible Perimeter (mm)"
+   "fieldname": "column_break_section",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "ix_mm4",
    "fieldtype": "Float",
    "label": "Ix (mm⁴)",
-   "read_only": 1
+   "read_only": 1,
+   "precision": "0"
   },
   {
    "fieldname": "iy_mm4",
    "fieldtype": "Float",
    "label": "Iy (mm⁴)",
-   "read_only": 1
+   "read_only": 1,
+   "precision": "0"
   },
   {
    "fieldname": "computed_kg_per_m",
    "fieldtype": "Float",
    "label": "Computed Weight (kg/m)",
+   "read_only": 1,
+   "precision": "3"
+  },
+  {
+   "fieldname": "visible_perimeter_mm",
+   "fieldtype": "Float",
+   "label": "Visible Perimeter (mm)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "section_warnings",
+   "fieldtype": "Small Text",
+   "label": "Section Warnings",
    "read_only": 1
   },
   {
@@ -163,13 +234,13 @@
    "hidden": 1
   },
   {
-   "fieldname": "section_warnings",
-   "fieldtype": "Small Text",
-   "label": "Section Warnings",
-   "read_only": 1
+   "fieldname": "section_anchors_json",
+   "fieldtype": "Long Text",
+   "label": "Section Groove & Seat Anchors JSON",
+   "hidden": 1
   }
  ],
- "modified": "2026-11-06 00:00:00",
+  "modified": "2026-11-06 00:00:00",
  "modified_by": "Administrator",
  "module": "Series Studio",
  "name": "Fenestration Profile",

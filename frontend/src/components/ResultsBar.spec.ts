@@ -59,6 +59,17 @@ describe('ResultsBar', () => {
 		})
 	})
 
+	it('lists steel separately from the neighbouring glass with its sheet thickness', async () => {
+		const w = mountBar({ ...base, glass: [
+			{ panel: 'F1', path: 'F1.0', number: 1, glass: '6CTG', width: 540, height: 1140 },
+			{ panel: 'F1', path: 'F1.1', number: 2, glass: '6CTG', material: 'steel', thickness: 1.2, width: 540, height: 1140 },
+		] })
+		await tab(w, 'Glass / Steel').trigger('click')
+		expect(w.text()).toContain('Steel sheet · 1.2 mm')
+		expect(w.text()).toContain('6CTG')
+		expect(headers(w)).toContain('Material')
+	})
+
 	it('error pill green when zero, no warnings badge at zero, amber for 2', () => {
 		let w = mountBar(base)
 		expect(w.text()).toContain('0 errors')
@@ -124,5 +135,13 @@ describe('ResultsBar', () => {
 		const strip = mountBar(base).get('[data-testid="results-tabs"]')
 		for (const c of ['overflow-x-auto', 'min-w-0']) expect(strip.classes()).toContain(c)
 		expect(strip.element.parentElement!.className).toContain('min-w-0')
+	})
+
+	it('renders cut list and gasket footer totals', async () => {
+		const w = mountBar(base)
+		expect(w.find('tfoot').text()).toContain('2 unique cuts')
+		expect(w.find('tfoot').text()).toContain('3.66 m')
+		await tab(w, 'Gaskets').trigger('click')
+		expect(w.find('tfoot').text()).toContain('2.750 m')
 	})
 })

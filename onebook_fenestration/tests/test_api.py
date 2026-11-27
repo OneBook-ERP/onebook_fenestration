@@ -4,7 +4,12 @@ import unittest.mock
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from onebook_fenestration.api.design import compute_design, cross_section, get_fenestration_defaults
+from onebook_fenestration.api.design import (
+	compute_design,
+	cross_section,
+	get_fenestration_defaults,
+	profile_catalog,
+)
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -38,8 +43,8 @@ class TestComputeDesignApi(IntegrationTestCase):
 		self.assertEqual(series["defaults"], {"limiter": False, "mesh": False})
 
 	def test_api_series_defaults_follow_constants(self):
-		from onebook_fenestration.series_studio.snapshot import get_snapshot
 		from onebook_fenestration.api.design import series_info
+		from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 		snap = get_snapshot(self.version)
 		snap.constants.update({"default_limiter": 1, "default_mesh": 0})
@@ -122,7 +127,11 @@ class TestComputeDesignApi(IntegrationTestCase):
 			frappe.db.set_single_value("Fenestration Settings", "default_finish", "GREY")
 		self.assertEqual(
 			out,
-			{"ok": False, "error_type": "series", "message": "Set a default price structure and finish in Fenestration Settings"},
+			{
+				"ok": False,
+				"error_type": "series",
+				"message": "Set a default price structure and finish in Fenestration Settings",
+			},
 		)
 
 
@@ -143,7 +152,9 @@ class TestCrossSectionApi(IntegrationTestCase):
 		data["code"] = CUT_SERIES
 		cls.version = import_snapshot_json(CUT_SERIES, data, "Cross section test series")
 		frappe.db.set_value(
-			"Fenestration Profile", "TSTCUT-F", {"section_svg": "M 0 0 L 50 0 L 50 70 Z", "width_mm": 50, "depth_mm": 70}
+			"Fenestration Profile",
+			"TSTCUT-F",
+			{"section_svg": "M 0 0 L 50 0 L 50 70 Z", "width_mm": 50, "depth_mm": 70},
 		)
 
 	@classmethod
@@ -161,23 +172,38 @@ class TestCrossSectionApi(IntegrationTestCase):
 		self.assertEqual((result["axis"], result["at"], result["length"]), ("h", 610, 915))
 		frame = result["pieces"][0]
 		self.assertEqual(
-			frame,
-			{"kind": "profile", "code": "TSTCUT-F", "role": "frame", "panel": "F1", "start": 0, "end": 50, "mirrored": False, "thickness": 0},
+			{k: frame[k] for k in ("kind", "code", "role", "panel", "start", "end", "mirrored", "thickness")},
+			{
+				"kind": "profile",
+				"code": "TSTCUT-F",
+				"role": "frame",
+				"panel": "F1",
+				"start": 0,
+				"end": 50,
+				"mirrored": False,
+				"thickness": 0,
+			},
 		)
-		self.assertEqual(out["outlines"], {"TSTCUT-F": {"svg": "M 0 0 L 50 0 L 50 70 Z", "width": 50, "depth": 70}})
+		self.assertEqual(
+			out["outlines"], {"TSTCUT-F": {"svg": "M 0 0 L 50 0 L 50 70 Z", "width": 50, "depth": 70}}
+		)
 		missing = sorted(i["message"].split()[1] for i in result["issues"] if i["code"] == "no_section_width")
 		self.assertEqual(missing, ["TSTCUT-M", "TSTCUT-S"])
 		self.assertIn({"start": 0, "end": 915, "label": "915", "chain": "overall"}, result["dims"])
 
 	def test_api_returns_rotated_outline(self):
-		frappe.db.set_value("Fenestration Profile", "TSTCUT-F", {"section_rotation": "90", "width_mm": 70, "depth_mm": 50})
+		frappe.db.set_value(
+			"Fenestration Profile", "TSTCUT-F", {"section_rotation": "90", "width_mm": 70, "depth_mm": 50}
+		)
 		try:
 			out = cross_section(load("w01.json"), self.version, "h")
 		finally:
 			frappe.db.set_value(
 				"Fenestration Profile", "TSTCUT-F", {"section_rotation": "0", "width_mm": 50, "depth_mm": 70}
 			)
-		self.assertEqual(out["outlines"], {"TSTCUT-F": {"svg": "M 70 0 L 70 50 L 0 50 Z", "width": 70, "depth": 50}})
+		self.assertEqual(
+			out["outlines"], {"TSTCUT-F": {"svg": "M 70 0 L 70 50 L 0 50 Z", "width": 70, "depth": 50}}
+		)
 		self.assertEqual(out["result"]["pieces"][0]["end"], 70)
 
 	def test_cross_section_api_errors(self):
@@ -193,3 +219,36 @@ class TestCrossSectionApi(IntegrationTestCase):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):
 			cross_section(load("w01.json"), self.version, "h")
+
+	def test_profile_catalog_transforms_default_orientation(self):
+		frappe.db.set_value(
+			"Fenestration Profile",
+			"TSTCUT-F",
+			{
+				"section_rotation": "90",
+				"section_flip_x": 1,
+				"section_flip_y": 0,
+				"width_mm": 70,
+				"depth_mm": 50,
+			},
+		)
+		try:
+			res = profile_catalog(self.version, start=0, page_length=200)
+		finally:
+			frappe.db.set_value(
+				"Fenestration Profile",
+				"TSTCUT-F",
+				{
+					"section_rotation": "0",
+					"section_flip_x": 0,
+					"section_flip_y": 0,
+					"width_mm": 50,
+					"depth_mm": 70,
+				},
+			)
+		self.assertIs(res["ok"], True)
+		row = next(it for it in res["items"] if it["code"] == "TSTCUT-F")
+		self.assertIs(row["outline_transformed"], True)
+		self.assertEqual(row["width_mm"], 70)
+		self.assertEqual(row["depth_mm"], 50)
+		self.assertEqual(row["section_svg"], "M 70 50 L 70 0 L 0 0 Z")

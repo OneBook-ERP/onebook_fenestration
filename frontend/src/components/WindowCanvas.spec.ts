@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import w01 from '@/design/__fixtures__/w01.json'
 import type { Design } from '@/design/types'
-import WindowCanvas from './WindowCanvas.vue'
+import WindowCanvas, { MAX_PAN_OFFSET, MAX_ZOOM, MIN_ZOOM } from './WindowCanvas.vue'
 
 function mountCanvas(props: Record<string, unknown> = {}) {
 	return mount(WindowCanvas, {
@@ -13,6 +13,25 @@ function mountCanvas(props: Record<string, unknown> = {}) {
 const SCALE_W01 = Math.min(520 / 915, 640 / 1220)
 
 describe('WindowCanvas', () => {
+	it('shows and exports the configured exhaust opening and removes it when disabled', async () => {
+		const design = { width: 600, height: 500, root: { type: 'fixed', glass: '6CTG', fan: true, fanCut: { diameter: 200, centerX: 270, centerY: 220 } } }
+		const w = mountCanvas({ design })
+		expect(w.get('[data-testid="exhaust-cut"]').text()).toContain('Ø200 cut')
+		expect(Number(w.get('[data-testid="exhaust-cut"] ellipse').attributes('rx'))).toBeGreaterThan(0)
+		expect((w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()).toContain('Ø200 cut')
+		await w.setProps({ design: { ...design, root: { ...design.root, fan: false } } as Design })
+		expect(w.find('[data-testid="exhaust-cut"]').exists()).toBe(false)
+	})
+
+	it('renders only the exhaust panel as steel', () => {
+		const design = { width: 1200, height: 1200, root: { type: 'split', dir: 'v', at: [600], children: [
+			{ type: 'fixed', glass: '6CTG' }, { type: 'fixed', glass: '6CTG', fan: true },
+		] } }
+		const w = mountCanvas({ design, selectedPath: 'F1.1' })
+		expect(w.get('rect[data-path="F1.1"]').attributes('fill')).toBe('#A8ADB5')
+		expect(w.get('rect[data-path="F1.0"]').attributes('fill')).not.toBe('#A8ADB5')
+	})
+
 	it('renders W01 cells, bar label and dimensions', () => {
 		const w = mountCanvas()
 		const paths = w.findAll('rect[data-path]').map((r) => r.attributes('data-path'))
@@ -107,7 +126,7 @@ describe('WindowCanvas', () => {
 		expect(w.emitted('drag-end')).toHaveLength(2)
 	})
 
-	it('labels fixed panes by glass number only, sashes S<n> and louvers L<n>', () => {
+	it('labels fixed panes by glass number only, sashes S<n>, louvers L<n>, and outer frame F1', () => {
 		const d: Design = {
 			width: 1800, height: 1200,
 			root: { type: 'split', dir: 'v', at: [600, 1200], children: [
@@ -115,7 +134,7 @@ describe('WindowCanvas', () => {
 			] },
 		}
 		const texts = mountCanvas({ design: d }).findAll('text').map((t) => t.text())
-		expect(texts.filter((t) => /^F\d+$/.test(t))).toEqual([])
+		expect(texts.filter((t) => /^F\d+$/.test(t))).toEqual(['F1'])
 		expect(texts).toContain('S1')
 		expect(texts).toContain('L1')
 		expect(texts).toContain('1')
@@ -265,5 +284,275 @@ describe('WindowCanvas', () => {
 		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
 		expect(m).not.toContain('stroke-dasharray="12 4 3 4"')
 		expect(m).not.toContain('>A<')
+	})
+
+	it('zooms in and out with controls, mouse wheel, and keys while clamping to MIN_ZOOM and MAX_ZOOM', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		expect(svg.attributes('viewBox')).toBe('0 0 640 760')
+
+		await w.find('button[aria-label="Zoom in"]').trigger('click')
+		expect(w.find('button[aria-label="Reset zoom"]').text()).toBe('115%')
+
+		await svg.trigger('wheel', { deltaY: 100 })
+		expect(w.find('button[aria-label="Reset zoom"]').text()).toBe('100%')
+
+		for (let i = 0; i < 30; i++) {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: '-' }))
+		}
+		await w.vm.$nextTick()
+		expect((w.vm as any).zoom).toBe(MIN_ZOOM)
+		expect(w.find('button[aria-label="Zoom out"]').attributes('disabled')).toBeDefined()
+
+		for (let i = 0; i < 40; i++) {
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: '+' }))
+		}
+		await w.vm.$nextTick()
+		expect((w.vm as any).zoom).toBe(MAX_ZOOM)
+		expect(w.find('button[aria-label="Zoom in"]').attributes('disabled')).toBeDefined()
+
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))
+		await w.vm.$nextTick()
+		expect((w.vm as any).zoom).toBe(1)
+		expect(svg.attributes('viewBox')).toBe('0 0 640 760')
+		w.unmount()
+	})
+
+	it('holds Shift to grab and move around the workspace and clamps pan to MAX_PAN_OFFSET', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }))
+		await w.vm.$nextTick()
+		expect(svg.attributes('style')).toContain('cursor: grab')
+
+		await svg.trigger('pointerdown', { clientX: 200, clientY: 200, shiftKey: true, button: 0, pointerId: 1 })
+		expect(svg.attributes('style')).toContain('cursor: grabbing')
+
+		await svg.trigger('pointermove', { clientX: 280, clientY: 250, shiftKey: true, pointerId: 1 })
+		expect((w.vm as any).pan).toEqual({ x: 80, y: 50 })
+
+		await svg.trigger('pointermove', { clientX: 9999, clientY: -9999, shiftKey: true, pointerId: 1 })
+		expect((w.vm as any).pan).toEqual({ x: MAX_PAN_OFFSET, y: -MAX_PAN_OFFSET })
+
+		await svg.trigger('pointerup', { pointerId: 1 })
+		window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Shift' }))
+		await w.vm.$nextTick()
+
+		// Exported SVG markup resets viewBox and background rect to canonical 640x760
+		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
+		expect(m).toContain('viewBox="0 0 640 760"')
+		expect(m).toContain('width="640"')
+		expect(m).toContain('height="760"')
+		w.unmount()
+	})
+
+	it('renders 45° miter or 90° butt corner cut lines on frame and sashes', async () => {
+		const w = mountCanvas()
+		const frameCuts = () => w.findAll('line[data-corner-cut="frame"]')
+		const sashCuts = () => w.findAll('line[data-corner-cut="sash"]')
+		expect(frameCuts()).toHaveLength(4)
+		expect(sashCuts()).toHaveLength(8) // 2 sashes * 4 corners
+		for (const ln of [...frameCuts(), ...sashCuts()]) {
+			expect(ln.attributes('data-cut-angle')).toBe('45')
+			// 45° miter line has non-zero dx and dy
+			expect(Number(ln.attributes('x1'))).not.toBe(Number(ln.attributes('x2')))
+			expect(Number(ln.attributes('y1'))).not.toBe(Number(ln.attributes('y2')))
+		}
+
+		// When members specify 90° butt joints
+		await w.setProps({
+			members: [
+				{ role: 'frame', path: 'F1', angles: [90, 90] },
+				{ role: 'sash', path: 'F1.0', angles: '[90, 90]' },
+				{ role: 'sash', path: 'F1.1', angles: '45/45' },
+			],
+		})
+		for (const ln of frameCuts()) {
+			expect(ln.attributes('data-cut-angle')).toBe('90')
+			expect(Number(ln.attributes('y1'))).toBeCloseTo(Number(ln.attributes('y2')), 6)
+		}
+		expect(sashCuts().slice(0, 4).every((ln) => ln.attributes('data-cut-angle') === '90')).toBe(true)
+		expect(sashCuts().slice(4, 8).every((ln) => ln.attributes('data-cut-angle') === '45')).toBe(true)
+	})
+
+	it('places handles at the center of each sash opposite to the hinge and draws a red hinge side line', async () => {
+		const w = mountCanvas()
+		const handles = w.findAll('rect[data-handle="true"]')
+		expect(handles).toHaveLength(2)
+
+		const cell0 = w.find('[data-path="F1.0"]')
+		const cell1 = w.find('[data-path="F1.1"]')
+		const box0 = {
+			x: Number(cell0.attributes('x')),
+			y: Number(cell0.attributes('y')),
+			w: Number(cell0.attributes('width')),
+			h: Number(cell0.attributes('height')),
+		}
+		const box1 = {
+			x: Number(cell1.attributes('x')),
+			y: Number(cell1.attributes('y')),
+			w: Number(cell1.attributes('width')),
+			h: Number(cell1.attributes('height')),
+		}
+
+		// Vertically centered on each sash
+		const h0CenterY = Number(handles[0].attributes('y')) + Number(handles[0].attributes('height')) / 2
+		const h1CenterY = Number(handles[1].attributes('y')) + Number(handles[1].attributes('height')) / 2
+		expect(h0CenterY).toBeCloseTo(box0.y + box0.h / 2, 5)
+		expect(h1CenterY).toBeCloseTo(box1.y + box1.h / 2, 5)
+
+		// S1 has left hinge -> handle on right half of S1; S2 has right hinge -> handle on left half of S2
+		const h0CenterX = Number(handles[0].attributes('x')) + Number(handles[0].attributes('width')) / 2
+		const h1CenterX = Number(handles[1].attributes('x')) + Number(handles[1].attributes('width')) / 2
+		expect(h0CenterX).toBeGreaterThan(box0.x + box0.w / 2)
+		expect(h1CenterX).toBeLessThan(box1.x + box1.w / 2)
+
+		// Hinge lines in red (#DC2626) on the hinged sides (left edge of S1, right edge of S2)
+		const hingeLines = w.findAll('line[data-hinge-line="true"]')
+		expect(hingeLines).toHaveLength(2)
+		expect(hingeLines[0].attributes('stroke')).toBe('#DC2626')
+		expect(Number(hingeLines[0].attributes('x1'))).toBeCloseTo(box0.x, 5)
+		expect(Number(hingeLines[0].attributes('x2'))).toBeCloseTo(box0.x, 5)
+		expect(hingeLines[1].attributes('stroke')).toBe('#DC2626')
+		expect(Number(hingeLines[1].attributes('x1'))).toBeCloseTo(box1.x + box1.w, 5)
+		expect(Number(hingeLines[1].attributes('x2'))).toBeCloseTo(box1.x + box1.w, 5)
+	})
+
+	it('selects panels reliably even after panning the workspace', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		await svg.trigger('pointerdown', { clientX: 100, clientY: 100, shiftKey: true, button: 0, pointerId: 1 })
+		await svg.trigger('pointermove', { clientX: 160, clientY: 140, shiftKey: true, pointerId: 1 })
+		await svg.trigger('pointerup', { pointerId: 1 })
+
+		await new Promise((r) => setTimeout(r, 10))
+		await w.find('[data-path="F1.1"]').trigger('click', { shiftKey: false })
+		expect(w.emitted('select')![0]).toEqual(['F1.1'])
+	})
+
+	it('highlights the selected sash cleanly in prototype blue without cluttered glass overlays', () => {
+		const w = mountCanvas({
+			selectedPath: 'F1.1',
+			members: [
+				{ role: 'sash', path: 'F1.1', position: 'B', length: 577 },
+				{ role: 'sash', path: 'F1.1', position: 'L', length: 1164 },
+			],
+			glass: [{ path: 'F1.1', width: 475.5, height: 1063 }],
+		})
+		const sashRect = w.get('rect[data-path="F1.1"]')
+		expect(sashRect.attributes('fill')).toBe('#5B9BE8')
+		expect(sashRect.attributes('stroke')).toBe('#2563EB')
+		expect(w.find('[data-panel-badge="F1.1"]').text()).toBe('S2')
+	})
+
+	it('allows selecting the center mullion M1 and highlights it cleanly', async () => {
+		const w = mountCanvas({
+			selectedPath: 'M1',
+			members: [{ role: 'mullion', panel: 'M1', length: 1136 }],
+		})
+		const bar = w.find('[data-bar="M1"]')
+		expect(bar.attributes('stroke')).toBe('#2563EB')
+		expect(bar.attributes('fill')).toBe('#1565D8')
+
+		// Clicking the mullion or its badge emits select('M1')
+		await w.find('[data-bar-badge="M1"]').trigger('click')
+		expect(w.emitted('select')![0]).toEqual(['M1'])
+
+		// Clean SVG export strips selection highlights on bars too
+		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
+		expect(m).not.toContain('#2563EB')
+		expect(m).not.toContain('#1565D8')
+	})
+
+	it('deselects everything when clicking outside the window on the workspace background', async () => {
+		const w = mountCanvas({ selectedPath: 'F1.1' })
+		await w.find('rect[data-workspace-bg="true"]').trigger('click')
+		expect(w.emitted('select')![0]).toEqual([''])
+	})
+
+	it('allows selecting outer frame (FRAME), sash (F1.1), and glass (GLASS:F1.1) individually', async () => {
+		const w = mountCanvas()
+		// Click outer frame
+		await w.find('rect[data-frame="FRAME"]').trigger('click')
+		expect(w.emitted('select')![0]).toEqual(['FRAME'])
+
+		// Click glass pane inside sash F1.1
+		await w.find('rect[data-glass="F1.1"]').trigger('click')
+		expect(w.emitted('select')![1]).toEqual(['GLASS:F1.1'])
+
+		// Click sash badge S2 (F1.1)
+		await w.find('[data-panel-badge="F1.1"]').trigger('click')
+		expect(w.emitted('select')![2]).toEqual(['F1.1'])
+
+		// Highlight outer frame in prototype blue when selectedPath === 'FRAME'
+		await w.setProps({ selectedPath: 'FRAME' })
+		expect(w.get('rect[data-frame="FRAME"]').attributes('fill')).toBe('#5B9BE8')
+		expect(w.find('[data-frame-badge="FRAME"]').text()).toBe('F1')
+	})
+
+	it('pans the workspace by holding left mouse button and dragging (>= 4px) without Shift', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		await svg.trigger('pointerdown', { button: 0, clientX: 100, clientY: 100, pointerId: 1 })
+		await svg.trigger('pointermove', { clientX: 160, clientY: 145, pointerId: 1 })
+		expect((w.vm as unknown as { pan: { x: number; y: number } }).pan).toEqual({ x: 60, y: 45 })
+		await svg.trigger('pointerup', { pointerId: 1 })
+	})
+
+	it('drops palette tools onto the SVG without crashing and targets the cell underneath', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		;(window as unknown as { __fenDragPayload?: string }).__fenDragPayload = JSON.stringify({
+			kind: 'openable',
+			id: 'Right Openable',
+		})
+		await svg.trigger('drop', { clientX: 100, clientY: 100 })
+		expect(w.emitted('drop-tool')).toEqual([
+			[{ kind: 'openable', id: 'Right Openable', cellPath: 'F1.0', replaceDesign: false }],
+		])
+	})
+
+	it('centers 2D door handles with lever pointing inward over glass and mirrors layout cleanly in outside view', async () => {
+		const d: Design = {
+			width: 1200,
+			height: 1200,
+			root: {
+				type: 'split',
+				dir: 'v',
+				at: [600],
+				children: [
+					{ type: 'sash', glass: '6CTG', sashConfig: 'door', activeLeaf: false, hinge: 'left', opening: 'out' },
+					{ type: 'sash', glass: '6CTG', sashConfig: 'door', activeLeaf: true, hinge: 'right', opening: 'out' },
+				],
+			},
+		}
+		const w = mountCanvas({ design: d, view: 'inside' })
+
+		// Inside view: S2 (F1.1) is on the right; hinge on right outer jamb; handle on left rail next to M1; lever points RIGHT into glass
+		const s2Inside = w.get('[data-path="F1.1"]')
+		const s2BoxIn = { x: Number(s2Inside.attributes('x')), y: Number(s2Inside.attributes('y')), w: Number(s2Inside.attributes('width')), h: Number(s2Inside.attributes('height')) }
+		const handleIn = w.get('rect[data-handle="true"]')
+		const leverIn = w.get('rect[data-handle-lever="true"]')
+		const handleInCx = Number(handleIn.attributes('x')) + Number(handleIn.attributes('width')) / 2
+		const handleInCy = Number(handleIn.attributes('y')) + Number(handleIn.attributes('height')) / 2
+		const leverInCx = Number(leverIn.attributes('x')) + Number(leverIn.attributes('width')) / 2
+		expect(handleInCy).toBeCloseTo(s2BoxIn.y + s2BoxIn.h / 2, 5)
+		expect(handleInCx).toBeLessThan(s2BoxIn.x + s2BoxIn.w / 2)
+		expect(leverInCx).toBeGreaterThan(handleInCx)
+
+		// Outside view: layout mirrors horizontally so S2 (F1.1) moves to the left; hinge stays on outer left jamb; handle stays next to M1; lever points LEFT into glass
+		await w.setProps({ view: 'outside' })
+		const s2Out = w.get('[data-path="F1.1"]')
+		const s1Out = w.get('[data-path="F1.0"]')
+		const s2BoxOut = { x: Number(s2Out.attributes('x')), y: Number(s2Out.attributes('y')), w: Number(s2Out.attributes('width')), h: Number(s2Out.attributes('height')) }
+		const s1BoxOut = { x: Number(s1Out.attributes('x')) }
+		expect(s2BoxOut.x).toBeLessThan(s1BoxOut.x)
+
+		const handleOut = w.get('rect[data-handle="true"]')
+		const leverOut = w.get('rect[data-handle-lever="true"]')
+		const handleOutCx = Number(handleOut.attributes('x')) + Number(handleOut.attributes('width')) / 2
+		const leverOutCx = Number(leverOut.attributes('x')) + Number(leverOut.attributes('width')) / 2
+		expect(handleOutCx).toBeGreaterThan(s2BoxOut.x + s2BoxOut.w / 2)
+		expect(leverOutCx).toBeLessThan(handleOutCx)
 	})
 })

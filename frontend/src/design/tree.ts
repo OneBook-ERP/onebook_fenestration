@@ -12,7 +12,7 @@ const ceil1 = (n: number) => Math.ceil(Math.round(n * 1000) / 100) / 10
 const floor1 = (n: number) => Math.floor(Math.round(n * 1000) / 100) / 10
 
 export function newDesign(width: number, height: number, root?: DesignNode): Design {
-	return { width, height, root: root ?? { type: 'fixed', glass: '6CTG' } }
+	return { width, height, root: root ?? { type: 'fixed', glass: '6CTG', bead: true } }
 }
 
 function indices(path: string): number[] {
@@ -156,6 +156,92 @@ export function setSize(design: Design, width: number, height: number): Design {
 	next.width = width
 	next.height = height
 	return next
+}
+
+/** Bounding box (mm) of the cell at `path`. */
+function cellBox(design: Design, path: string): { x: number; y: number; w: number; h: number } {
+	let x = 0, y = 0, w = design.width, h = design.height
+	let node = design.root
+	for (const i of indices(path)) {
+		if (node.type !== 'split') throw new Error(`no node at ${path}`)
+		const bounds = [0, ...node.at, node.dir === 'v' ? w : h]
+		const size = bounds[i + 1] - bounds[i]
+		if (node.dir === 'v') { x += bounds[i]; w = size }
+		else { y += bounds[i]; h = size }
+		node = node.children[i]
+	}
+	return { x, y, w, h }
+}
+
+/** Compute split offsets within `path` for either equal centerlines ('mullion') or equal clear glass ('glass'). */
+export function equalSplitAt(
+	design: Design,
+	path: string,
+	dir: SplitDir,
+	count: number,
+	mode: 'mullion' | 'glass' = 'mullion',
+	frameFace = 42,
+	barFace = 40,
+	bottomFace = frameFace,
+): number[] {
+	const { x, y, w, h } = cellBox(design, path)
+	const span = dir === 'v' ? w : h
+	if (mode === 'glass') {
+		const firstDed = dir === 'v' ? (x === 0 ? frameFace : barFace / 2) : (y === 0 ? frameFace : barFace / 2)
+		const lastDed = dir === 'v'
+			? (Math.abs(x + w - design.width) < 0.1 ? frameFace : barFace / 2)
+			: (Math.abs(y + h - design.height) < 0.1 ? bottomFace : barFace / 2)
+		const totalClear = Math.max((count + 1) * (MIN_CELL - barFace), span - firstDed - lastDed - count * barFace)
+		const g = totalClear / (count + 1)
+		return Array.from({ length: count }, (_, i) => round1(firstDed + (i + 1) * g + (i + 0.5) * barFace))
+	}
+	return Array.from({ length: count }, (_, i) => round1((span * (i + 1)) / (count + 1)))
+}
+
+/** Split cell `path` by inserting `count` dividers (`count + 1` bays), flattening same-dir parent splits cleanly. */
+export function splitCellWithCount(
+	design: Design,
+	path: string,
+	dir: SplitDir,
+	count: number,
+	mode: 'mullion' | 'glass' = 'mullion',
+	frameFace = 42,
+	barFace = 40,
+	bottomFace = frameFace,
+): Design {
+	const parts = count + 1
+	if (parts < 2) return design
+	const leaf = walkTo(design.root, path) as LeafNode
+	const makeChildren = (base: LeafNode, n: number): DesignNode[] =>
+		Array.from({ length: n }, (_, i) =>
+			i === 0 ? clone(base) : (base.type === 'fixed' ? clone(base) : { type: 'fixed', glass: base.glass }),
+		)
+
+	if (path !== 'F1') {
+		const parentPath = path.slice(0, path.lastIndexOf('.'))
+		const idx = Number(path.slice(path.lastIndexOf('.') + 1))
+		const parent = walkTo(design.root, parentPath)
+		if (parent.type === 'split' && parent.dir === dir) {
+			const next = clone(design)
+			const nextParent = walkTo(next.root, parentPath) as SplitNode
+			const newChildren = makeChildren(leaf, parts)
+			if (mode === 'glass') {
+				nextParent.children.splice(idx, 1, ...newChildren)
+				nextParent.at = equalSplitAt(next, parentPath, dir, nextParent.children.length - 1, 'glass', frameFace, barFace, bottomFace)
+			} else {
+				const { w: pw, h: ph } = cellBox(next, parentPath)
+				const pSpan = dir === 'v' ? pw : ph
+				const b = [0, ...nextParent.at, pSpan]
+				const start = b[idx]
+				const localAt = equalSplitAt(next, path, dir, count, 'mullion', frameFace, barFace, bottomFace)
+				nextParent.at.splice(idx, 0, ...localAt.map((v) => round1(start + v)))
+				nextParent.children.splice(idx, 1, ...newChildren)
+			}
+			return next
+		}
+	}
+	const at = equalSplitAt(design, path, dir, count, mode, frameFace, barFace, bottomFace)
+	return replaceAt(design, path, () => ({ type: 'split', dir, at, children: makeChildren(leaf, parts) }))
 }
 
 function isReal(v: unknown): v is number {

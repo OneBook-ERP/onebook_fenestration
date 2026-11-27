@@ -53,6 +53,9 @@ def collect_rows(design) -> tuple[list[dict], list[str]]:
 
 	pane_m2: dict[str, float] = defaultdict(float)
 	for pane in result.glass:
+		if pane.material == "steel":
+			missing.append(f"steel sheet {pane.thickness:g} mm ({pane.path})")
+			continue
 		pane_m2[pane.glass] += pane.width * pane.height / 1e6
 	for code, area in pane_m2.items():
 		add(frappe.db.get_value("Fenestration Glass", code, "item"), "Square Meter", area, f"glass {code}")
@@ -68,7 +71,9 @@ def collect_rows(design) -> tuple[list[dict], list[str]]:
 		problem = _unit_problem(item, uom)
 		if problem:
 			problems.append(problem)
-	rows = [{"item_code": item, "qty": round(qty, 3), "uom": uom} for (item, uom), qty in sorted(totals.items())]
+	rows = [
+		{"item_code": item, "qty": round(qty, 3), "uom": uom} for (item, uom), qty in sorted(totals.items())
+	]
 	return rows, problems
 
 
@@ -121,6 +126,8 @@ def keep_design_boms_off_default(doc, method=None) -> None:
 
 
 def clear_design_defaults() -> None:
+	if not frappe.db.has_column("BOM", "fen_window_design"):
+		return
 	for name in frappe.get_all(
 		"BOM", {"item": WINDOW_ITEM, "fen_window_design": ("is", "set"), "is_default": 1}, pluck="name"
 	):
@@ -138,7 +145,11 @@ def set_order_boms(doc, method=None) -> None:
 			continue
 		design = frappe.get_doc("Window Design", item.fen_window_design)
 		if design_hash(design) != item.fen_design_hash:
-			frappe.throw(_("{0} changed since the quotation. Requote before ordering.").format(design.design_ref or design.name))
+			frappe.throw(
+				_("{0} changed since the quotation. Requote before ordering.").format(
+					design.design_ref or design.name
+				)
+			)
 		lines.append((item, design))
 
 	# Resolve every design's rows first so any problem refuses the submit before a BOM exists.

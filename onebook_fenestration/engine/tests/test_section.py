@@ -83,3 +83,29 @@ class TestSection(unittest.TestCase):
 		p = analyze_dxf(self.make_rect_dxf(1, 0.5, insunits=1))
 		self.assertAlmostEqual(p.area_mm2, 25.4 * 12.7, delta=0.01)
 		self.assertAlmostEqual(p.ix_mm4, 25.4 * 12.7**3 / 12, delta=0.5)
+
+	def test_near_closed_open_polyline_gasket(self):
+		doc = ezdxf.new()
+		doc.header["$INSUNITS"] = 4
+		# Open LWPOLYLINE whose endpoints are 0.02 mm apart (like G22/G24 gaskets)
+		doc.modelspace().add_lwpolyline([(0, 0), (5, 0), (5, 10), (0, 10), (0.01, 0.01)], close=False)
+		p = analyze_dxf(self._save(doc, "gasket_open.dxf"))
+		self.assertAlmostEqual(p.width_mm, 5.0, delta=0.1)
+		self.assertAlmostEqual(p.depth_mm, 10.0, delta=0.1)
+		self.assertAlmostEqual(p.area_mm2, 50.0, delta=0.5)
+
+	def test_insert_block_and_distant_stray_cluster_filtering(self):
+		doc = ezdxf.new()
+		doc.header["$INSUNITS"] = 4
+		blk = doc.blocks.new(name="GASKET_BLK")
+		blk.add_lwpolyline([(0, 0), (8, 0), (8, 10), (0, 10)], close=True)
+		blk.add_lwpolyline([(2, 2), (6, 2), (6, 8), (2, 8)], close=True)
+		stray = doc.blocks.new(name="STRAY_BLK")
+		stray.add_lwpolyline([(0, 0), (4, 0), (4, 4), (0, 4)], close=True)
+		doc.modelspace().add_blockref("GASKET_BLK", (4000, 1500))
+		doc.modelspace().add_blockref("STRAY_BLK", (0, 0))
+		p = analyze_dxf(self._save(doc, "gasket_block.dxf"))
+		self.assertAlmostEqual(p.width_mm, 8.0, delta=0.1)
+		self.assertAlmostEqual(p.depth_mm, 10.0, delta=0.1)
+		self.assertAlmostEqual(p.area_mm2, 80.0 - 24.0, delta=0.5)
+		self.assertIn("distant_geometry_ignored", p.warnings)

@@ -24,6 +24,11 @@ describe('typology', () => {
 	it('reads nested trees', () => {
 		expect(typology(split(sash, split(fixed, sash), fixed))).toBe('Casement + fixed')
 	})
+	it('labels multi-panel sliding trees accurately', () => {
+		const slideLeaf: DesignNode = { type: 'sash', glass: 'G', isSliding: true }
+		expect(typology(split(slideLeaf, slideLeaf))).toBe('2-panel sliding')
+		expect(typology(split(slideLeaf, { ...slideLeaf, slideFixed: true }, slideLeaf))).toBe('3-panel sliding')
+	})
 })
 
 describe('panel label', () => {

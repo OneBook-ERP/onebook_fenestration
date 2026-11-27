@@ -4,6 +4,36 @@ export const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/projects' },
   { path: '/projects', name: 'Projects', component: () => import('@/pages/Projects.vue') },
   {
+    path: '/quotes',
+    name: 'Quotes',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'quotes' },
+  },
+  {
+    path: '/orders',
+    name: 'Orders',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'orders' },
+  },
+  {
+    path: '/production',
+    name: 'Production',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'production' },
+  },
+  {
+    path: '/install',
+    name: 'Install',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'install' },
+  },
+  {
+    path: '/reports',
+    name: 'Reports',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'reports' },
+  },
+  {
     path: '/projects/:project',
     name: 'Project',
     component: () => import('@/pages/ProjectWorkspace.vue'),
@@ -21,6 +51,77 @@ export const routes: RouteRecordRaw[] = [
     name: 'Designer',
     component: () => import('@/pages/Designer.vue'),
     meta: { fullscreen: true },
+  },
+  {
+    path: '/series-studio',
+    name: 'SeriesStudio',
+    component: () => import('@/pages/SeriesStudio.vue'),
+  },
+  {
+    path: '/series-studio/series/new',
+    name: 'NewProfileSeries',
+    component: () => import('@/pages/studio/ProfileSeriesFormPage.vue'),
+  },
+  {
+    path: '/series-studio/series/:name/section-config',
+    name: 'SeriesSectionConfig',
+    component: () => import('@/pages/studio/SeriesSectionConfigPage.vue'),
+    props: true,
+  },
+  {
+    path: '/series-studio/series/:name',
+    name: 'EditProfileSeries',
+    component: () => import('@/pages/studio/ProfileSeriesFormPage.vue'),
+    props: true,
+  },
+  {
+    path: '/series-studio/versions/new',
+    name: 'NewSeriesVersion',
+    component: () => import('@/pages/studio/SeriesVersionFormPage.vue'),
+  },
+  {
+    path: '/series-studio/versions/:name',
+    name: 'EditSeriesVersion',
+    component: () => import('@/pages/studio/SeriesVersionFormPage.vue'),
+    props: true,
+  },
+  {
+    path: '/series-studio/profiles/new',
+    name: 'NewFenestrationProfile',
+    component: () => import('@/pages/studio/ProfileFormPage.vue'),
+  },
+  {
+    path: '/series-studio/profiles/:name',
+    name: 'EditFenestrationProfile',
+    component: () => import('@/pages/studio/ProfileFormPage.vue'),
+    props: true,
+  },
+  {
+    path: '/series-studio/glass/new',
+    name: 'NewFenestrationGlass',
+    component: () => import('@/pages/studio/GlassFormPage.vue'),
+  },
+  {
+    path: '/series-studio/glass/:name',
+    name: 'EditFenestrationGlass',
+    component: () => import('@/pages/studio/GlassFormPage.vue'),
+    props: true,
+  },
+  {
+    path: '/series-studio/glazing-config',
+    name: 'GlazingConfig',
+    component: () => import('@/pages/studio/GlazingConfigPage.vue'),
+  },
+  {
+    path: '/series-studio/hardware/new',
+    name: 'NewFenestrationHardware',
+    component: () => import('@/pages/studio/HardwareFormPage.vue'),
+  },
+  {
+    path: '/series-studio/hardware/:name',
+    name: 'EditFenestrationHardware',
+    component: () => import('@/pages/studio/HardwareFormPage.vue'),
+    props: true,
   },
 ]
 

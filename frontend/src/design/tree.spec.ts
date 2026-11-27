@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import w01 from './__fixtures__/w01.json'
 import { layoutGeom } from './geometry'
-import { MIN_CELL, getNode, moveSplit, newDesign, removeSplit, setLeaf, setSize, splitCell, validateDesign } from './tree'
+import { MIN_CELL, equalSplitAt, getNode, moveSplit, newDesign, removeSplit, setLeaf, setSize, splitCell, splitCellWithCount, validateDesign } from './tree'
 import type { Design, DesignNode, SplitNode } from './types'
 
 const base = () => newDesign(915, 1220)
 
 describe('tree', () => {
-	it('newDesign defaults to a fixed 6CTG root', () => {
-		expect(base().root).toEqual({ type: 'fixed', glass: '6CTG' })
+	it('newDesign defaults to a fixed 6CTG root with automatic bead on', () => {
+		expect(base().root).toEqual({ type: 'fixed', glass: '6CTG', bead: true })
 	})
 
 	it('splitCell v gives at [457.5] and two copies', () => {
@@ -16,7 +16,7 @@ describe('tree', () => {
 		const root = d.root as SplitNode
 		expect(root.at).toEqual([457.5])
 		expect(root.children).toHaveLength(2)
-		expect(root.children[0]).toEqual({ type: 'fixed', glass: '6CTG' })
+		expect(root.children[0]).toEqual({ type: 'fixed', glass: '6CTG', bead: true })
 	})
 
 	it('splitCell does not mutate the input', () => {
@@ -195,5 +195,20 @@ describe('moveSplit keeps nested splits valid', () => {
 			expectSound(m)
 			for (const a of [...at(m, 'F1'), ...at(m, 'F1.2')]) expect(Math.round(a * 10) / 10).toBe(a)
 		}
+	})
+
+	it('equalSplitAt and splitCellWithCount support Equal Glass vs Mullion Equalization', () => {
+		const d = newDesign(1000, 1500)
+		const mAt = equalSplitAt(d, 'F1', 'v', 2, 'mullion')
+		expect(mAt).toEqual([333.3, 666.7])
+		const gAt = equalSplitAt(d, 'F1', 'v', 2, 'glass', 42, 40)
+		const clearLeft = gAt[0] - 42 - 20
+		const clearMid = gAt[1] - gAt[0] - 40
+		const clearRight = 1000 - gAt[1] - 42 - 20
+		expect(Math.abs(clearLeft - clearMid)).toBeLessThan(0.3)
+		expect(Math.abs(clearMid - clearRight)).toBeLessThan(0.3)
+		const split = splitCellWithCount(d, 'F1', 'v', 2, 'glass', 42, 40)
+		expectSound(split)
+		expect(at(split, 'F1')).toEqual(gAt)
 	})
 })

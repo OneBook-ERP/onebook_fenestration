@@ -8,18 +8,17 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext"]
 
 # Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "onebook_fenestration",
-# 		"logo": "/assets/onebook_fenestration/logo.png",
-# 		"title": "Onebook Fenestration",
-# 		"route": "/onebook_fenestration",
-# 		"has_permission": "onebook_fenestration.api.permission.has_app_permission",
-# 	}
-# ]
+add_to_apps_screen = [
+	{
+		"name": "onebook_fenestration",
+		"logo": "/assets/onebook_fenestration/images/logo.svg",
+		"title": "Fenestration",
+		"route": "/fenestration",
+	}
+]
 
 # The dock, the rail down the left of the desk, is a document rather than a hook. Author it in
 # Manage Dock on a developer-mode site and press Export to App, and it is written to
@@ -52,8 +51,14 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_js = {
+	"Quotation": "public/js/quotation.js",
+}
+doctype_list_js = {
+	"Customer": "public/js/partner_type_list_filter.js",
+	"Quotation": "public/js/partner_type_list_filter.js",
+	"Sales Order": "public/js/partner_type_list_filter.js",
+}
 # doctype_kanban_js = {"doctype" : "public/js/doctype_kanban.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -96,6 +101,9 @@ jinja = {
 		"onebook_fenestration.utils.jinja.fen_cutting_schedule",
 		"onebook_fenestration.utils.jinja.fen_assembly_summary",
 		"onebook_fenestration.utils.jinja.fen_assembly_detail",
+		"onebook_fenestration.utils.jinja.fen_window_cutting_sheet",
+		"onebook_fenestration.utils.jinja.fen_project_cutting_sheet",
+		"onebook_fenestration.utils.jinja.fen_cutting_sheet_html",
 	]
 }
 
@@ -155,13 +163,15 @@ before_uninstall = "onebook_fenestration.setup.install.before_uninstall"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"Fenestration Project": "onebook_fenestration.fenestration.sharing.project_permission_query",
+	"Window Design": "onebook_fenestration.fenestration.sharing.design_permission_query",
+}
+
+has_permission = {
+	"Fenestration Project": "onebook_fenestration.fenestration.sharing.project_has_permission",
+	"Window Design": "onebook_fenestration.fenestration.sharing.design_has_permission",
+}
 
 # Document Events
 # ---------------
@@ -172,6 +182,22 @@ doc_events = {
 	"BOM": {
 		event: "onebook_fenestration.production.bom.keep_design_boms_off_default"
 		for event in ("on_submit", "on_cancel", "on_update_after_submit")
+	},
+	"CRM Lead": {
+		"validate": "onebook_fenestration.crm.lead.validate_lead_priority",
+	},
+	"CRM Deal": {
+		"validate": "onebook_fenestration.crm.lead.validate_deal_priority",
+	},
+	"CRM Task": {
+		"validate": "onebook_fenestration.crm.lead.sync_task_priority_rank",
+	},
+	"Customer": {
+		"validate": "onebook_fenestration.crm.quotation.sync_customer_partner_group",
+		"after_insert": "onebook_fenestration.crm.quotation.sync_customer_partner_type_on_insert",
+	},
+	"ERPNext CRM Settings": {
+		"on_update": "onebook_fenestration.crm.quotation.sync_erpnext_crm_settings",
 	},
 }
 # doc_events = {
@@ -212,9 +238,10 @@ doc_events = {
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
-# extend_doctype_class = {
-# 	"Task": "onebook_fenestration.custom.task.CustomTaskMixin"
-# }
+extend_doctype_class = {
+	"CRM Lead": ["onebook_fenestration.crm.lead.CRMLeadMixin"],
+	"CRM Deal": ["onebook_fenestration.crm.lead.CRMDealMixin"],
+}
 
 # Overriding Methods
 # ------------------------------
@@ -222,6 +249,10 @@ doc_events = {
 override_whitelisted_methods = {
 	"erpnext.selling.doctype.sales_order.sales_order.get_work_order_items": (
 		"onebook_fenestration.production.work_order.get_work_order_items"
+	),
+	"crm.api.doc.get_data": "onebook_fenestration.crm.doc_api.get_data",
+	"crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings.get_deal_quotations": (
+		"onebook_fenestration.crm.quotation.get_deal_quotations"
 	),
 }
 #

@@ -1,0 +1,207 @@
+{
+    "actions": [],
+    "autoname": "field:hardware_code",
+    "creation": "2026-11-24 00:00:00",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "hardware_details_section",
+        "hardware_code",
+        "hardware_name",
+        "category",
+        "item",
+        "column_break_main",
+        "uom",
+        "thickness_mm",
+        "weight_kg",
+        "dxf_file",
+        "description",
+        "section_break_cad",
+        "width_mm",
+        "depth_mm",
+        "area_mm2",
+        "perimeter_mm",
+        "column_break_cad",
+        "section_rotation",
+        "section_flip_x",
+        "section_flip_y",
+        "section_warnings",
+        "section_svg"
+    ],
+    "fields": [
+        {
+            "fieldname": "hardware_details_section",
+            "fieldtype": "Section Break",
+            "label": "Hardware Configuration"
+        },
+        {
+            "fieldname": "hardware_code",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Hardware Code",
+            "reqd": 1,
+            "unique": 1
+        },
+        {
+            "fieldname": "hardware_name",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Hardware Name",
+            "reqd": 1
+        },
+        {
+            "default": "Gasket",
+            "fieldname": "category",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "label": "Category",
+            "options": "Gasket\nBeading\nHandle\nHinge\nLock\nRoller\nCorner Cleat\nSeal / Weatherstrip\nFastener\nAccessory",
+            "reqd": 1
+        },
+        {
+            "fieldname": "item",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "ERPNext Item",
+            "options": "Item"
+        },
+        {
+            "fieldname": "column_break_main",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "Meter",
+            "fieldname": "uom",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "label": "UOM",
+            "options": "Meter\nNos\nSet\nPair\nKg"
+        },
+        {
+            "fieldname": "thickness_mm",
+            "fieldtype": "Float",
+            "label": "Thickness / Gap (mm)",
+            "non_negative": 1,
+            "precision": "2"
+        },
+        {
+            "fieldname": "weight_kg",
+            "fieldtype": "Float",
+            "label": "Weight (kg)",
+            "non_negative": 1,
+            "precision": "3"
+        },
+        {
+            "fieldname": "dxf_file",
+            "fieldtype": "Attach",
+            "label": "CAD / Section DXF"
+        },
+        {
+            "fieldname": "description",
+            "fieldtype": "Small Text",
+            "label": "Description"
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "section_break_cad",
+            "fieldtype": "Section Break",
+            "label": "Computed Section Properties"
+        },
+        {
+            "fieldname": "width_mm",
+            "fieldtype": "Float",
+            "label": "Width (mm)",
+            "precision": "1",
+            "read_only": 1
+        },
+        {
+            "fieldname": "depth_mm",
+            "fieldtype": "Float",
+            "label": "Depth (mm)",
+            "precision": "1",
+            "read_only": 1
+        },
+        {
+            "fieldname": "area_mm2",
+            "fieldtype": "Float",
+            "label": "Area (mm²)",
+            "precision": "1",
+            "read_only": 1
+        },
+        {
+            "fieldname": "perimeter_mm",
+            "fieldtype": "Float",
+            "label": "Perimeter (mm)",
+            "precision": "1",
+            "read_only": 1
+        },
+        {
+            "fieldname": "column_break_cad",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "0",
+            "fieldname": "section_rotation",
+            "fieldtype": "Select",
+            "label": "Section Rotation",
+            "options": "0\n90\n180\n270"
+        },
+        {
+            "default": "0",
+            "fieldname": "section_flip_x",
+            "fieldtype": "Check",
+            "label": "Flip Horizontal"
+        },
+        {
+            "default": "0",
+            "fieldname": "section_flip_y",
+            "fieldtype": "Check",
+            "label": "Flip Vertical"
+        },
+        {
+            "fieldname": "section_warnings",
+            "fieldtype": "Small Text",
+            "label": "Section Warnings",
+            "read_only": 1
+        },
+        {
+            "fieldname": "section_svg",
+            "fieldtype": "Long Text",
+            "hidden": 1,
+            "label": "Section SVG",
+            "read_only": 1
+        }
+    ],
+    "icon": "wrench",
+    "modified": "2026-11-24 00:00:00",
+    "modified_by": "Administrator",
+    "module": "Series Studio",
+    "name": "Fenestration Hardware",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "read": 1,
+            "role": "Sales User"
+        },
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 1,
+            "read": 1,
+            "role": "Fenestration Engineer",
+            "write": 1
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC"
+}

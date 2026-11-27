@@ -7,6 +7,22 @@ from onebook_fenestration.engine.types import CutMember, Issue, MemberRule, Rule
 FRAME_PANEL = "F1"
 
 
+def resolve_override(
+	design: dict, snapshot: SeriesSnapshot, *keys: str | None, default_profile: str = ""
+) -> str:
+	"""Resolve the first matching profile code from `design['profiles']` overrides or direct profile codes."""
+	raw_overrides = design.get("profiles") if isinstance(design, dict) else None
+	profile_overrides = raw_overrides if isinstance(raw_overrides, dict) else {}
+	for k in keys:
+		if k and isinstance(k, str) and k in profile_overrides:
+			cand = profile_overrides[k]
+			if isinstance(cand, str) and cand in snapshot.profiles:
+				return cand
+		if k and isinstance(k, str) and k in snapshot.profiles:
+			return k
+	return default_profile
+
+
 def cut_members(
 	design: dict, snapshot: SeriesSnapshot, cells: list[Cell], bars: list[Bar]
 ) -> tuple[list[CutMember], list[Issue], dict[str, tuple[float, float]]]:
@@ -16,6 +32,9 @@ def cut_members(
 
 	base = {**snapshot.deductions, **snapshot.constants}
 
+	def resolve_profile(default_profile: str, *keys: str | None) -> str:
+		return resolve_override(design, snapshot, *keys, default_profile=default_profile)
+
 	def rule_and_length(
 		role: str, span: float, d_start: float = 0, d_end: float = 0
 	) -> tuple[MemberRule, float]:
@@ -23,28 +42,117 @@ def cut_members(
 		rule = _rule_for(snapshot, role, variables)
 		return rule, float(round(evaluate_number(rule.length, variables, rule.id), 1))
 
-	def emit(panel: str, rule: MemberRule, position: str, length: float, path: str):
-		members.append(CutMember(panel, rule.role, position, rule.profile, length, rule.angles, path))
+	def emit(
+		panel: str, rule: MemberRule, position: str, length: float, path: str, profile: str | None = None
+	):
+		members.append(
+			CutMember(panel, rule.role, position, profile or rule.profile, length, rule.angles, path)
+		)
 
-	def add(path: str, role: str, position: str, span: float, d_start: float = 0, d_end: float = 0):
+	def add(
+		path: str,
+		role: str,
+		position: str,
+		span: float,
+		d_start: float = 0,
+		d_end: float = 0,
+		profile_override: str | None = None,
+	):
 		rule, length = rule_and_length(role, span, d_start, d_end)
 		if length <= 0:
 			message = f"{path}: {role} {position} length is {length} mm"
 			issues.append(Issue("error", "non_positive_size", message, FRAME_PANEL, path=path))
 			return
-		emit(FRAME_PANEL, rule, position, length, path)
+		emit(FRAME_PANEL, rule, position, length, path, profile=profile_override or rule.profile)
 
 	width, height = design["width"], design["height"]
-	for position, span in (("B", width), ("T", width), ("L", height), ("R", height)):
-		add(FRAME_PANEL, "frame", position, span)
+	frame_config = design.get("frameConfig") or "4-side"
+	frame_code = design.get("frameProfileId")
+	frame_profile = (
+		resolve_profile("", frame_code if isinstance(frame_code, str) else None, "frame", FRAME_PANEL) or None
+	)
+	frame_positions = (
+		(("T", width), ("L", height), ("R", height))
+		if frame_config == "3-side"
+		else (("B", width), ("T", width), ("L", height), ("R", height))
+	)
+	for position, span in frame_positions:
+		if position == "B" and frame_config == "3-side-threshold":
+			thresh_rules = matching_rules(snapshot, "threshold", base)
+			thresh_prof = resolve_profile(
+				thresh_rules[0].profile if thresh_rules else (frame_profile or ""),
+				f"{FRAME_PANEL}.B",
+				"threshold",
+			)
+			if thresh_rules:
+				add(FRAME_PANEL, "threshold", "B", span, profile_override=thresh_prof or None)
+			elif thresh_prof:
+				t_end = float(snapshot.deductions.get("threshold_end", 49.5))
+				t_len = float(round(span - 2 * t_end, 1))
+				if t_len <= 0:
+					issues.append(
+						Issue(
+							"error",
+							"non_positive_size",
+							f"{FRAME_PANEL}: threshold B length is {t_len} mm",
+							FRAME_PANEL,
+							path=FRAME_PANEL,
+						)
+					)
+				else:
+					members.append(
+						CutMember(FRAME_PANEL, "threshold", "B", thresh_prof, t_len, (90, 90), FRAME_PANEL)
+					)
+			continue
+
+		side_prof = (
+			resolve_profile(
+				"",
+				f"{FRAME_PANEL}.{position}",
+				frame_code if isinstance(frame_code, str) else None,
+				"frame",
+				FRAME_PANEL,
+			)
+			or frame_profile
+		)
+		if frame_config in ("3-side", "3-side-threshold") and position in ("L", "R"):
+			rule, length = rule_and_length("frame", span)
+			if length <= 0:
+				issues.append(
+					Issue(
+						"error",
+						"non_positive_size",
+						f"{FRAME_PANEL}: frame {position} length is {length} mm",
+						FRAME_PANEL,
+						path=FRAME_PANEL,
+					)
+				)
+			else:
+				sq_angles = (90, 45) if position == "L" else (45, 90)
+				members.append(
+					CutMember(
+						FRAME_PANEL,
+						rule.role,
+						position,
+						side_prof or rule.profile,
+						length,
+						sq_angles,
+						FRAME_PANEL,
+					)
+				)
+		else:
+			add(FRAME_PANEL, "frame", position, span, profile_override=side_prof)
 
 	deductions = snapshot.deductions
+	bar_default = design.get("mullionProfileId") if isinstance(design.get("mullionProfileId"), str) else None
 	for bar in bars:
 		position = "H" if bar.kind == "mullion" else "W"
 		d_start, d_end = (deductions[f"bar_end_{end}"] for end in bar.ends)
-		add(bar.id, bar.kind, position, bar.length_span, d_start, d_end)
+		bar_profile = resolve_profile("", bar.id, bar.kind, bar_default) or None
+		add(bar.id, bar.kind, position, bar.length_span, d_start, d_end, profile_override=bar_profile)
 
 	number = 0
+	sash_default = design.get("sashProfileId") if isinstance(design.get("sashProfileId"), str) else None
 	for cell in cells:
 		if cell.node["type"] != "sash":
 			continue
@@ -53,13 +161,27 @@ def cut_members(
 		side = {s: deductions[f"sash_side_{cell.sides[s]}"] for s in "LRBT"}
 		sash_w = cell.w - side["L"] - side["R"]
 		sash_h = cell.h - side["B"] - side["T"]
-		cuts = {pos: rule_and_length("sash", sash_w if pos in "BT" else sash_h) for pos in "BTLR"}
+		is_door = cell.node.get("sashConfig") == "door"
+		sash_role = "door_sash" if is_door and matching_rules(snapshot, "door_sash", base) else "sash"
+		cuts = {pos: rule_and_length(sash_role, sash_w if pos in "BT" else sash_h) for pos in "BTLR"}
 		if any(length <= 0 for _, length in cuts.values()):
 			message = f"{panel}: sash size is {round(sash_w, 1)} x {round(sash_h, 1)} mm"
 			issues.append(Issue("error", "non_positive_size", message, panel, path=cell.path))
 			continue
+		sash_profile = (
+			resolve_profile("", cell.node.get("profile"), cell.path, panel, sash_role, "sash", sash_default)
+			or None
+		)
 		for pos, (rule, length) in cuts.items():
-			emit(panel, rule, pos, length, cell.path)
+			emit(panel, rule, pos, length, cell.path, profile=sash_profile or rule.profile)
+		if is_door and matching_rules(snapshot, "door_bottom_adaptor", base):
+			ad_rule, ad_len = rule_and_length("door_bottom_adaptor", sash_w)
+			if ad_len > 0:
+				members.append(
+					CutMember(
+						panel, "door_bottom_adaptor", "B", ad_rule.profile, ad_len, ad_rule.angles, cell.path
+					)
+				)
 		sash_sizes[panel] = (round(sash_w, 1), round(sash_h, 1))
 	return members, issues, sash_sizes
 

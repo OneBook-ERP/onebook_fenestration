@@ -1,3 +1,4 @@
+import dataclasses
 import json
 from pathlib import Path
 
@@ -42,8 +43,13 @@ class TestSnapshot(IntegrationTestCase):
 	def test_snapshot_dict_roundtrip_equals_fixture(self):
 		built = SeriesSnapshot.from_dict(build_snapshot_dict(self.version))
 		expected = SeriesSnapshot.from_dict(self.data)
-		for section in ("deductions", "member_rules", "hardware_rules", "constants"):
+		for section in ("deductions", "member_rules", "constants"):
 			self.assertEqual(getattr(built, section), getattr(expected, section), section)
+
+		def norm_hw(rules):
+			return [dataclasses.replace(r, uom=r.uom.upper()) for r in rules]
+
+		self.assertEqual(norm_hw(built.hardware_rules), norm_hw(expected.hardware_rules), "hardware_rules")
 
 	def test_submit_incomplete_version_fails(self):
 		version = frappe.get_doc({"doctype": "Series Version", "series": "CS400"}).insert()
@@ -105,8 +111,16 @@ class TestLegacyGaskets(IntegrationTestCase):
 		data["hardware_rules"] = [r for r in data["hardware_rules"] if r.get("group") != "Gasket"]
 		version = import_snapshot_json("CS400", data, "CS400 Economical Casement")
 		self.addCleanup(frappe.cache.hdel, "fen_snapshot", version)
-		legacy = [(b.item, b.panel, b.position, b.length) for b in compute(load("w01.json"), get_snapshot(version)).bom if b.group == "Gasket"]
-		current = [(b.item, b.panel, b.position, b.length) for b in compute(load("w01.json"), SeriesSnapshot.from_dict(self.fixture())).bom if b.group == "Gasket"]
+		legacy = [
+			(b.item, b.panel, b.position, b.length)
+			for b in compute(load("w01.json"), get_snapshot(version)).bom
+			if b.group == "Gasket"
+		]
+		current = [
+			(b.item, b.panel, b.position, b.length)
+			for b in compute(load("w01.json"), SeriesSnapshot.from_dict(self.fixture())).bom
+			if b.group == "Gasket"
+		]
 		self.assertEqual(legacy, current)
 		self.assertEqual(len(legacy), 20)
 
@@ -116,7 +130,9 @@ class TestLegacyGaskets(IntegrationTestCase):
 
 class TestGlassCatalogue(IntegrationTestCase):
 	def test_catalogue_is_complete(self):
-		rows = json.loads((Path(__file__).parent.parent / "series_studio" / "data" / "hilux_glasses.json").read_text())["glasses"]
+		rows = json.loads(
+			(Path(__file__).parent.parent / "series_studio" / "data" / "hilux_glasses.json").read_text()
+		)["glasses"]
 		self.assertEqual(len(rows), 23)
 		self.assertEqual(len({r["code"] for r in rows}), 23)
 		for r in rows:

@@ -1,9 +1,14 @@
+import re
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import cint
 
 from onebook_fenestration.engine import SectionError, analyze_dxf
-from onebook_fenestration.series_studio.outline import rotate_path
+from onebook_fenestration.series_studio.outline import transform_path
+
+_SAFE_SVG_PATH_RE = re.compile(r"^[0-9eE.+\-,\sMLAZmlazHVCSQThvcsqt]*$")
 
 SECTION_FIELDS = (
 	"area_mm2",
@@ -29,26 +34,47 @@ class FenestrationProfile(Document):
 				self.clear_section()
 		elif self.has_value_changed("dxf_file") or not self.area_mm2:
 			self.fill_section_from_dxf()
-			if int(self.section_rotation or 0):
+			if (
+				int(self.section_rotation or 0)
+				or int(getattr(self, "section_flip_x", 0) or 0)
+				or int(getattr(self, "section_flip_y", 0) or 0)
+			):
 				self.apply_section_rotation()
 			return
 		if self.rotation_changed():
 			self.apply_section_rotation()
+		if self.section_svg and not _SAFE_SVG_PATH_RE.match(self.section_svg):
+			frappe.throw(_("Section SVG contains unsupported characters."), title=_("Section outline"))
 
 	def rotation_changed(self) -> bool:
-		# a new doc reports every field as changed; there only a non-zero rotation means anything
+		# a new doc reports every field as changed; there only a non-zero transform means anything
 		if self.is_new():
-			return bool(int(self.section_rotation or 0))
-		return self.has_value_changed("section_rotation")
+			return bool(
+				int(self.section_rotation or 0)
+				or int(getattr(self, "section_flip_x", 0) or 0)
+				or int(getattr(self, "section_flip_y", 0) or 0)
+			)
+		return (
+			self.has_value_changed("section_rotation")
+			or self.has_value_changed("section_flip_x")
+			or self.has_value_changed("section_flip_y")
+		)
 
 	def apply_section_rotation(self):
-		"""width_mm / depth_mm become the outline's extents after `section_rotation` (face along the cut)."""
+		"""width_mm / depth_mm become the outline's extents after `section_rotation` and flips (face along the cut)."""
 		if not self.section_svg:
 			return
 		try:
-			_svg, self.width_mm, self.depth_mm = rotate_path(self.section_svg, self.section_rotation)
+			_svg, self.width_mm, self.depth_mm = transform_path(
+				self.section_svg,
+				self.section_rotation,
+				cint(getattr(self, "section_flip_x", 0)),
+				cint(getattr(self, "section_flip_y", 0)),
+			)
 		except ValueError as exc:
-			frappe.throw(_("Could not rotate the section outline: {0}").format(exc), title=_("Section outline"))
+			frappe.throw(
+				_("Could not rotate the section outline: {0}").format(str(exc)), title=_("Section outline")
+			)
 
 	def validate_bar_lengths(self):
 		"""Bar lengths are comma-separated positive numbers, e.g. "4880, 5800"."""
@@ -61,9 +87,9 @@ class FenestrationProfile(Document):
 				valid = False
 			if not valid:
 				frappe.throw(
-					_("Bar Lengths must be comma-separated positive numbers, e.g. 4880, 5800 (got {0})").format(
-						frappe.bold(part.strip())
-					),
+					_(
+						"Bar Lengths must be comma-separated positive numbers, e.g. 4880, 5800 (got {0})"
+					).format(frappe.bold(part.strip())),
 					title=_("Invalid Bar Lengths"),
 				)
 
@@ -74,9 +100,14 @@ class FenestrationProfile(Document):
 	def fill_section_from_dxf(self):
 		try:
 			file_doc = frappe.get_doc("File", {"file_url": self.dxf_file})
+			file_doc.check_permission("read")
 			section = analyze_dxf(file_doc.get_full_path())
-		except (SectionError, frappe.DoesNotExistError, OSError) as exc:
-			frappe.throw(_("Could not read section from DXF: {0}").format(exc), title=_("DXF error"))
+		except frappe.PermissionError:
+			raise
+		except OSError:
+			frappe.throw(_("Could not read the attached DXF file from storage."), title=_("DXF error"))
+		except (SectionError, frappe.DoesNotExistError) as exc:
+			frappe.throw(_("Could not read section from DXF: {0}").format(str(exc)), title=_("DXF error"))
 
 		self.area_mm2 = round(section.area_mm2, 1)
 		self.width_mm = round(section.width_mm, 1)

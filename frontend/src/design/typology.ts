@@ -11,6 +11,9 @@ const KIND_ORDER: LeafNode['type'][] = ['sash', 'fixed', 'louver']
 /** Short human description of a design, e.g. "2-sash casement" or "Casement + fixed". */
 export function typology(root: DesignNode): string {
 	const all = leaves(root)
+	if (all.some((l) => l.type === 'sash' && l.isSliding)) {
+		return all.length > 1 ? `${all.length}-panel sliding` : 'Sliding'
+	}
 	const kinds = [...new Set(all.map((l) => l.type))]
 	if (kinds.includes('louver')) return 'Ventilator'
 	if (kinds.length === 1 && kinds[0] === 'sash') return all.length > 1 ? `${all.length}-sash casement` : 'Casement'

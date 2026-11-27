@@ -106,13 +106,16 @@ Expected: `onebook_fenestration` appears in `bench --site window.localhost list-
 
 ```python
 class TestInstall(IntegrationTestCase):
-    def test_item_kind_custom_field(self):
-        self.assertTrue(frappe.get_meta("Item").has_field("fen_item_kind"))
-    def test_engineer_role(self):
-        self.assertTrue(frappe.db.exists("Role", "Fenestration Engineer"))
-    def test_after_migrate_is_idempotent(self):
-        after_migrate(); after_migrate()
-        self.assertEqual(frappe.db.count("Custom Field", {"dt": "Item", "fieldname": "fen_item_kind"}), 1)
+	def test_item_kind_custom_field(self):
+		self.assertTrue(frappe.get_meta("Item").has_field("fen_item_kind"))
+
+	def test_engineer_role(self):
+		self.assertTrue(frappe.db.exists("Role", "Fenestration Engineer"))
+
+	def test_after_migrate_is_idempotent(self):
+		after_migrate()
+		after_migrate()
+		self.assertEqual(frappe.db.count("Custom Field", {"dt": "Item", "fieldname": "fen_item_kind"}), 1)
 ```
 
 - [ ] **Step 3: Run; expect FAIL** (ImportError on `setup.install`)

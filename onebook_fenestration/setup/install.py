@@ -2,14 +2,20 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.utils import flt
 
+from onebook_fenestration.setup.crm import sync_crm_customizations
 from onebook_fenestration.setup.custom_fields import CUSTOM_FIELDS
+from onebook_fenestration.setup.procurement import setup_procurement
 
 ENGINEER_ROLE = "Fenestration Engineer"
+DEALER_ROLE = "Fenestration Dealer"
+FABRICATION_PARTNER_ROLE = "Fenestration Fabrication Partner"
+PARTNER_CUSTOMER_GROUPS = ("Dealers", "Fabrication Partners", "Own Clients")
 
 
 def after_install():
 	_sync()
 	setup_production_items()
+	setup_procurement()
 
 
 def after_migrate():
@@ -27,19 +33,46 @@ def before_uninstall():
 
 
 def _sync():
-	create_custom_fields(CUSTOM_FIELDS, update=True)
-	_ensure_engineer_role()
+	active_fields = {dt: fields for dt, fields in CUSTOM_FIELDS.items() if frappe.db.exists("DocType", dt)}
+	create_custom_fields(active_fields, update=True)
+	_ensure_roles()
+	_ensure_partner_customer_groups()
+	sync_crm_customizations()
 	seed_pricing()
 	seed_quote_masters()
 	ensure_production_uoms()
 
 
-def _ensure_engineer_role():
-	if frappe.db.exists("Role", ENGINEER_ROLE):
+def _ensure_roles():
+	for role_name in (ENGINEER_ROLE, DEALER_ROLE, FABRICATION_PARTNER_ROLE):
+		if frappe.db.exists("Role", role_name):
+			continue
+		frappe.get_doc({"doctype": "Role", "role_name": role_name, "desk_access": 1}).insert(
+			ignore_permissions=True
+		)
+
+
+def _ensure_partner_customer_groups():
+	if not frappe.db.exists("DocType", "Customer Group"):
 		return
-	frappe.get_doc({"doctype": "Role", "role_name": ENGINEER_ROLE, "desk_access": 1}).insert(
-		ignore_permissions=True
+	root_group = (
+		"All Customer Groups"
+		if frappe.db.exists("Customer Group", "All Customer Groups")
+		else frappe.db.get_value("Customer Group", {"is_group": 1}, "name")
 	)
+	if not root_group:
+		return
+	for group_name in PARTNER_CUSTOMER_GROUPS:
+		if frappe.db.exists("Customer Group", group_name):
+			continue
+		frappe.get_doc(
+			{
+				"doctype": "Customer Group",
+				"customer_group_name": group_name,
+				"parent_customer_group": root_group,
+				"is_group": 0,
+			}
+		).insert(ignore_permissions=True)
 
 
 STANDARD_HEADS = (
@@ -127,7 +160,9 @@ def _seed_settings():
 		stored = stored_value(fieldname)
 		if stored in (None, ""):
 			frappe.db.set_single_value(
-				"Fenestration Settings", fieldname, frappe.get_meta("Fenestration Settings").get_field(fieldname).default
+				"Fenestration Settings",
+				fieldname,
+				frappe.get_meta("Fenestration Settings").get_field(fieldname).default,
 			)
 
 
@@ -166,6 +201,11 @@ STANDARD_TERMS_LINES = (
 
 def seed_quote_masters():
 	"""Generic quote items with their HSN codes and the standard terms; never overwrites existing records."""
+	if not frappe.db.exists("UOM", "Nos"):
+		frappe.get_doc({"doctype": "UOM", "uom_name": "Nos", "must_be_whole_number": 1}).insert(
+			ignore_permissions=True
+		)
+	item_group = _quote_item_group()
 	has_hsn = frappe.db.exists("DocType", "GST HSN Code") and frappe.get_meta("Item").has_field(
 		"gst_hsn_code"
 	)
@@ -180,7 +220,7 @@ def seed_quote_masters():
 					"doctype": "Item",
 					"item_code": code,
 					"item_name": item_name,
-					"item_group": _quote_item_group(),
+					"item_group": item_group,
 					"stock_uom": "Nos",
 					"is_stock_item": 0,
 					"is_sales_item": 1,
@@ -194,11 +234,27 @@ def seed_quote_masters():
 
 def _quote_item_group() -> str:
 	if not frappe.db.exists("Item Group", "Fenestration"):
+		root_group = (
+			"All Item Groups"
+			if frappe.db.exists("Item Group", "All Item Groups")
+			else frappe.db.get_value("Item Group", {"is_group": 1}, "name")
+		)
+		if not root_group:
+			root_doc = frappe.get_doc(
+				{
+					"doctype": "Item Group",
+					"item_group_name": "All Item Groups",
+					"is_group": 1,
+				}
+			)
+			root_doc.flags.ignore_mandatory = True
+			root_doc.insert(ignore_permissions=True)
+			root_group = root_doc.name
 		frappe.get_doc(
 			{
 				"doctype": "Item Group",
 				"item_group_name": "Fenestration",
-				"parent_item_group": "All Item Groups",
+				"parent_item_group": root_group,
 			}
 		).insert(ignore_permissions=True)
 	return "Fenestration"
@@ -286,12 +342,14 @@ def open_window_deliveries(limit=None) -> list[str]:
 def _items_to_restock() -> list[tuple[str, str]]:
 	"""(item, uom) for profile, gasket and glass Items not yet stocked in the BOM unit (stock UOM and UOM row)."""
 	wanted = {"Profile": "Kg", "Gasket": "Meter"}
-	pairs = [
-		(name, wanted[kind])
-		for name, kind in frappe.get_all(
-			"Item", {"fen_item_kind": ("in", tuple(wanted))}, ["name", "fen_item_kind"], as_list=True
-		)
-	]
+	pairs = []
+	if frappe.db.has_column("Item", "fen_item_kind"):
+		pairs = [
+			(name, wanted[kind])
+			for name, kind in frappe.get_all(
+				"Item", {"fen_item_kind": ("in", tuple(wanted))}, ["name", "fen_item_kind"], as_list=True
+			)
+		]
 	glass = frappe.get_all("Fenestration Glass", {"item": ("is", "set")}, pluck="item")
 	pairs += [(name, "Square Meter") for name in glass if frappe.db.exists("Item", name)]
 	return [(name, uom) for name, uom in pairs if not _stocked_in(name, uom)]
@@ -324,7 +382,9 @@ def _restock(item_code: str, uom: str) -> None:
 	if not any(row.uom == uom for row in item.uoms):
 		item.append("uoms", {"uom": uom, "conversion_factor": 1})
 	item.save(ignore_permissions=True)
-	for price in frappe.get_all("Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"):
+	for price in frappe.get_all(
+		"Item Price", {"item_code": item_code, "uom": ("not in", (uom, ""))}, pluck="name"
+	):
 		frappe.db.set_value("Item Price", price, "uom", uom)
 
 

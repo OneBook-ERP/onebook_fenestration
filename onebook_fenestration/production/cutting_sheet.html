@@ -1,0 +1,302 @@
+<style>
+	@page { size: A4; margin: 11mm 12mm 13mm 12mm; }
+	.cs-doc { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 8.6pt; color: #0F172A; line-height: 1.4; }
+	.cs-doc * { box-sizing: border-box; }
+	.cs-doc h1 { font-size: 14pt; font-weight: 700; letter-spacing: -0.01em; margin: 1px 0 3px; color: #0F172A; }
+	.cs-doc table { width: 100%; border-collapse: collapse; }
+	.cs-doc thead { display: table-header-group; }
+	.cs-doc tr { page-break-inside: avoid; }
+	.cs-doc .num { text-align: right; font-variant-numeric: tabular-nums; }
+	.cs-doc .ctr { text-align: center; }
+	.cs-doc .muted { color: #64748B; }
+	.cs-doc .small { font-size: 7.7pt; }
+	.cs-doc .kicker { font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B; }
+
+	.cs-doc .header-bar { margin-bottom: 9px; border-bottom: 2px solid #0F172A; }
+	.cs-doc .header-bar td { border: 0; padding: 0 0 8px; vertical-align: middle; }
+
+	.cs-doc .meta-bar { margin-bottom: 8px; background: #F8FAFC; border: 1px solid #E2E8F0; }
+	.cs-doc .meta-bar td { padding: 5px 8px; border-right: 1px solid #E2E8F0; font-size: 8pt; vertical-align: top; }
+	.cs-doc .meta-bar td:last-child { border-right: 0; }
+
+	.cs-doc .kpi-strip { table-layout: fixed; margin-bottom: 11px; border: 1px solid #CBD5E1; background: #FFFFFF; }
+	.cs-doc .kpi-strip td { padding: 6px 9px; border-right: 1px solid #E2E8F0; vertical-align: top; }
+	.cs-doc .kpi-strip td:last-child { border-right: 0; }
+	.cs-doc .kpi-val { font-size: 10pt; font-weight: 700; color: #0F172A; margin: 1px 0; font-variant-numeric: tabular-nums; }
+
+	.cs-doc .section-title { font-size: 9pt; font-weight: 700; color: #0F172A; text-transform: uppercase; letter-spacing: 0.05em; border-left: 3px solid #0F172A; padding-left: 7px; margin: 12px 0 6px; }
+	.cs-doc .block { page-break-inside: avoid; margin-bottom: 10px; }
+
+	.cs-doc .prof-card { border: 1px solid #CBD5E1; margin-bottom: 11px; page-break-inside: auto; background: #FFFFFF; }
+	.cs-doc .prof-head-wrap { page-break-inside: avoid; }
+	.cs-doc .prof-head { background: #F8FAFC; border-bottom: 1px solid #CBD5E1; border-left: 4px solid #0F172A; page-break-inside: avoid; }
+	.cs-doc .prof-head td { border: 0; padding: 7px 9px; vertical-align: middle; }
+	.cs-doc .prof-sec { width: 14mm; height: 14mm; background: #FFFFFF; border: 1px solid #CBD5E1; text-align: center; vertical-align: middle; padding: 2px; margin: 0 auto; }
+	.cs-doc .prof-sec img { max-width: 12mm; max-height: 12mm; display: inline-block; vertical-align: middle; }
+
+	.cs-doc .pat-block { page-break-inside: avoid; border-bottom: 1px solid #CBD5E1; }
+	.cs-doc .pat-block:last-child { border-bottom: 0; }
+	.cs-doc .pat-top { padding: 6px 9px 4px; background: #FFFFFF; }
+	.cs-doc .pat-meta { width: 100%; margin-bottom: 3px; }
+	.cs-doc .pat-meta td { border: 0; padding: 0; vertical-align: middle; }
+	.cs-doc .pat-mult { display: inline-block; background: #0F172A; color: #FFFFFF; font-size: 8.5pt; font-weight: 700; padding: 1px 7px; border-radius: 3px; margin-right: 6px; }
+	.cs-doc .pat-eq { font-size: 7.6pt; color: #475569; margin-top: 3px; padding: 3px 6px; background: #F8FAFC; border-left: 2px solid #94A3B8; font-variant-numeric: tabular-nums; }
+
+	.cs-doc .cut-tbl { width: 100%; border-collapse: collapse; }
+	.cs-doc .cut-tbl th { background: #F1F5F9; color: #475569; font-size: 7.2pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 9px; border-top: 1px solid #E2E8F0; border-bottom: 1px solid #CBD5E1; text-align: left; }
+	.cs-doc .cut-tbl td { padding: 4px 9px; border-bottom: 1px solid #F1F5F9; font-size: 8.2pt; vertical-align: middle; }
+	.cs-doc .cut-tbl tr:last-child td { border-bottom: 0; }
+	.cs-doc .cut-tbl th.num, .cs-doc .cut-tbl td.num { text-align: right; }
+	.cs-doc .cut-tbl th.ctr, .cs-doc .cut-tbl td.ctr { text-align: center; }
+
+	.cs-doc .sum-tbl th, .cs-doc .sum-tbl td { border-bottom: 1px solid #E2E8F0; padding: 4.5px 6px; text-align: left; vertical-align: middle; font-size: 8pt; }
+	.cs-doc .sum-tbl th { font-weight: 700; font-size: 7.1pt; text-transform: uppercase; letter-spacing: 0.04em; background: #F1F5F9; color: #334155; border-top: 1px solid #CBD5E1; border-bottom: 1px solid #94A3B8; }
+	.cs-doc .sum-tbl th.num, .cs-doc .sum-tbl td.num { text-align: right; }
+	.cs-doc .sum-tbl tr.total-row td { background: #F8FAFC; font-weight: 700; border-top: 1.5px solid #0F172A; border-bottom: 1.5px solid #0F172A; }
+
+	.cs-doc .pill { display: inline-block; padding: 1px 6px; font-size: 7.1pt; font-weight: 600; border-radius: 3px; border: 1px solid #CBD5E1; background: #F1F5F9; color: #1E293B; }
+	.cs-doc .pill-dark { background: #0F172A; color: #FFFFFF; border-color: #0F172A; }
+	.cs-doc .pill-green { background: #ECFDF5; color: #065F46; border-color: #A7F3D0; }
+	.cs-doc .pill-amber { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+	.cs-doc .swatch { display: inline-block; width: 7px; height: 7px; border-radius: 50%; border: 1px solid #94A3B8; vertical-align: middle; margin-right: 4px; }
+	.cs-doc .unplaced-alert { border-top: 1px solid #FECACA; background: #FEF2F2; color: #991B1B; padding: 5px 9px; font-size: 8pt; }
+	.cs-doc .footnote { font-size: 7.3pt; color: #64748B; margin-top: 4px; }
+</style>
+
+<div class="cs-doc">
+{% if not no_letterhead %}
+<table class="header-bar"><tr>
+	<td style="width:58%; padding-right:10px">
+		{% if header.logo %}<img src="{{ header.logo }}" style="max-height:14mm; max-width:34mm; float:left; margin:0 10px 2px 0">{% endif %}
+		<div style="font-size:12pt; font-weight:700; color:#0F172A">{{ header.name or cs.company|e }}</div>
+		{% if header.address %}<div class="small muted">{{ header.address }}</div>{% endif %}
+		{% set m = namespace(parts=[]) %}
+		{% if header.phone %}{% set m.parts = m.parts + [_("Ph: ") ~ header.phone] %}{% endif %}
+		{% if header.email %}{% set m.parts = m.parts + [header.email] %}{% endif %}
+		{% if header.tax_id %}{% set m.parts = m.parts + [_("Tax ID: ") ~ header.tax_id] %}{% endif %}
+		{% if m.parts %}<div class="small muted">{{ m.parts|join(" · ") }}</div>{% endif %}
+	</td>
+	<td style="width:42%; text-align:right">
+		<div class="kicker">{{ _("Cut Optimisation") }}</div>
+		<h1>{{ _("Cutting Sheet") }}</h1>
+		<div class="small" style="color:#334155">
+			{% if mode == "project" %}
+				<b>{{ cs.project_code ~ " · " ~ cs.groups|length ~ " " ~ _("profiles") }}</b>
+			{% else %}
+				<b>{{ (doc.design_ref|e) ~ " · Qty " ~ ("%g"|format(doc.qty or 1)) }}</b>
+			{% endif %}
+			· {{ cs.generated_on }}
+		</div>
+	</td>
+</tr></table>
+{% endif %}
+
+<table class="meta-bar"><tr>
+	<td style="width:26%"><div class="kicker">{{ _("Customer") }}</div><div><b>{{ cs.customer or "—" }}</b></div></td>
+	<td style="width:32%"><div class="kicker">{{ _("Project") }}</div><div><b>{{ cs.project_code or "—" }}</b>{% if cs.project_title %} · {{ cs.project_title }}{% endif %}</div></td>
+	<td style="width:17%"><div class="kicker">{{ _("Person in Charge") }}</div><div><b>{{ cs.person_in_charge or "—" }}</b></div></td>
+	<td style="width:25%"><div class="kicker">{{ _("Cutting Rules") }}</div><div style="white-space:nowrap"><b>{{ "{:,.0f}".format(cs.kerf_mm) }} mm</b> {{ _("kerf") }} · <b>≥ {{ "{:,.0f}".format(cs.min_rest_mm) }} mm</b> {{ _("rest") }}</div></td>
+</tr></table>
+
+<table class="kpi-strip"><tr>
+	<td>
+		<div class="kicker">{{ _("Stock Required") }}</div>
+		<div class="kpi-val">{{ cs.totals.bar_count }} {{ _("bar") if cs.totals.bar_count == 1 else _("bars") }} · {{ "{:,.0f}".format(cs.totals.bar_mm) }} mm</div>
+		<div class="small muted">{{ "%.2f"|format(cs.totals.kg_bars) }} kg {{ _("gross stock") }}</div>
+	</td>
+	<td>
+		<div class="kicker">{{ _("Net Cut") }}</div>
+		<div class="kpi-val">{{ "{:,.0f}".format(cs.totals.cut_mm) }} mm</div>
+		<div class="small muted">{{ "%.1f"|format(cs.totals.utilization_pct) }}% {{ _("of stock") }} · {{ "%.2f"|format(cs.totals.kg_used) }} kg</div>
+	</td>
+	<td>
+		<div class="kicker">{{ _("Saw Kerf Loss") }}</div>
+		<div class="kpi-val">{{ "{:,.0f}".format(cs.totals.kerf_mm) }} mm</div>
+		<div class="small muted">{{ cs.totals.piece_count }} {{ _("cut") if cs.totals.piece_count == 1 else _("cuts") }} × {{ "{:,.0f}".format(cs.kerf_mm) }} mm</div>
+	</td>
+	<td>
+		<div class="kicker">{{ _("Reusable Rest") }}</div>
+		<div class="kpi-val">{{ "{:,.0f}".format(cs.totals.rest_mm) }} mm</div>
+		<div class="small muted">{{ cs.totals.residual_count }} {{ _("offcut") if cs.totals.residual_count == 1 else _("offcuts") }} · {{ _("Waste") }} {{ "%.1f"|format(cs.totals.waste_pct_excl) }}%</div>
+	</td>
+</tr></table>
+
+{% macro render_pattern(pat, cs) %}
+	<div class="pat-block">
+		<div class="pat-top">
+			<table class="pat-meta"><tr>
+				<td>
+					<span class="pat-mult">{{ pat.repeat_count }}×</span>
+					<span style="font-weight:700; color:#0F172A">{{ "{:,.0f}".format(pat.bar_length) }} mm {{ _("bar") }}</span>
+					<span class="small muted"> · {{ pat.cut_count }} {{ _("cut") if pat.cut_count == 1 else _("cuts") }} · {{ "%.1f"|format(pat.utilization_pct) }}% {{ _("used") }}</span>
+				</td>
+				<td style="text-align:right">
+					<span class="pill {{ 'pill-green' if pat.is_rest else 'pill-amber' }}">
+						{{ "{:,.0f}".format(pat.remainder_mm) }} mm {{ _("Rest") if pat.is_rest else _("Scrap") }}
+					</span>
+				</td>
+			</tr></table>
+			{% if pat.diagram_uri %}<img src="{{ pat.diagram_uri }}" style="width:100%; height:auto; display:block" alt="Bar diagram">{% endif %}
+			<div class="pat-eq">
+				<b>{{ "{:,.0f}".format(pat.bar_length) }} mm</b> {{ _("stock") }}
+				= <b>{{ "{:,.0f}".format(pat.net_cut_mm) }} mm</b> {{ _("net cut") }}
+				+ <b>{{ "{:,.0f}".format(pat.kerf_loss_mm) }} mm</b> {{ _("saw kerf") }} ({{ pat.cut_count }} × {{ "{:,.0f}".format(cs.kerf_mm) }} mm)
+				+ <b>{{ "{:,.0f}".format(pat.remainder_mm) }} mm</b> {{ _("reusable rest") if pat.is_rest else _("scrap") }}
+			</div>
+		</div>
+		<table class="cut-tbl">
+			<thead>
+				<tr>
+					<th class="ctr" style="width:12%">{{ _("Qty") }}</th>
+					<th style="width:28%">{{ _("Member / Side") }}</th>
+					<th class="num" style="width:20%">{{ _("Cut Length (mm)") }}</th>
+					<th class="ctr" style="width:20%">{{ _("Angles") }}</th>
+					<th class="num" style="width:20%">{{ _("Window") }}</th>
+				</tr>
+			</thead>
+			<tbody>
+			{% for line in pat.cut_lines %}
+				<tr>
+					<td class="ctr"><b>{{ line.qty }}</b>{% if pat.repeat_count > 1 %} <span class="small muted">({{ line.per_bar_qty }}/bar)</span>{% endif %}</td>
+					<td><b>{{ line.side_panel }}</b></td>
+					<td class="num"><b>{{ "{:,.1f}".format(line.length) }}</b></td>
+					<td class="ctr">{{ line.angles }}</td>
+					<td class="num"><b>{{ line.ref }}</b></td>
+				</tr>
+			{% endfor %}
+			</tbody>
+		</table>
+	</div>
+{% endmacro %}
+
+{% for g in cs.groups %}
+<div class="prof-card">
+	<div class="prof-head-wrap">
+		<table class="prof-head"><tr>
+			<td style="width:11%; text-align:center">
+				<div class="prof-sec">
+				{% if g.section_uri %}<img src="{{ g.section_uri }}" alt="{{ g.profile }}">{% else %}<span class="small muted">{{ g.profile }}</span>{% endif %}
+				</div>
+			</td>
+			<td style="width:46%; line-height:1.4">
+				<div>
+					<span class="pill pill-dark">{{ g.profile }}</span>
+					&nbsp;<b>{{ g.profile_name }}</b>
+				</div>
+				<div class="small" style="margin-top:2px">
+					{% if g.finish_color %}<span class="swatch" style="background:{{ g.finish_color }}"></span>{% endif %}<b>{{ g.finish }}</b>
+					{% if g.role %}<span class="muted"> · {{ g.role }}</span>{% endif %}
+					{% if g.series %}<span class="muted"> · {{ g.series }}</span>{% endif %}
+					<span class="muted" style="white-space:nowrap"> · {{ "%.1f"|format(g.width_mm) }} × {{ "%.1f"|format(g.depth_mm) }} mm</span>
+				</div>
+			</td>
+			<td style="width:43%; text-align:right; line-height:1.4">
+				<div style="font-size:9.5pt; font-weight:700; color:#0F172A">{{ g.stock_summary }} <span class="small muted" style="font-weight:500">· {{ "%.2f"|format(g.kg_bars) }} kg</span></div>
+				<div class="small muted">
+					{{ _("Cut") }} <b>{{ "{:,.0f}".format(g.cut_mm) }}</b>
+					· {{ _("Kerf") }} <b>{{ "{:,.0f}".format(g.kerf_mm) }}</b>
+					· {{ _("Rest") }} <b>{{ "{:,.0f}".format(g.rest_mm) }}</b>
+					{% if g.scrap_mm %}· {{ _("Scrap") }} <b>{{ "{:,.0f}".format(g.scrap_mm) }}</b>{% endif %}
+					· <span style="white-space:nowrap">{{ _("Waste") }} <b>{{ "%.1f"|format(g.net_waste_pct) }}%</b></span>
+				</div>
+			</td>
+		</tr></table>
+		{% if g.patterns %}
+			{{ render_pattern(g.patterns[0], cs) }}
+		{% endif %}
+	</div>
+
+	{% for pat in g.patterns[1:] %}
+		{{ render_pattern(pat, cs) }}
+	{% endfor %}
+
+	{% if g.unplaced %}
+	<div class="unplaced-alert"><b>{{ _("Unplaced") }}</b> ({{ _("longer than available stock bars") }}):
+		{% for u in g.unplaced %}{{ u.ref }} {{ u.panel }} {{ u.position }} ({{ "%g"|format(u.length) }} mm){% if not loop.last %}; {% endif %}{% endfor %}
+	</div>
+	{% endif %}
+</div>
+{% endfor %}
+
+<div class="block">
+	<div class="section-title">{{ _("Summary") }}</div>
+	<table class="sum-tbl">
+		<thead>
+			<tr>
+				<th style="width:20%">{{ _("Profile") }}</th>
+				<th style="width:15%">{{ _("Finish") }}</th>
+				<th style="width:15%">{{ _("Stock Bars") }}</th>
+				<th class="num" style="width:8%">{{ _("Stock") }}</th>
+				<th class="num" style="width:8%">{{ _("Cut") }}</th>
+				<th class="num" style="width:7%">{{ _("Kerf") }}</th>
+				<th class="num" style="width:8%">{{ _("Rest") }}</th>
+				<th class="num" style="width:6%">{{ _("Scrap") }}</th>
+				<th class="num" style="width:6%">{{ _("Waste%") }}</th>
+				<th class="num" style="width:8%; white-space:nowrap">{{ _("Wt (kg)") }}</th>
+			</tr>
+		</thead>
+		<tbody>
+		{% for row in cs.summary %}
+			<tr>
+				<td><b>{{ row.profile }}</b><div class="small muted">{{ row.profile_name }}</div></td>
+				<td>{% if row.finish_color %}<span class="swatch" style="background:{{ row.finish_color }}"></span>{% endif %}{{ row.finish }}</td>
+				<td class="small">{{ row.bars_label }}</td>
+				<td class="num">{{ "{:,.0f}".format(row.bar_mm) }}</td>
+				<td class="num"><b>{{ "{:,.0f}".format(row.cut_mm) }}</b></td>
+				<td class="num">{{ "{:,.0f}".format(row.kerf_mm) }}</td>
+				<td class="num">{{ "{:,.0f}".format(row.rest_mm) }}</td>
+				<td class="num">{{ "{:,.0f}".format(row.scrap_mm) }}</td>
+				<td class="num">{{ "%.1f"|format(row.waste_pct_excl) }}%</td>
+				<td class="num">{{ "%.2f"|format(row.kg_bars) }}</td>
+			</tr>
+		{% endfor %}
+		</tbody>
+		<tfoot>
+			<tr class="total-row">
+				<td colspan="2">{{ _("Total Cut Optimisation") }}</td>
+				<td class="small">{{ cs.totals.bar_count }} {{ _("bar") if cs.totals.bar_count == 1 else _("bars") }}</td>
+				<td class="num">{{ "{:,.0f}".format(cs.totals.bar_mm) }}</td>
+				<td class="num">{{ "{:,.0f}".format(cs.totals.cut_mm) }}</td>
+				<td class="num">{{ "{:,.0f}".format(cs.totals.kerf_mm) }}</td>
+				<td class="num">{{ "{:,.0f}".format(cs.totals.rest_mm) }}</td>
+				<td class="num">{{ "{:,.0f}".format(cs.totals.scrap_mm) }}</td>
+				<td class="num">{{ "%.1f"|format(cs.totals.waste_pct_excl) }}%</td>
+				<td class="num">{{ "%.2f"|format(cs.totals.kg_bars) }}</td>
+			</tr>
+		</tfoot>
+	</table>
+	<div class="footnote">
+		{{ _("All lengths in mm. Stock = Cut + Kerf + Rest + Scrap. Waste% excludes reusable rest (≥") }} {{ "{:,.0f}".format(cs.min_rest_mm) }} {{ _("mm); total unconsumed incl. rest =") }} {{ "{:,.0f}".format(cs.totals.wastage_mm) }} mm ({{ "%.1f"|format(cs.totals.wastage_pct) }}%).
+	</div>
+</div>
+
+{% if cs.residuals %}
+<div class="block">
+	<div class="section-title">{{ _("Residual lengths") }}</div>
+	<table class="sum-tbl">
+		<thead>
+			<tr>
+				<th style="width:14%">{{ _("Number") }}</th>
+				<th>{{ _("Description") }}</th>
+				<th style="width:24%">{{ _("Finish") }}</th>
+				<th class="num" style="width:11%">{{ _("Qty") }}</th>
+				<th class="num" style="width:14%">{{ _("Length (mm)") }}</th>
+			</tr>
+		</thead>
+		<tbody>
+		{% for r in cs.residuals %}
+			<tr>
+				<td><b>{{ r.profile }}</b></td>
+				<td>{{ r.profile_name }}</td>
+				<td>{% if r.finish_color %}<span class="swatch" style="background:{{ r.finish_color }}"></span>{% endif %}{{ r.finish }}</td>
+				<td class="num"><b>{{ r.qty }}</b></td>
+				<td class="num"><b>{{ "{:,.0f}".format(r.length) }}</b></td>
+			</tr>
+		{% endfor %}
+		</tbody>
+	</table>
+</div>
+{% endif %}
+
+{% if not no_letterhead and footer %}<div class="letter-head-footer">{{ footer }}</div>{% endif %}
+</div>

@@ -1,5 +1,7 @@
 """Shutter and window weights from cut members and glass panes."""
 
+from math import pi
+
 from onebook_fenestration.engine.types import CutMember, GlassPane, SeriesSnapshot
 
 
@@ -12,12 +14,20 @@ def weights(
 		return member.length / 1000 * snapshot.profiles[member.profile].kg_per_m
 
 	def glass_kg(pane: GlassPane) -> float:
-		spec = snapshot.glasses[pane.glass]
-		mm = spec.thickness_mm if spec.glass_mm is None else spec.glass_mm
-		return pane.width * pane.height / 1e6 * mm * density
+		pane_density = density
+		if pane.material == "steel":
+			mm = pane.thickness
+			pane_density = 7.85  # kg per square metre per mm (7850 kg/m³)
+		else:
+			spec = snapshot.glasses[pane.glass]
+			mm = spec.thickness_mm if spec.glass_mm is None else spec.glass_mm
+		area = pane.width * pane.height
+		if pane.cutout:
+			area -= pi * (pane.cutout["diameter"] / 2) ** 2
+		return area / 1e6 * mm * pane_density
 
-	# Every member cut for a sash panel (sash profile, glass adaptor) weighs on that shutter.
-	shutter = {m.panel: 0.0 for m in members if m.role == "sash"}
+	# Every member cut for a sash panel (sash profile, door sash, glass adaptor) weighs on that shutter.
+	shutter = {m.panel: 0.0 for m in members if m.role in ("sash", "door_sash")}
 	for member in members:
 		if member.panel in shutter:
 			shutter[member.panel] += member_kg(member)

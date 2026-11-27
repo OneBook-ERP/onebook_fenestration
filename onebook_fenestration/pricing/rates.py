@@ -4,7 +4,14 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate
 
-from onebook_fenestration.engine import EngineResult, PriceBreakdown, PricingInput, SeriesSnapshot, compute, price
+from onebook_fenestration.engine import (
+	EngineResult,
+	PriceBreakdown,
+	PricingInput,
+	SeriesSnapshot,
+	compute,
+	price,
+)
 from onebook_fenestration.pricing.doctype.price_structure.price_structure import to_cost_heads
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 
@@ -69,7 +76,7 @@ def price_design(
 def _linked_items(result: EngineResult) -> tuple[dict, dict, list]:
 	"""Items behind the profiles and glasses the design uses; unlinked ones are reported missing."""
 	profile_codes = {m.profile for m in result.members}
-	glass_codes = {g.glass for g in result.glass}
+	glass_codes = {g.glass for g in result.glass if g.material != "steel"}
 	profile_items = _item_map("Fenestration Profile", "profile_code", profile_codes)
 	glass_items = _item_map("Fenestration Glass", "glass_code", glass_codes)
 	missing = [f"{code} (no item)" for code in sorted(profile_codes - profile_items.keys())]

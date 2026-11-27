@@ -16,9 +16,7 @@ class TestInstall(IntegrationTestCase):
 	def test_after_migrate_is_idempotent(self):
 		after_migrate()
 		after_migrate()
-		self.assertEqual(
-			frappe.db.count("Custom Field", {"dt": "Item", "fieldname": "fen_item_kind"}), 1
-		)
+		self.assertEqual(frappe.db.count("Custom Field", {"dt": "Item", "fieldname": "fen_item_kind"}), 1)
 
 	def test_after_migrate_keeps_admin_production_choices(self):
 		frappe.db.savepoint("fen_admin_choices")

@@ -58,7 +58,11 @@ def collect_pieces(order_names: list[str]) -> dict[tuple[str, str], list[Piece]]
 	"""
 	lines = frappe.get_all(
 		"Sales Order Item",
-		filters={"parenttype": "Sales Order", "parent": ("in", order_names), "fen_window_design": ("is", "set")},
+		filters={
+			"parenttype": "Sales Order",
+			"parent": ("in", order_names),
+			"fen_window_design": ("is", "set"),
+		},
 		fields=["fen_window_design", "qty"],
 		order_by="parent, idx",
 	)
@@ -126,7 +130,9 @@ def parse_bar_lengths(text: str | None, profile: str = "") -> list[float]:
 		try:
 			lengths.append(float(part))
 		except ValueError:
-			frappe.throw(_("Fenestration Profile {0} has an invalid bar length: {1}").format(profile, part.strip()))
+			frappe.throw(
+				_("Fenestration Profile {0} has an invalid bar length: {1}").format(profile, part.strip())
+			)
 	return lengths
 
 
@@ -134,6 +140,8 @@ def _design_members(design_name: str, default_finish: str | None) -> tuple:
 	design = frappe.db.get_value(
 		"Window Design", design_name, ("design_ref", "series_version", "design_json", "finish"), as_dict=True
 	)
+	if not design:
+		frappe.throw(_("Window Design {0} was not found.").format(design_name))
 	spec = design.design_json
 	result = compute(json.loads(spec) if isinstance(spec, str) else spec, get_snapshot(design.series_version))
 	return design.design_ref, design.finish or default_finish or "", result.members
@@ -145,7 +153,10 @@ def _check_orders(order_names: list[str], company: str) -> None:
 		if name in seen:
 			frappe.throw(_("Sales Order {0} is listed twice.").format(name))
 		seen.add(name)
-		docstatus, order_company = frappe.db.get_value("Sales Order", name, ("docstatus", "company"))
+		row = frappe.db.get_value("Sales Order", name, ("docstatus", "company"))
+		if not row:
+			frappe.throw(_("Sales Order {0} was not found.").format(name))
+		docstatus, order_company = row
 		if docstatus != 1:
 			frappe.throw(_("Sales Order {0} is not submitted.").format(name))
 		if order_company != company:
@@ -157,7 +168,7 @@ def _piece_dict(piece: Piece) -> dict:
 
 
 def _summary_row(profile: str, finish: str, stats: dict) -> dict:
-	bars = ", ".join(f"{length:g} × {count}" for length, count in sorted(stats["bars"].items()))
+	bars = ", ".join(f"{length:g} × {count}" for length, count in sorted(stats["bars"].items()))  # noqa: RUF001
 	return {"profile": profile, "finish": finish, "bars": bars, **{k: stats[k] for k in SUMMARY_FIELDS}}
 
 
@@ -190,10 +201,14 @@ def schedule_context(doc) -> dict:
 
 
 def _bar_row(bar: dict) -> dict:
+	length = bar.get("bar_length") or 0
+	rem = bar.get("remainder_mm") or 0
+	used_pct = round(max(0.0, min(100.0, ((length - rem) / length) * 100.0)), 1) if length else 0.0
 	return {
-		"bar_length": f"{bar['bar_length']:g}",
+		"bar_length": f"{length:g}",
 		"cuts": "; ".join(_cut_text(piece) for piece in bar["pieces"]),
-		"remainder": f"{bar['remainder_mm']:g}",
+		"remainder": f"{rem:g}",
+		"used_pct": used_pct,
 		"kind": "Rest" if bar["is_rest"] else "Waste",
 	}
 

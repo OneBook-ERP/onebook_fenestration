@@ -7,9 +7,19 @@
   "naming_series",
   "project_title",
   "customer",
+  "fen_partner_type",
   "opportunity",
   "site_address",
   "default_series_version",
+  "sharing_section",
+  "fen_shared_with_hilux",
+  "fen_manufacturing_status",
+  "fen_design_locked",
+  "fen_is_dealer_private",
+  "column_break_sharing",
+  "fen_shared_on",
+  "fen_shared_by",
+  "fen_share_notes",
   "quote_section",
   "company",
   "transport_charges",
@@ -40,6 +50,17 @@
    "options": "Customer"
   },
   {
+   "fieldname": "fen_partner_type",
+   "fieldtype": "Select",
+   "label": "Partner Type",
+   "options": "Dealer\nFabrication Partner\nOwn Client",
+   "default": "Dealer",
+   "fetch_from": "customer.fen_partner_type",
+   "fetch_if_empty": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
    "fieldname": "opportunity",
    "fieldtype": "Link",
    "label": "Opportunity",
@@ -55,6 +76,66 @@
    "fieldtype": "Link",
    "label": "Default Series Version",
    "options": "Series Version"
+  },
+  {
+   "fieldname": "sharing_section",
+   "fieldtype": "Section Break",
+   "label": "Hilux Sharing & Manufacturing"
+  },
+  {
+   "fieldname": "fen_shared_with_hilux",
+   "fieldtype": "Check",
+   "label": "Shared with Hilux",
+   "default": "0",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "fen_manufacturing_status",
+   "fieldtype": "Select",
+   "label": "Manufacturing Status",
+   "options": "Private Draft\nShared with Hilux\nAccepted for Manufacturing\nMaterials Procured\nIn Fabrication\nDispatched to Dealer",
+   "default": "Private Draft",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "fen_design_locked",
+   "fieldtype": "Check",
+   "label": "Designs Locked for Manufacturing",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fen_is_dealer_private",
+   "fieldtype": "Check",
+   "label": "Dealer Private Draft",
+   "default": "0",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sharing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fen_shared_on",
+   "fieldtype": "Datetime",
+   "label": "Shared On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fen_shared_by",
+   "fieldtype": "Link",
+   "label": "Shared By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fen_share_notes",
+   "fieldtype": "Small Text",
+   "label": "Handover Notes for Hilux"
   },
   {
    "fieldname": "quote_section",
@@ -117,7 +198,44 @@
    "role": "Sales User",
    "read": 1,
    "write": 1,
-   "create": 1
+   "create": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "Fenestration Engineer",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "print": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "print": 1,
+   "report": 1,
+   "export": 1
+  },
+  {
+   "role": "Fenestration Dealer",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "Fenestration Fabrication Partner",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "print": 1,
+   "report": 1
   }
  ],
  "track_changes": 1,
