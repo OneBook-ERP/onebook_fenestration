@@ -31,6 +31,8 @@ class TestProcurementFlow(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		if not frappe.db.exists("Warehouse Type", "Transit"):
+			frappe.get_doc({"doctype": "Warehouse Type", "name": "Transit"}).insert()
 		if not frappe.db.exists("Company", COMPANY):
 			frappe.get_doc(
 				{
