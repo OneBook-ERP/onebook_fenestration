@@ -87,22 +87,76 @@ CUSTOM_FIELDS["Sales Order"] = [
 ]
 CUSTOM_FIELDS["CRM Lead"] = [
 	{
-		"fieldname": "fen_partner_type",
-		"label": "Partner Type",
+		"fieldname": "priority",
+		"label": "Priority",
 		"fieldtype": "Select",
-		"options": "\nDealer\nFabrication Partner\nOwn Client",
-		"insert_after": "status",
+		"options": "\nHigh\nMedium\nLow",
+		"reqd": 1,
+		"in_list_view": 1,
 		"in_standard_filter": 1,
+		"search_index": 1,
+		"insert_after": "status",
 	},
-]
-CUSTOM_FIELDS["CRM Deal"] = [
+	{
+		"fieldname": "priority_rank",
+		"label": "Priority Rank",
+		"fieldtype": "Int",
+		"default": "2",
+		"hidden": 1,
+		"read_only": 1,
+		"search_index": 1,
+		"insert_after": "priority",
+	},
 	{
 		"fieldname": "fen_partner_type",
 		"label": "Partner Type",
 		"fieldtype": "Select",
 		"options": "\nDealer\nFabrication Partner\nOwn Client",
-		"insert_after": "status",
+		"insert_after": "priority_rank",
 		"in_standard_filter": 1,
+	},
+]
+CUSTOM_FIELDS["CRM Deal"] = [
+	{
+		"fieldname": "priority",
+		"label": "Priority",
+		"fieldtype": "Select",
+		"options": "\nHigh\nMedium\nLow",
+		"default": "Medium",
+		"in_list_view": 1,
+		"in_standard_filter": 1,
+		"search_index": 1,
+		"insert_after": "status",
+	},
+	{
+		"fieldname": "priority_rank",
+		"label": "Priority Rank",
+		"fieldtype": "Int",
+		"default": "2",
+		"hidden": 1,
+		"read_only": 1,
+		"search_index": 1,
+		"insert_after": "priority",
+	},
+	{
+		"fieldname": "fen_partner_type",
+		"label": "Partner Type",
+		"fieldtype": "Select",
+		"options": "\nDealer\nFabrication Partner\nOwn Client",
+		"insert_after": "priority_rank",
+		"in_standard_filter": 1,
+	},
+]
+CUSTOM_FIELDS["CRM Task"] = [
+	{
+		"fieldname": "priority_rank",
+		"label": "Priority Rank",
+		"fieldtype": "Int",
+		"default": "2",
+		"hidden": 1,
+		"read_only": 1,
+		"search_index": 1,
+		"insert_after": "priority",
 	},
 ]
 CUSTOM_FIELDS["Sales Order Item"] = [

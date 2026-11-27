@@ -1,9 +1,8 @@
-import json
-
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.utils import flt
 
+from onebook_fenestration.setup.crm import sync_crm_customizations
 from onebook_fenestration.setup.custom_fields import CUSTOM_FIELDS
 from onebook_fenestration.setup.procurement import setup_procurement
 
@@ -38,7 +37,7 @@ def _sync():
 	create_custom_fields(active_fields, update=True)
 	_ensure_roles()
 	_ensure_partner_customer_groups()
-	_ensure_crm_partner_type_layouts()
+	sync_crm_customizations()
 	seed_pricing()
 	seed_quote_masters()
 	ensure_production_uoms()
@@ -74,45 +73,6 @@ def _ensure_partner_customer_groups():
 				"is_group": 0,
 			}
 		).insert(ignore_permissions=True)
-
-
-def _ensure_crm_partner_type_layouts():
-	"""Ensure fen_partner_type is visible on CRM Deal Quick Entry and CRM Lead Data Fields layouts."""
-	if not frappe.db.exists("DocType", "CRM Fields Layout"):
-		return
-	targets = (
-		("CRM Deal-Quick Entry", "deal_section"),
-		("CRM Lead-Data Fields", "details_section"),
-	)
-	for layout_name, section_name in targets:
-		if not frappe.db.exists("CRM Fields Layout", layout_name):
-			continue
-		raw = frappe.db.get_value("CRM Fields Layout", layout_name, "layout")
-		if not raw or "fen_partner_type" in raw:
-			continue
-		try:
-			parsed = json.loads(raw)
-		except TypeError, ValueError:
-			continue
-		if _append_field_to_layout_section(parsed, section_name, "fen_partner_type"):
-			frappe.db.set_value(
-				"CRM Fields Layout", layout_name, "layout", json.dumps(parsed), update_modified=False
-			)
-
-
-def _append_field_to_layout_section(nodes: list, section_name: str, fieldname: str) -> bool:
-	for node in nodes:
-		if not isinstance(node, dict):
-			continue
-		if node.get("name") == section_name and isinstance(node.get("columns"), list) and node["columns"]:
-			fields = node["columns"][0].setdefault("fields", [])
-			if fieldname not in fields:
-				fields.append(fieldname)
-				return True
-		if isinstance(node.get("sections"), list):
-			if _append_field_to_layout_section(node["sections"], section_name, fieldname):
-				return True
-	return False
 
 
 STANDARD_HEADS = (

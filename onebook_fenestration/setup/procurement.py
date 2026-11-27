@@ -11,14 +11,14 @@ from onebook_fenestration.fenestration.doctype.fenestration_project.fenestration
 )
 from onebook_fenestration.fenestration.quote_party import company_address
 
-SUPPLIER_GROUPS = ("Extrusions", "Glass")
+SUPPLIER_GROUPS = ("Extrusions", "Glass", "Hardware & Gaskets")
 MAIN_GROUP_WAREHOUSE = "Main Warehouse"
 MAIN_CHILD_WAREHOUSES = ("Finished Goods", "Goods In Transit", "Stores", "Work In Progress")
 LEAF_WAREHOUSES = ("Hilux Warehouse",)
 DEFAULT_SUPPLIERS = (
 	("Hilux Aluminium Extrusions", "Extrusions", "50% Advance + Balance Net 7"),
 	("Hilux Toughened Glass", "Glass", "Net 30"),
-	("Hilux Hardware & Gaskets", "All Supplier Groups", "Net 7"),
+	("Hilux Hardware & Gaskets", "Hardware & Gaskets", "Net 7"),
 )
 DEFAULT_PROFILE_BUYING_RATE = 320.0
 DEFAULT_PROFILE_SELLING_RATE = 360.0
@@ -313,14 +313,14 @@ def ensure_hardware_uom_alignment() -> None:
 def ensure_default_suppliers(company: str | None = None) -> None:
 	"""Create default Aluminium, Glass, and Hardware suppliers and set Item Default.default_supplier when unset."""
 	company = _resolve_company(company)
-	fallback_group = (
-		"All Supplier Groups"
-		if frappe.db.exists("Supplier Group", "All Supplier Groups")
-		else frappe.db.get_value("Supplier Group", {}, "name")
-	)
+	fallback_group = frappe.db.get_value("Supplier Group", {"is_group": 0}, "name")
 	for sup_name, group, payment_terms in DEFAULT_SUPPLIERS:
 		if not frappe.db.exists("Supplier", sup_name):
-			target_group = group if frappe.db.exists("Supplier Group", group) else fallback_group
+			target_group = (
+				group
+				if frappe.db.exists("Supplier Group", {"name": group, "is_group": 0})
+				else fallback_group
+			)
 			if not target_group:
 				continue
 			doc_dict = {

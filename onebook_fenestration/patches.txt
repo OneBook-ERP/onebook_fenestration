@@ -11,3 +11,4 @@ onebook_fenestration.patches.v0_1.clear_design_bom_defaults
 onebook_fenestration.patches.v0_1.procurement_setup
 onebook_fenestration.patches.v0_1.normalize_mitre_angles
 onebook_fenestration.patches.v0_1.arrange_warehouses_and_item_prices
+onebook_fenestration.patches.v0_1.sync_crm_customizations
