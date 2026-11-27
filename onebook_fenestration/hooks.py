@@ -11,15 +11,14 @@ app_license = "mit"
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "onebook_fenestration",
-# 		"logo": "/assets/onebook_fenestration/logo.png",
-# 		"title": "Onebook Fenestration",
-# 		"route": "/onebook_fenestration",
-# 		"has_permission": "onebook_fenestration.api.permission.has_app_permission",
-# 	}
-# ]
+add_to_apps_screen = [
+	{
+		"name": "onebook_fenestration",
+		"logo": "/assets/onebook_fenestration/images/logo.svg",
+		"title": "Fenestration",
+		"route": "/fenestration",
+	}
+]
 
 # The dock, the rail down the left of the desk, is a document rather than a hook. Author it in
 # Manage Dock on a developer-mode site and press Export to App, and it is written to
@@ -96,6 +95,9 @@ jinja = {
 		"onebook_fenestration.utils.jinja.fen_cutting_schedule",
 		"onebook_fenestration.utils.jinja.fen_assembly_summary",
 		"onebook_fenestration.utils.jinja.fen_assembly_detail",
+		"onebook_fenestration.utils.jinja.fen_window_cutting_sheet",
+		"onebook_fenestration.utils.jinja.fen_project_cutting_sheet",
+		"onebook_fenestration.utils.jinja.fen_cutting_sheet_html",
 	]
 }
 
@@ -155,13 +157,15 @@ before_uninstall = "onebook_fenestration.setup.install.before_uninstall"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"Fenestration Project": "onebook_fenestration.fenestration.sharing.project_permission_query",
+	"Window Design": "onebook_fenestration.fenestration.sharing.design_permission_query",
+}
+
+has_permission = {
+	"Fenestration Project": "onebook_fenestration.fenestration.sharing.project_has_permission",
+	"Window Design": "onebook_fenestration.fenestration.sharing.design_has_permission",
+}
 
 # Document Events
 # ---------------

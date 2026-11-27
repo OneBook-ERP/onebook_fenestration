@@ -13,6 +13,25 @@ function mountCanvas(props: Record<string, unknown> = {}) {
 const SCALE_W01 = Math.min(520 / 915, 640 / 1220)
 
 describe('WindowCanvas', () => {
+	it('shows and exports the configured exhaust opening and removes it when disabled', async () => {
+		const design = { width: 600, height: 500, root: { type: 'fixed', glass: '6CTG', fan: true, fanCut: { diameter: 200, centerX: 270, centerY: 220 } } }
+		const w = mountCanvas({ design })
+		expect(w.get('[data-testid="exhaust-cut"]').text()).toContain('Ø200 cut')
+		expect(Number(w.get('[data-testid="exhaust-cut"] ellipse').attributes('rx'))).toBeGreaterThan(0)
+		expect((w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()).toContain('Ø200 cut')
+		await w.setProps({ design: { ...design, root: { ...design.root, fan: false } } as Design })
+		expect(w.find('[data-testid="exhaust-cut"]').exists()).toBe(false)
+	})
+
+	it('renders only the exhaust panel as steel', () => {
+		const design = { width: 1200, height: 1200, root: { type: 'split', dir: 'v', at: [600], children: [
+			{ type: 'fixed', glass: '6CTG' }, { type: 'fixed', glass: '6CTG', fan: true },
+		] } }
+		const w = mountCanvas({ design, selectedPath: 'F1.1' })
+		expect(w.get('rect[data-path="F1.1"]').attributes('fill')).toBe('#A8ADB5')
+		expect(w.get('rect[data-path="F1.0"]').attributes('fill')).not.toBe('#A8ADB5')
+	})
+
 	it('renders W01 cells, bar label and dimensions', () => {
 		const w = mountCanvas()
 		const paths = w.findAll('rect[data-path]').map((r) => r.attributes('data-path'))
@@ -107,7 +126,7 @@ describe('WindowCanvas', () => {
 		expect(w.emitted('drag-end')).toHaveLength(2)
 	})
 
-	it('labels fixed panes by glass number only, sashes S<n> and louvers L<n>', () => {
+	it('labels fixed panes by glass number only, sashes S<n>, louvers L<n>, and outer frame F1', () => {
 		const d: Design = {
 			width: 1800, height: 1200,
 			root: { type: 'split', dir: 'v', at: [600, 1200], children: [
@@ -115,7 +134,7 @@ describe('WindowCanvas', () => {
 			] },
 		}
 		const texts = mountCanvas({ design: d }).findAll('text').map((t) => t.text())
-		expect(texts.filter((t) => /^F\d+$/.test(t))).toEqual([])
+		expect(texts.filter((t) => /^F\d+$/.test(t))).toEqual(['F1'])
 		expect(texts).toContain('S1')
 		expect(texts).toContain('L1')
 		expect(texts).toContain('1')
@@ -345,7 +364,7 @@ describe('WindowCanvas', () => {
 			members: [
 				{ role: 'frame', path: 'F1', angles: [90, 90] },
 				{ role: 'sash', path: 'F1.0', angles: '[90, 90]' },
-				{ role: 'sash', path: 'F1.1', angles: '45/135' },
+				{ role: 'sash', path: 'F1.1', angles: '45/45' },
 			],
 		})
 		for (const ln of frameCuts()) {
@@ -411,7 +430,7 @@ describe('WindowCanvas', () => {
 		expect(w.emitted('select')![0]).toEqual(['F1.1'])
 	})
 
-	it('shows sash width & height and glass width & height when a sash (e.g. S2 / F1.1) is selected', () => {
+	it('highlights the selected sash cleanly in prototype blue without cluttered glass overlays', () => {
 		const w = mountCanvas({
 			selectedPath: 'F1.1',
 			members: [
@@ -420,35 +439,29 @@ describe('WindowCanvas', () => {
 			],
 			glass: [{ path: 'F1.1', width: 475.5, height: 1063 }],
 		})
-		const dims = w.find('[data-selected-dims="F1.1"]')
-		expect(dims.exists()).toBe(true)
-		expect(dims.text()).toContain('Sash: 577 × 1164 mm')
-		expect(dims.text()).toContain('Glass: 475.5 × 1063 mm')
-		expect(dims.text()).toContain('Glass W: 475.5')
-		expect(dims.text()).toContain('Glass H: 1063')
+		const sashRect = w.get('rect[data-path="F1.1"]')
+		expect(sashRect.attributes('fill')).toBe('#5B9BE8')
+		expect(sashRect.attributes('stroke')).toBe('#2563EB')
+		expect(w.find('[data-panel-badge="F1.1"]').text()).toBe('S2')
 	})
 
-	it('allows selecting the center mullion M1 and shows its specific dimensions', async () => {
+	it('allows selecting the center mullion M1 and highlights it cleanly', async () => {
 		const w = mountCanvas({
 			selectedPath: 'M1',
 			members: [{ role: 'mullion', panel: 'M1', length: 1136 }],
 		})
 		const bar = w.find('[data-bar="M1"]')
 		expect(bar.attributes('stroke')).toBe('#2563EB')
-
-		const barDims = w.find('[data-bar-dims="M1"]')
-		expect(barDims.exists()).toBe(true)
-		expect(barDims.text()).toContain('M1: 1136 × 40 mm')
-		expect(barDims.text()).toContain('Pos: 457.5 mm')
-		expect(barDims.text()).toContain('Span: 1220 mm')
+		expect(bar.attributes('fill')).toBe('#1565D8')
 
 		// Clicking the mullion or its badge emits select('M1')
 		await w.find('[data-bar-badge="M1"]').trigger('click')
 		expect(w.emitted('select')![0]).toEqual(['M1'])
 
-		// Clean SVG export strips selection overlays on bars too
+		// Clean SVG export strips selection highlights on bars too
 		const m = (w.vm as unknown as { getSvgMarkup(): string }).getSvgMarkup()
 		expect(m).not.toContain('#2563EB')
+		expect(m).not.toContain('#1565D8')
 	})
 
 	it('deselects everything when clicking outside the window on the workspace background', async () => {
@@ -467,13 +480,79 @@ describe('WindowCanvas', () => {
 		await w.find('rect[data-glass="F1.1"]').trigger('click')
 		expect(w.emitted('select')![1]).toEqual(['GLASS:F1.1'])
 
-		// Click sash badge S1 (F1.1)
+		// Click sash badge S2 (F1.1)
 		await w.find('[data-panel-badge="F1.1"]').trigger('click')
 		expect(w.emitted('select')![2]).toEqual(['F1.1'])
 
-		// Render selected outer frame dimensions when selectedPath === 'FRAME'
+		// Highlight outer frame in prototype blue when selectedPath === 'FRAME'
 		await w.setProps({ selectedPath: 'FRAME' })
-		expect(w.find('[data-frame-dims="FRAME"]').exists()).toBe(true)
-		expect(w.get('[data-frame-dims="FRAME"]').text()).toContain('Outer Frame: 915 × 1220 mm')
+		expect(w.get('rect[data-frame="FRAME"]').attributes('fill')).toBe('#5B9BE8')
+		expect(w.find('[data-frame-badge="FRAME"]').text()).toBe('F1')
+	})
+
+	it('pans the workspace by holding left mouse button and dragging (>= 4px) without Shift', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		await svg.trigger('pointerdown', { button: 0, clientX: 100, clientY: 100, pointerId: 1 })
+		await svg.trigger('pointermove', { clientX: 160, clientY: 145, pointerId: 1 })
+		expect((w.vm as unknown as { pan: { x: number; y: number } }).pan).toEqual({ x: 60, y: 45 })
+		await svg.trigger('pointerup', { pointerId: 1 })
+	})
+
+	it('drops palette tools onto the SVG without crashing and targets the cell underneath', async () => {
+		const w = mountCanvas()
+		const svg = w.find('svg')
+		;(window as unknown as { __fenDragPayload?: string }).__fenDragPayload = JSON.stringify({
+			kind: 'openable',
+			id: 'Right Openable',
+		})
+		await svg.trigger('drop', { clientX: 100, clientY: 100 })
+		expect(w.emitted('drop-tool')).toEqual([
+			[{ kind: 'openable', id: 'Right Openable', cellPath: 'F1.0', replaceDesign: false }],
+		])
+	})
+
+	it('centers 2D door handles with lever pointing inward over glass and mirrors layout cleanly in outside view', async () => {
+		const d: Design = {
+			width: 1200,
+			height: 1200,
+			root: {
+				type: 'split',
+				dir: 'v',
+				at: [600],
+				children: [
+					{ type: 'sash', glass: '6CTG', sashConfig: 'door', activeLeaf: false, hinge: 'left', opening: 'out' },
+					{ type: 'sash', glass: '6CTG', sashConfig: 'door', activeLeaf: true, hinge: 'right', opening: 'out' },
+				],
+			},
+		}
+		const w = mountCanvas({ design: d, view: 'inside' })
+
+		// Inside view: S2 (F1.1) is on the right; hinge on right outer jamb; handle on left rail next to M1; lever points RIGHT into glass
+		const s2Inside = w.get('[data-path="F1.1"]')
+		const s2BoxIn = { x: Number(s2Inside.attributes('x')), y: Number(s2Inside.attributes('y')), w: Number(s2Inside.attributes('width')), h: Number(s2Inside.attributes('height')) }
+		const handleIn = w.get('rect[data-handle="true"]')
+		const leverIn = w.get('rect[data-handle-lever="true"]')
+		const handleInCx = Number(handleIn.attributes('x')) + Number(handleIn.attributes('width')) / 2
+		const handleInCy = Number(handleIn.attributes('y')) + Number(handleIn.attributes('height')) / 2
+		const leverInCx = Number(leverIn.attributes('x')) + Number(leverIn.attributes('width')) / 2
+		expect(handleInCy).toBeCloseTo(s2BoxIn.y + s2BoxIn.h / 2, 5)
+		expect(handleInCx).toBeLessThan(s2BoxIn.x + s2BoxIn.w / 2)
+		expect(leverInCx).toBeGreaterThan(handleInCx)
+
+		// Outside view: layout mirrors horizontally so S2 (F1.1) moves to the left; hinge stays on outer left jamb; handle stays next to M1; lever points LEFT into glass
+		await w.setProps({ view: 'outside' })
+		const s2Out = w.get('[data-path="F1.1"]')
+		const s1Out = w.get('[data-path="F1.0"]')
+		const s2BoxOut = { x: Number(s2Out.attributes('x')), y: Number(s2Out.attributes('y')), w: Number(s2Out.attributes('width')), h: Number(s2Out.attributes('height')) }
+		const s1BoxOut = { x: Number(s1Out.attributes('x')) }
+		expect(s2BoxOut.x).toBeLessThan(s1BoxOut.x)
+
+		const handleOut = w.get('rect[data-handle="true"]')
+		const leverOut = w.get('rect[data-handle-lever="true"]')
+		const handleOutCx = Number(handleOut.attributes('x')) + Number(handleOut.attributes('width')) / 2
+		const leverOutCx = Number(leverOut.attributes('x')) + Number(leverOut.attributes('width')) / 2
+		expect(handleOutCx).toBeGreaterThan(s2BoxOut.x + s2BoxOut.w / 2)
+		expect(leverOutCx).toBeLessThan(handleOutCx)
 	})
 })

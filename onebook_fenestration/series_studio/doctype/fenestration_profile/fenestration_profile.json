@@ -10,6 +10,7 @@
   "profile_name",
   "series",
   "role",
+  "profile_type",
   "item",
   "column_break_main",
   "bar_lengths",
@@ -23,6 +24,8 @@
   "width_mm",
   "depth_mm",
   "section_rotation",
+  "section_flip_x",
+  "section_flip_y",
   "perimeter_mm",
   "total_perimeter_mm",
   "column_break_section",
@@ -31,7 +34,8 @@
   "computed_kg_per_m",
   "visible_perimeter_mm",
   "section_warnings",
-  "section_svg"
+  "section_svg",
+  "section_anchors_json"
  ],
  "fields": [
   {
@@ -66,8 +70,17 @@
    "fieldname": "role",
    "fieldtype": "Select",
    "label": "Role",
-   "options": "frame\nsash\nmullion\ntransom\nbead\naccessory",
+   "options": "frame\nsash\nmullion\ntransom\nbead\ngasket\naccessory",
    "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "profile_type",
+   "fieldtype": "Select",
+   "label": "Profile Type",
+   "options": "Both\nWindow\nDoor",
+   "default": "Both",
+   "depends_on": "eval:!in_list(['bead', 'gasket'], doc.role)",
    "in_list_view": 1
   },
   {
@@ -151,6 +164,18 @@
    "description": "Rotate the imported outline so the profile face runs along the cut and the outside is at the top. Width and depth follow the rotation."
   },
   {
+   "fieldname": "section_flip_x",
+   "fieldtype": "Check",
+   "label": "Flip Horizontal",
+   "default": "0"
+  },
+  {
+   "fieldname": "section_flip_y",
+   "fieldtype": "Check",
+   "label": "Flip Vertical",
+   "default": "0"
+  },
+  {
    "fieldname": "perimeter_mm",
    "fieldtype": "Float",
    "label": "Outer Perimeter (mm)",
@@ -206,6 +231,12 @@
    "fieldtype": "Long Text",
    "label": "Section Svg",
    "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "section_anchors_json",
+   "fieldtype": "Long Text",
+   "label": "Section Groove & Seat Anchors JSON",
    "hidden": 1
   }
  ],

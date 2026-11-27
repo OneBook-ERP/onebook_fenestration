@@ -51,32 +51,50 @@ export function generateElevationSvg(design: Design, finishColor?: string): stri
 	]
 
 	// Outer frame
+	const frameConfig = design.frameConfig ?? '4-side'
+	const bottomFace = frameConfig === '3-side' ? 0 : frameConfig === '3-side-threshold' ? Math.round(FRAME_FACE * 0.45) : FRAME_FACE
 	const fw = width * scale
 	const fh = height * scale
 	const fx = px(0)
 	const fy = py(height)
-	parts.push(`<rect x="${fmt(fx)}" y="${fmt(fy)}" width="${fmt(fw)}" height="${fmt(fh)}" fill="${finish}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
-
-	// Frame corner miter lines
 	const ff = FRAME_FACE * scale
-	parts.push(`<line x1="${fmt(fx)}" y1="${fmt(fy)}" x2="${fmt(fx + ff)}" y2="${fmt(fy + ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
-	parts.push(`<line x1="${fmt(fx + fw)}" y1="${fmt(fy)}" x2="${fmt(fx + fw - ff)}" y2="${fmt(fy + ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
-	parts.push(`<line x1="${fmt(fx)}" y1="${fmt(fy + fh)}" x2="${fmt(fx + ff)}" y2="${fmt(fy + fh - ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
-	parts.push(`<line x1="${fmt(fx + fw)}" y1="${fmt(fy + fh)}" x2="${fmt(fx + fw - ff)}" y2="${fmt(fy + fh - ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+	const bff = bottomFace * scale
+
+	if (frameConfig === '4-side') {
+		parts.push(`<rect x="${fmt(fx)}" y="${fmt(fy)}" width="${fmt(fw)}" height="${fmt(fh)}" fill="${finish}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+		parts.push(`<line x1="${fmt(fx)}" y1="${fmt(fy)}" x2="${fmt(fx + ff)}" y2="${fmt(fy + ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+		parts.push(`<line x1="${fmt(fx + fw)}" y1="${fmt(fy)}" x2="${fmt(fx + fw - ff)}" y2="${fmt(fy + ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+		parts.push(`<line x1="${fmt(fx)}" y1="${fmt(fy + fh)}" x2="${fmt(fx + ff)}" y2="${fmt(fy + fh - ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+		parts.push(`<line x1="${fmt(fx + fw)}" y1="${fmt(fy + fh)}" x2="${fmt(fx + fw - ff)}" y2="${fmt(fy + fh - ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+	} else {
+		const uPath = `M ${fmt(fx)} ${fmt(fy + fh)} L ${fmt(fx)} ${fmt(fy)} L ${fmt(fx + fw)} ${fmt(fy)} L ${fmt(fx + fw)} ${fmt(fy + fh)} L ${fmt(fx + fw - ff)} ${fmt(fy + fh)} L ${fmt(fx + fw - ff)} ${fmt(fy + ff)} L ${fmt(fx + ff)} ${fmt(fy + ff)} L ${fmt(fx + ff)} ${fmt(fy + fh)} Z`
+		parts.push(`<path d="${uPath}" fill="${finish}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+		parts.push(`<line x1="${fmt(fx)}" y1="${fmt(fy)}" x2="${fmt(fx + ff)}" y2="${fmt(fy + ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+		parts.push(`<line x1="${fmt(fx + fw)}" y1="${fmt(fy)}" x2="${fmt(fx + fw - ff)}" y2="${fmt(fy + ff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+		if (frameConfig === '3-side-threshold') {
+			parts.push(`<rect x="${fmt(fx + ff)}" y="${fmt(fy + fh - bff)}" width="${fmt(fw - 2 * ff)}" height="${fmt(bff)}" fill="#64748B" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+			parts.push(`<line x1="${fmt(fx)}" y1="${fmt(fy + fh - bff)}" x2="${fmt(fx + ff)}" y2="${fmt(fy + fh - bff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+			parts.push(`<line x1="${fmt(fx + fw - ff)}" y1="${fmt(fy + fh - bff)}" x2="${fmt(fx + fw)}" y2="${fmt(fy + fh - bff)}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
+		}
+	}
 
 	// Bars (Mullions & Transoms)
 	for (const bar of bars) {
 		if (bar.dir === 'v') {
 			const bw = BAR_FACE * scale
 			const bx = px(bar.x) - bw / 2
-			const by = py(bar.y + bar.length)
-			const bh = bar.length * scale
+			const bBot = bar.y === 0 ? bottomFace : BAR_FACE / 2
+			const bTop = bar.y + bar.length >= height - 0.01 ? FRAME_FACE : BAR_FACE / 2
+			const by = py(bar.y + bar.length - bTop)
+			const bh = Math.max(0, (bar.length - bBot - bTop) * scale)
 			parts.push(`<rect x="${fmt(bx)}" y="${fmt(by)}" width="${fmt(bw)}" height="${fmt(bh)}" fill="${finish}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
 		} else {
 			const bh = BAR_FACE * scale
-			const bx = px(bar.x)
+			const bLeft = bar.x === 0 ? FRAME_FACE : BAR_FACE / 2
+			const bRight = bar.x + bar.length >= width - 0.01 ? FRAME_FACE : BAR_FACE / 2
+			const bx = px(bar.x + bLeft)
 			const by = py(bar.y) - bh / 2
-			const bw = bar.length * scale
+			const bw = Math.max(0, (bar.length - bLeft - bRight) * scale)
 			parts.push(`<rect x="${fmt(bx)}" y="${fmt(by)}" width="${fmt(bw)}" height="${fmt(bh)}" fill="${finish}" stroke="${STROKE_COLOR}" stroke-width="1"/>`)
 		}
 	}
@@ -85,7 +103,7 @@ export function generateElevationSvg(design: Design, finishColor?: string): stri
 	for (const cell of cells) {
 		const l = cell.x === 0 ? FRAME_FACE : BAR_FACE / 2
 		const r = cell.x + cell.w >= width - 0.01 ? FRAME_FACE : BAR_FACE / 2
-		const b = cell.y === 0 ? FRAME_FACE : BAR_FACE / 2
+		const b = cell.y === 0 ? bottomFace : BAR_FACE / 2
 		const t = cell.y + cell.h >= height - 0.01 ? FRAME_FACE : BAR_FACE / 2
 
 		const cx = px(cell.x + l)

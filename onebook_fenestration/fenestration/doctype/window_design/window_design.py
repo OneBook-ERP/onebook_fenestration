@@ -80,6 +80,17 @@ class WindowDesign(Document):
 			return
 		if not (self.flags.force_reprice or any(self.has_value_changed(f) for f in LOCKED_FIELDS)):
 			return
+		if (
+			self.project
+			and frappe.db.has_column("Fenestration Project", "fen_design_locked")
+			and cint(frappe.db.get_value("Fenestration Project", self.project, "fen_design_locked"))
+		):
+			frappe.throw(
+				_(
+					"{0} is locked because project {1} was shared with Hilux for manufacturing. "
+					"Unlock the project for revision or copy the design."
+				).format(self.design_ref, self.project)
+			)
 		lock = locking_document(self.name)
 		if lock:
 			frappe.throw(

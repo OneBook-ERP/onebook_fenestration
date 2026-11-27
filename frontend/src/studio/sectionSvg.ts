@@ -50,18 +50,42 @@ export function displayProfileCode(p: FenestrationProfileRow): string {
 
 export function profileRotationTransform(p: {
 	section_rotation?: string | number | null
+	section_flip_x?: number | boolean | null
+	section_flip_y?: number | boolean | null
 	width_mm?: number | null
 	depth_mm?: number | null
 }): string {
 	const rot = (((Number(p.section_rotation || 0) % 360) + 360) % 360)
-	if (!rot) return ''
+	const fx = Boolean(Number(p.section_flip_x || 0))
+	const fy = Boolean(Number(p.section_flip_y || 0))
+	if (!rot && !fx && !fy) return ''
 	const isTurned = rot === 90 || rot === 270
 	const w0 = Math.max(Number(isTurned ? p.depth_mm : p.width_mm) || 10, 1)
 	const h0 = Math.max(Number(isTurned ? p.width_mm : p.depth_mm) || 10, 1)
-	if (rot === 90) return `translate(${h0}, 0) rotate(90)`
-	if (rot === 180) return `translate(${w0}, ${h0}) rotate(180)`
-	if (rot === 270) return `translate(0, ${w0}) rotate(270)`
-	return ''
+	const rotPart =
+		rot === 90
+			? `translate(${h0}, 0) rotate(90)`
+			: rot === 180
+				? `translate(${w0}, ${h0}) rotate(180)`
+				: rot === 270
+					? `translate(0, ${w0}) rotate(270)`
+					: ''
+	if (!fx && !fy) return rotPart
+	const flipPart = `translate(${w0 / 2}, ${h0 / 2}) scale(${fx ? -1 : 1}, ${fy ? -1 : 1}) translate(${-w0 / 2}, ${-h0 / 2})`
+	return rotPart ? `${rotPart} ${flipPart}` : flipPart
+}
+
+/** Returns SVG transform for a profile thumbnail unless the server already baked orientation into `section_svg`. */
+export function profileThumbTransform(p: {
+	section_rotation?: string | number | null
+	section_flip_x?: number | boolean | null
+	section_flip_y?: number | boolean | null
+	width_mm?: number | null
+	depth_mm?: number | null
+	outline_transformed?: boolean | null
+}): string {
+	if (p.outline_transformed) return ''
+	return profileRotationTransform(p)
 }
 
 export function computeCardSvgMetrics(widthMm?: number | null, depthMm?: number | null): CardSvgMetrics {
@@ -149,10 +173,14 @@ export function computeBlueprintSvgMetrics(
 	const vTextY = oy + dh / 2
 
 	const rot = (((Number(p.section_rotation || 0) % 360) + 360) % 360)
+	const fx = Boolean(Number(p.section_flip_x || 0))
+	const fy = Boolean(Number(p.section_flip_y || 0))
 	const isTurned = rot === 90 || rot === 270
 	const baseW = isTurned ? h : w
 	const baseH = isTurned ? w : h
 	let c = estimateSvgCentroid(p.section_svg || '', baseW, baseH)
+	if (fx) c = { x: baseW - c.x, y: c.y }
+	if (fy) c = { x: c.x, y: baseH - c.y }
 	if (rot === 90) {
 		c = { x: baseH - c.y, y: c.x }
 	} else if (rot === 180) {

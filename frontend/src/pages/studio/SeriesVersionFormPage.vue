@@ -232,7 +232,7 @@
 								role: 'frame',
 								profile: seriesProfileCodes[0] || '',
 								angle_start: 45,
-								angle_end: 135,
+								angle_end: 45,
 								length_expr: 'W',
 							})
 						"
@@ -599,7 +599,7 @@
 
 <script setup lang="ts">
 import { Alert, Badge, Button, Combobox, FormControl, toast, useList } from 'frappe-ui'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
 	cancelSeriesVersion,
@@ -720,6 +720,16 @@ const seriesOptions = computed(() =>
 		label: `${s.series_code || s.name} — ${s.series_title}`,
 		value: s.series_code || s.name,
 	})),
+)
+
+watch(
+	seriesOptions,
+	(opts) => {
+		if (!isEdit.value && !doc.series && opts.length > 0) {
+			doc.series = opts[0].value
+		}
+	},
+	{ immediate: true },
 )
 
 const cloneVersionOptions = computed(() => [

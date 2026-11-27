@@ -49,6 +49,10 @@ export const MIRROR_OF: Record<string, string> = {
 	MSR: 'OSL',
 	OSR: 'MSL',
 	MSL: 'OSR',
+	OGL: 'MGR',
+	MGR: 'OGL',
+	OGR: 'MGL',
+	MGL: 'OGR',
 }
 
 /** Return the twin instance tag mirrored across the central mullion/frame axis. */
@@ -81,16 +85,20 @@ export function classifySectionPieceInstances(
 	const sashM: number[] = []
 	const frameO: number[] = []
 	const frameM: number[] = []
+	const glassO: number[] = []
+	const glassM: number[] = []
 
 	for (let i = 0; i < pieces.length; i++) {
 		const p = pieces[i]
 		if (p === divider || p.role === 'mullion' || p.role === 'transom') continue
-		if (p.kind === 'glass') continue
 
 		const mid = (p.start + p.end) / 2
 		const isO = mid < dividerMid
 
-		if (p.role === 'bead' || p.role === 'gasket' || p.role === 'glass_adaptor') {
+		if (p.kind === 'glass') {
+			if (isO) glassO.push(i)
+			else glassM.push(i)
+		} else if (p.role === 'bead' || p.role === 'gasket' || p.role === 'glass_adaptor') {
 			if (isO) beadO.push(i)
 			else beadM.push(i)
 		} else if (p.role === 'sash') {
@@ -109,6 +117,8 @@ export function classifySectionPieceInstances(
 	sortByPos(sashM)
 	sortByPos(frameO)
 	sortByPos(frameM)
+	sortByPos(glassO)
+	sortByPos(glassM)
 
 	const tags: string[] = new Array(pieces.length).fill('')
 
@@ -151,6 +161,26 @@ export function classifySectionPieceInstances(
 	} else if (sashM.length >= 2) {
 		tags[sashM[0]] = 'MSL'
 		tags[sashM[sashM.length - 1]] = 'MSR'
+	}
+
+	// Assign glass:
+	if (glassO.length === 1) {
+		tags[glassO[0]] = 'OGL'
+	} else if (glassO.length >= 2) {
+		tags[glassO[0]] = 'OGL'
+		tags[glassO[glassO.length - 1]] = 'OGR'
+		for (let k = 1; k < glassO.length - 1; k++) {
+			tags[glassO[k]] = `OG_${k + 1}`
+		}
+	}
+	if (glassM.length === 1) {
+		tags[glassM[0]] = 'MGR'
+	} else if (glassM.length >= 2) {
+		tags[glassM[0]] = 'MGL'
+		tags[glassM[glassM.length - 1]] = 'MGR'
+		for (let k = 1; k < glassM.length - 1; k++) {
+			tags[glassM[k]] = `MG_${k + 1}`
+		}
 	}
 
 	// Assign remaining items (divider, glass, fallbacks)
@@ -279,6 +309,17 @@ export function canonicalTransformForPiece(piece: SectionPiece, transform: Secti
 	return { ...transform, offsetAlong: (piece.mirrored ? -transform.offsetAlong : transform.offsetAlong) || 0 }
 }
 
+/** Reflection in section space. The renderer already reverses rotation on a
+ * mirrored instance, so opposite instances must share the stored rotation. */
+export function mirroredOrientation(source: SectionPiece, target: SectionPiece, transform: SectionPieceTransform) {
+	const opposite = Boolean(source.mirrored) !== Boolean(target.mirrored)
+	return {
+		rotation: ((opposite ? transform.rotation : -transform.rotation) % 360 + 360) % 360,
+		flipX: opposite ? transform.flipX : !transform.flipX,
+		flipY: transform.flipY,
+	}
+}
+
 /**
  * Compress long glass spans to `COMPACT_GLASS_MM` while keeping every profile joint at 1:1 mm scale
  * and keeping any Mullion/Transom anchored at its exact proportional/center split position.
@@ -302,7 +343,29 @@ export function compactPieceSpans(
 			const projected = layout.chord * Math.cos(LOUVER_ANGLE) + (piece.thickness || LOUVER_THICKNESS) * Math.sin(LOUVER_ANGLE)
 			return Math.min(length, Math.max(COMPACT_GLASS_MM, layout.count * (projected + 4)))
 		}
-		return Math.min(length, COMPACT_GLASS_MM)
+		// Ensure wide shutters and inward-shifted beads/sashes never collide across the compacted span.
+		let overLow = 0
+		let overHigh = 0
+		const cp = piece.config_placement
+		if (cp) {
+			if (typeof cp.insetLow === 'number' && cp.insetLow > 0) overLow = Math.max(overLow, cp.insetLow)
+			if (typeof cp.insetHigh === 'number' && cp.insetHigh > 0) overHigh = Math.max(overHigh, cp.insetHigh)
+		}
+		const mid = (piece.start + piece.end) / 2
+		for (const other of pieces) {
+			if (other.kind !== 'profile' || other.role === 'mullion' || other.role === 'transom') continue
+			const oMid = (other.start + other.end) / 2
+			const off = typeof other.config_placement?.offsetAlong === 'number' ? other.config_placement.offsetAlong : 0
+			const effStart = other.start + off
+			const effEnd = other.end + off
+			if (!other.mirrored && oMid <= mid && effEnd > piece.start && other.start <= piece.start + 40) {
+				overLow = Math.max(overLow, effEnd - piece.start)
+			} else if (other.mirrored && oMid >= mid && effStart < piece.end && other.end >= piece.end - 40) {
+				overHigh = Math.max(overHigh, piece.end - effStart)
+			}
+		}
+		const minClearSpan = overLow + overHigh > 0 ? Math.ceil(overLow + overHigh + 64) : COMPACT_GLASS_MM
+		return Math.min(length, Math.max(COMPACT_GLASS_MM, minClearSpan))
 	}
 	const reductions: { cutAfter: number; delta: number }[] = []
 	for (const p of pieces) {
@@ -460,11 +523,16 @@ export function buildPlacedShape(
 		const gx = baseStart + dx
 		const gy = -rawD / 2 + dy
 		const ring = rectRing(gx, gy, w, rawD)
-		const bbox = computeBBox([ring])
+		const cut = piece.cutout
+		const scale = w / Math.max(1, piece.end - piece.start)
+		const lo = cut ? Math.max(0, Math.min(w, (cut.start - piece.start) * scale)) : 0
+		const hi = cut ? Math.max(lo, Math.min(w, (cut.end - piece.start) * scale)) : 0
+		const rings = cut ? [rectRing(gx, gy, lo, rawD), rectRing(gx + hi, gy, w - hi, rawD)] : [ring]
+		const bbox = computeBBox(rings)
 		return {
 			index,
 			piece,
-			rings: [ring],
+			rings,
 			bbox,
 			labelPos: { x: gx + w / 2, y: gy + rawD / 2 },
 		}
@@ -477,21 +545,21 @@ export function buildPlacedShape(
 	const rot = (((piece.mirrored ? -transform.rotation : transform.rotation) % 360) + 360) % 360
 	const flipX = Boolean(piece.mirrored) !== Boolean(transform.flipX)
 	const flipY = Boolean(transform.flipY)
+	// Always pivot flip and rotation around geometric center (cx, cy) so raycast/collision/labels
+	// stay 1:1 aligned with SectionView's SVG transform even when originU/originDepth is 0 on a mirrored piece.
 	const cx = rawW / 2
 	const cy = rawD / 2
-	const originU = Number.isFinite(transform.originU) ? transform.originU! : cx
-	const originDepth = Number.isFinite(transform.originDepth) ? transform.originDepth! : cy
 
 	const worldRings = localRings.map((ring) =>
 		ring.map((p) => {
-			let x = p.x - originU
-			let y = p.y - originDepth
+			let x = p.x - cx
+			let y = p.y - cy
 			if (flipX) x = -x
 			if (flipY) y = -y
 			if (rot === 90) [x, y] = [-y, x]
 			else if (rot === 180) [x, y] = [-x, -y]
 			else if (rot === 270) [x, y] = [y, -x]
-			return { x: baseX + originU + x, y: baseY + originDepth + y }
+			return { x: baseX + cx + x, y: baseY + cy + y }
 		}),
 	)
 	const bbox = computeBBox(worldRings)

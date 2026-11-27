@@ -114,6 +114,25 @@ describe('Window3DView (Three.js real extruded 3D window)', () => {
 		}
 	})
 
+	it('keeps transformed profile vertices on the section datum beside an unmoved grill', async () => {
+		const w = mount(Window3DView, { props: { design: createMockDesign() } })
+		await flushPromises()
+		const state = w.vm.$.setupState as any
+		const outline = { svg: 'M2 0 L40 0 L40 60 L2 60 Z', width: 42, depth: 60 }
+		for (const mirrored of [false, true]) for (const rotation of [0, 90, 180, 270]) {
+			const piece: SectionPiece = { kind: 'profile', role: 'frame', code: 'F', panel: 'F1', start: mirrored ? 1158 : 0, end: mirrored ? 1200 : 42, mirrored, thickness: 0 }
+			const transform = { offsetAlong: mirrored ? -3 : 3, offsetDepth: 4, rotation, flipX: false, flipY: false }
+			const section = buildPlacedShape(0, piece, piece.start, piece.end, outline, transform)
+			const rail = state.buildProfileShape(outline, 42, 60, transform, mirrored)
+			for (const loop of rail.loops) for (const point of loop) {
+				const u = point.y + rail.alongOffset
+				const x = mirrored ? piece.end - u : piece.start + u
+				const y = point.x + rail.depthOffset
+				expect(section.rings.flat().some(p => Math.abs(p.x-x) < 0.001 && Math.abs(p.y-y) < 0.001)).toBe(true)
+			}
+		}
+	})
+
 	it('copes the extruded transom cap to a stepped mullion face', async () => {
 		const w = mount(Window3DView, { props: { design: createMockDesign() } })
 		await flushPromises()
@@ -137,7 +156,7 @@ describe('Window3DView (Three.js real extruded 3D window)', () => {
 		geometry.dispose()
 	})
 
-	it('mounts properly and renders camera controls including Mitre Close-up', async () => {
+	it('mounts in the designer workspace without separate camera/shader toolbars', async () => {
 		const design = createMockDesign()
 		const wrapper = mount(Window3DView, {
 			props: {
@@ -149,61 +168,29 @@ describe('Window3DView (Three.js real extruded 3D window)', () => {
 		await flushPromises()
 
 		expect(wrapper.find('[data-testid="window-3d-view"]').exists()).toBe(true)
+		expect(wrapper.find('[data-testid="window-3d-view"]').classes()).toContain('bg-[#f8fafc]')
 
 		const text = wrapper.text()
-		expect(text).toContain('Isometric')
-		expect(text).toContain('Front')
-		expect(text).toContain('Exterior')
-		expect(text).toContain('Mitre Close-up')
-		expect(text).toContain('Shader v1')
-		expect(text).toContain('Shader v2')
+		expect(text).not.toContain('Isometric')
+		expect(text).not.toContain('Mitre Close-up')
+		expect(text).not.toContain('Shader v1')
+		expect(text).not.toContain('Shader v2')
 	})
 
-	it('switches camera presets when clicked', async () => {
+	it('exposes resetCam that switches back to inside straight view', async () => {
 		const design = createMockDesign()
 		const wrapper = mount(Window3DView, {
 			props: {
 				design,
 				selectedPath: null,
+				side: 'outside',
 			},
 		})
 		await flushPromises()
 
-		const buttons = wrapper.findAll('button')
-		const mitreBtn = buttons.find((b) => b.text().includes('Mitre Close-up'))
-		expect(mitreBtn).toBeDefined()
-		await mitreBtn!.trigger('click')
-		expect(mitreBtn!.classes()).toContain('bg-white')
-
-		const frontBtn = buttons.find((b) => b.text() === 'Front')
-		expect(frontBtn).toBeDefined()
-		await frontBtn!.trigger('click')
-		expect(frontBtn!.classes()).toContain('bg-white')
-	})
-
-	it('toggles between Shader v1 and Shader v2', async () => {
-		const design = createMockDesign()
-		const wrapper = mount(Window3DView, {
-			props: {
-				design,
-				selectedPath: null,
-			},
-		})
+		;(wrapper.vm as unknown as { resetCam: () => void }).resetCam()
 		await flushPromises()
-
-		const v1Btn = wrapper.find('[data-testid="shader-v1-btn"]')
-		const v2Btn = wrapper.find('[data-testid="shader-v2-btn"]')
-		expect(v1Btn.exists()).toBe(true)
-		expect(v2Btn.exists()).toBe(true)
-
-		// V1 is default
-		expect(v1Btn.classes()).toContain('bg-white')
-		expect(v2Btn.classes()).not.toContain('bg-white')
-
-		await v2Btn.trigger('click')
-		await flushPromises()
-		expect(v2Btn.classes()).toContain('bg-white')
-		expect(v1Btn.classes()).not.toContain('bg-white')
+		expect(wrapper.emitted('update:side')).toEqual([['inside']])
 	})
 
 	it('accepts per-object profiles on frame, sash, and bars', async () => {
@@ -311,5 +298,121 @@ describe('Window3DView (Three.js real extruded 3D window)', () => {
 		expect(wrapper.exists()).toBe(true)
 		const canvas = wrapper.find('[data-testid="window-3d-view"]')
 		expect(canvas.exists()).toBe(true)
+	})
+
+	it('places architectural handles flush and centered on the visible interior stile face', async () => {
+		const { createArchitecturalHandle, measureClosingStilePlacement } = await import('./handle3D')
+		const THREE = await import('three')
+		const w = mount(Window3DView, { props: { design: createMockDesign() } })
+		await flushPromises()
+		const state = w.vm.$.setupState as any
+
+		const steppedOutline = {
+			svg: 'M 0 10 L 50 10 L 50 28 L 42 28 L 42 62 L 18 62 L 18 28 L 0 28 Z',
+			width: 50,
+			depth: 52,
+		}
+		const shape = state.buildProfileShape(steppedOutline, 50, 52)
+		const geom = state.getExtrudedMemberGeometry(shape, 1000, false)
+		const railMesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial())
+		railMesh.position.set(500, 0, 0)
+		railMesh.rotation.z = Math.PI / 2
+
+		const placement = measureClosingStilePlacement(
+			railMesh,
+			'R',
+			{ minX: 50, maxX: 450, minY: 50, maxY: 950 },
+			[],
+		)
+		// Max depth is 62mm -> world Z = 140/2 - 62 = 8; interior flat face u in [18..42] maps to X in [458..482] -> center 470
+		expect(placement.interiorZ).toBeCloseTo(8, 2)
+		expect(placement.center).toBeCloseTo(470, 2)
+
+		const casementHandle = createArchitecturalHandle('casement', -1)
+		expect(casementHandle.name).toBe('handle:casement')
+		expect(casementHandle.children.length).toBeGreaterThanOrEqual(4)
+		geom.dispose()
+	})
+
+	it('animates sliding sashes horizontally along X instead of swinging on pivot hinges', async () => {
+		const slidingDesign: Design = {
+			width: 1800,
+			height: 1200,
+			isSliding: true,
+			trackCount: 2,
+			root: {
+				type: 'split',
+				dir: 'v',
+				at: [600, 1200],
+				children: [
+					{ type: 'sash', glass: '6CTG', isSliding: true, slideFixed: false, slideDir: 'right', trackIdx: 0, trackCount: 2 },
+					{ type: 'sash', glass: '6CTG', isSliding: true, slideFixed: true, slideDir: 'right', trackIdx: 1, trackCount: 2 },
+					{ type: 'sash', glass: '6CTG', isSliding: true, slideFixed: false, slideDir: 'left', trackIdx: 0, trackCount: 2 },
+				],
+			},
+		}
+		const w = mount(Window3DView, { props: { design: slidingDesign } })
+		await flushPromises()
+		const state = w.vm.$.setupState as any
+		const { Group } = await import('three')
+		const pLeft = new Group(); pLeft.position.set(38, 42, 16)
+		const pMid = new Group(); pMid.position.set(582, 42, -16)
+		const pRight = new Group(); pRight.position.set(1182, 42, 16)
+		state.sashPivots.splice(0, state.sashPivots.length,
+			{ pivot: pLeft, hinge: 'left', opening: 'out', initialRotY: 0, initialRotX: 0, isSliding: true, slideFixed: false, slideDir: 'right', slideTravel: 400, initialX: 38 },
+			{ pivot: pMid, hinge: 'left', opening: 'out', initialRotY: 0, initialRotX: 0, isSliding: true, slideFixed: true, slideDir: 'right', slideTravel: 400, initialX: 582 },
+			{ pivot: pRight, hinge: 'left', opening: 'out', initialRotY: 0, initialRotX: 0, isSliding: true, slideFixed: false, slideDir: 'left', slideTravel: 400, initialX: 1182 },
+		)
+		state.animatedOpenAngle = 45
+		state.updateSashOpeningAngles()
+		expect(pLeft.position.x).toBeCloseTo(438, 3)
+		expect(pLeft.rotation.y).toBe(0)
+		expect(pMid.position.x).toBe(582)
+		expect(pRight.position.x).toBeCloseTo(782, 3)
+		expect(pRight.rotation.y).toBe(0)
+	})
+
+	it('skips rebuilding stale geometry while new outlines for a dropped design are still loading', async () => {
+		const { useDesignerStore } = await import('@/stores/designer')
+		const { crossSection } = await import('@/api')
+		const store = useDesignerStore()
+		store.seriesVersion = 'SV1'
+
+		const pending: Array<(v: any) => void> = []
+		const origImpl = vi.mocked(crossSection).getMockImplementation()
+		vi.mocked(crossSection).mockImplementation(
+			() =>
+				new Promise((r) => {
+					pending.push(r)
+				}),
+		)
+
+		try {
+			const d1 = createMockDesign()
+			const w = mount(Window3DView, { props: { design: d1 } })
+			await flushPromises()
+			const state = w.vm.$.setupState as any
+
+			// Before outlines finish loading for SV1, outlines are incomplete
+			expect(state.hasCompletedInitialOutlinesRef).toBe(false)
+
+			// Resolve both H and V cut requests for d1
+			for (const r of pending.splice(0)) {
+				r({ ok: true, result: { axis: 'h', at: 600, length: 915, pieces: [], dims: [], issues: [] }, outlines: {} })
+			}
+			await flushPromises()
+			expect(state.hasCompletedInitialOutlinesRef).toBe(true)
+
+			// Trigger a structural change (e.g. drop sliding layout) while outlines are pending
+			const d2 = createMockDesign()
+			d2.isSliding = true
+			d2.trackCount = 2
+			await w.setProps({ design: d2 })
+			await flushPromises()
+
+			expect(state.designOutlinesKey(d2, 'SV1')).not.toBe(state.designOutlinesKey(d1, 'SV1'))
+		} finally {
+			if (origImpl) vi.mocked(crossSection).mockImplementation(origImpl)
+		}
 	})
 })

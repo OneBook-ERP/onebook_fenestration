@@ -42,6 +42,12 @@
 				:glass-list="glasses"
 				@reload="reloadAll"
 			/>
+
+			<FenestrationHardwareTab
+				v-else-if="activeTab === 'hardware'"
+				:hardware-list="hardwareList"
+				@reload="reloadAll"
+			/>
 		</div>
 	</div>
 </template>
@@ -51,17 +57,19 @@ import { useList } from 'frappe-ui'
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FenestrationGlassTab from '@/components/studio/FenestrationGlassTab.vue'
+import FenestrationHardwareTab from '@/components/studio/FenestrationHardwareTab.vue'
 import FenestrationProfileTab from '@/components/studio/FenestrationProfileTab.vue'
 import ProfileSeriesTab from '@/components/studio/ProfileSeriesTab.vue'
 import SeriesVersionTab from '@/components/studio/SeriesVersionTab.vue'
 import type {
 	FenestrationGlassRow,
+	FenestrationHardwareRow,
 	FenestrationProfileRow,
 	ProfileSeriesRow,
 	SeriesVersionRow,
 } from '@/studio/api'
 
-const STUDIO_TABS = ['series', 'versions', 'profiles', 'glass'] as const
+const STUDIO_TABS = ['series', 'versions', 'profiles', 'glass', 'hardware'] as const
 export type StudioTabId = (typeof STUDIO_TABS)[number]
 
 const route = useRoute()
@@ -89,6 +97,7 @@ const profileResource = useList<FenestrationProfileRow>({
 		'profile_name',
 		'series',
 		'role',
+		'profile_type',
 		'item',
 		'kg_per_m',
 		'computed_kg_per_m',
@@ -105,6 +114,8 @@ const profileResource = useList<FenestrationProfileRow>({
 		'dxf_file',
 		'section_svg',
 		'section_rotation',
+		'section_flip_x',
+		'section_flip_y',
 		'section_warnings',
 	],
 	orderBy: 'series asc, profile_code asc',
@@ -118,10 +129,37 @@ const glassResource = useList<FenestrationGlassRow>({
 	limit: 200,
 })
 
+const hardwareResource = useList<FenestrationHardwareRow>({
+	doctype: 'Fenestration Hardware',
+	fields: [
+		'name',
+		'hardware_code',
+		'hardware_name',
+		'category',
+		'item',
+		'uom',
+		'thickness_mm',
+		'weight_kg',
+		'dxf_file',
+		'section_svg',
+		'width_mm',
+		'depth_mm',
+		'area_mm2',
+		'perimeter_mm',
+		'section_rotation',
+		'section_flip_x',
+		'section_flip_y',
+		'modified',
+	],
+	orderBy: 'category asc, hardware_code asc',
+	limit: 500,
+})
+
 const seriesList = computed(() => seriesResource.data ?? [])
 const versions = computed(() => versionResource.data ?? [])
 const profiles = computed(() => profileResource.data ?? [])
 const glasses = computed(() => glassResource.data ?? [])
+const hardwareList = computed(() => hardwareResource.data ?? [])
 
 const activeTab = computed<StudioTabId>(() => {
 	const t = String(route.query.tab ?? '')
@@ -147,6 +185,10 @@ const SECTION_META: Record<StudioTabId, { title: string; description: string }> 
 		title: 'Fenestration Glass',
 		description: 'Manage glazing specifications, thicknesses, and linked ERPNext items.',
 	},
+	hardware: {
+		title: 'Fenestration Hardware',
+		description: 'Import and manage gaskets, beadings, handles, hinges, locks, rollers, and accessories with CAD DXF profiles.',
+	},
 }
 
 const currentSection = computed(() => SECTION_META[activeTab.value])
@@ -170,6 +212,7 @@ function reloadAll() {
 	versionResource.reload()
 	profileResource.reload()
 	glassResource.reload()
+	hardwareResource.reload()
 }
 
 onMounted(() => {
@@ -179,9 +222,11 @@ onMounted(() => {
 watch(
 	() => route.fullPath,
 	() => {
-		if (activeTab.value === 'profiles') {
-			profileResource.reload()
-		}
+		if (activeTab.value === 'profiles') profileResource.reload()
+		else if (activeTab.value === 'versions') versionResource.reload()
+		else if (activeTab.value === 'glass') glassResource.reload()
+		else if (activeTab.value === 'hardware') hardwareResource.reload()
+		else seriesResource.reload()
 	},
 )
 </script>

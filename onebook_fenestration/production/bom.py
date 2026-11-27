@@ -53,6 +53,9 @@ def collect_rows(design) -> tuple[list[dict], list[str]]:
 
 	pane_m2: dict[str, float] = defaultdict(float)
 	for pane in result.glass:
+		if pane.material == "steel":
+			missing.append(f"steel sheet {pane.thickness:g} mm ({pane.path})")
+			continue
 		pane_m2[pane.glass] += pane.width * pane.height / 1e6
 	for code, area in pane_m2.items():
 		add(frappe.db.get_value("Fenestration Glass", code, "item"), "Square Meter", area, f"glass {code}")

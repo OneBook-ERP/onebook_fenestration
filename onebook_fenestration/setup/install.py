@@ -1,15 +1,22 @@
+import json
+
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.utils import flt
 
 from onebook_fenestration.setup.custom_fields import CUSTOM_FIELDS
+from onebook_fenestration.setup.procurement import setup_procurement
 
 ENGINEER_ROLE = "Fenestration Engineer"
+DEALER_ROLE = "Fenestration Dealer"
+FABRICATION_PARTNER_ROLE = "Fenestration Fabrication Partner"
+PARTNER_CUSTOMER_GROUPS = ("Dealers", "Fabrication Partners", "Own Clients")
 
 
 def after_install():
 	_sync()
 	setup_production_items()
+	setup_procurement()
 
 
 def after_migrate():
@@ -27,19 +34,83 @@ def before_uninstall():
 
 
 def _sync():
-	create_custom_fields(CUSTOM_FIELDS, update=True)
-	_ensure_engineer_role()
+	active_fields = {dt: fields for dt, fields in CUSTOM_FIELDS.items() if frappe.db.exists("DocType", dt)}
+	create_custom_fields(active_fields, update=True)
+	_ensure_roles()
+	_ensure_partner_customer_groups()
+	_ensure_crm_partner_type_layouts()
 	seed_pricing()
 	seed_quote_masters()
 	ensure_production_uoms()
 
 
-def _ensure_engineer_role():
-	if frappe.db.exists("Role", ENGINEER_ROLE):
+def _ensure_roles():
+	for role_name in (ENGINEER_ROLE, DEALER_ROLE, FABRICATION_PARTNER_ROLE):
+		if frappe.db.exists("Role", role_name):
+			continue
+		frappe.get_doc({"doctype": "Role", "role_name": role_name, "desk_access": 1}).insert(
+			ignore_permissions=True
+		)
+
+
+def _ensure_partner_customer_groups():
+	if not frappe.db.exists("DocType", "Customer Group"):
 		return
-	frappe.get_doc({"doctype": "Role", "role_name": ENGINEER_ROLE, "desk_access": 1}).insert(
-		ignore_permissions=True
+	root_group = (
+		"All Customer Groups"
+		if frappe.db.exists("Customer Group", "All Customer Groups")
+		else frappe.db.get_value("Customer Group", {"is_group": 1}, "name")
 	)
+	if not root_group:
+		return
+	for group_name in PARTNER_CUSTOMER_GROUPS:
+		if frappe.db.exists("Customer Group", group_name):
+			continue
+		frappe.get_doc(
+			{
+				"doctype": "Customer Group",
+				"customer_group_name": group_name,
+				"parent_customer_group": root_group,
+				"is_group": 0,
+			}
+		).insert(ignore_permissions=True)
+
+
+def _ensure_crm_partner_type_layouts():
+	"""Ensure fen_partner_type is visible on CRM Deal Quick Entry and CRM Lead Data Fields layouts."""
+	if not frappe.db.exists("DocType", "CRM Fields Layout"):
+		return
+	targets = (
+		("CRM Deal-Quick Entry", "deal_section"),
+		("CRM Lead-Data Fields", "details_section"),
+	)
+	for layout_name, section_name in targets:
+		if not frappe.db.exists("CRM Fields Layout", layout_name):
+			continue
+		raw = frappe.db.get_value("CRM Fields Layout", layout_name, "layout")
+		if not raw or "fen_partner_type" in raw:
+			continue
+		try:
+			parsed = json.loads(raw)
+		except (TypeError, ValueError):
+			continue
+		if _append_field_to_layout_section(parsed, section_name, "fen_partner_type"):
+			frappe.db.set_value("CRM Fields Layout", layout_name, "layout", json.dumps(parsed), update_modified=False)
+
+
+def _append_field_to_layout_section(nodes: list, section_name: str, fieldname: str) -> bool:
+	for node in nodes:
+		if not isinstance(node, dict):
+			continue
+		if node.get("name") == section_name and isinstance(node.get("columns"), list) and node["columns"]:
+			fields = node["columns"][0].setdefault("fields", [])
+			if fieldname not in fields:
+				fields.append(fieldname)
+				return True
+		if isinstance(node.get("sections"), list):
+			if _append_field_to_layout_section(node["sections"], section_name, fieldname):
+				return True
+	return False
 
 
 STANDARD_HEADS = (

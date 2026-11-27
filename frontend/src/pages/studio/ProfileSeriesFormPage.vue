@@ -71,6 +71,82 @@
 							label="Series Title *"
 							placeholder="e.g. CS400 Economical Casement"
 						/>
+						<div>
+							<label class="mb-1.5 block text-xs font-medium text-ink-gray-6">
+								Supported Products *
+							</label>
+							<Popover side="bottom" align="start" :match-trigger-width="true">
+								<template #trigger="{ open }">
+									<button
+										type="button"
+										data-testid="supported-products-trigger"
+										class="flex min-h-9 w-full flex-wrap items-center justify-between gap-1.5 rounded-lg border border-outline-gray-2 bg-surface-gray-2/70 px-2.5 py-1.5 text-left text-sm transition-colors hover:border-outline-gray-3 focus:border-outline-gray-4 focus:outline-none"
+									>
+										<span v-if="!form.supported_products.length" class="text-xs text-ink-gray-5">
+											Select Window, Door, Sliding Window, Sliding Door…
+										</span>
+										<span v-else class="flex flex-wrap items-center gap-1">
+											<Badge
+												v-for="item in form.supported_products"
+												:key="item"
+												size="sm"
+												variant="subtle"
+												theme="blue"
+												:label="item"
+											>
+												<template #suffix>
+													<span
+														role="button"
+														:aria-label="`Remove ${item}`"
+														class="ml-0.5 cursor-pointer opacity-70 hover:opacity-100"
+														@click.stop="toggleSupportedProduct(item)"
+													>
+														×
+													</span>
+												</template>
+											</Badge>
+										</span>
+										<span
+											class="ml-auto size-4 shrink-0 text-ink-gray-5 transition-transform"
+											:class="open ? 'lucide-chevron-up' : 'lucide-chevron-down'"
+										/>
+									</button>
+								</template>
+								<template #default>
+									<div
+										data-testid="supported-products-menu"
+										class="min-w-64 space-y-0.5 p-1"
+									>
+										<button
+											v-for="opt in SUPPORTED_PRODUCT_OPTIONS"
+											:key="opt.value"
+											type="button"
+											:data-testid="`supported-product-opt-${opt.value.toLowerCase().replace(/\s+/g, '-')}`"
+											class="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-surface-gray-1"
+											@click="toggleSupportedProduct(opt.value)"
+										>
+											<div class="min-w-0">
+												<div class="text-xs font-semibold text-ink-gray-9">{{ opt.label }}</div>
+												<div class="text-[11px] text-ink-gray-5">{{ opt.hint }}</div>
+											</div>
+											<span
+												class="flex size-4 shrink-0 items-center justify-center rounded border text-[11px]"
+												:class="
+													form.supported_products.includes(opt.value)
+														? 'border-gray-900 bg-gray-900 text-white'
+														: 'border-outline-gray-3 bg-white text-transparent'
+												"
+											>
+												✓
+											</span>
+										</button>
+									</div>
+								</template>
+							</Popover>
+							<p class="mt-1 text-[11px] text-ink-gray-5">
+								Only selected product types appear in Section Templates; Designer warns if an unsupported type is used.
+							</p>
+						</div>
 					</div>
 
 					<div class="space-y-4">
@@ -103,13 +179,21 @@
 			<section class="border-t border-outline-gray-2 pt-6">
 				<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 					<h2 class="text-base font-semibold text-ink-gray-9">Series Profiles</h2>
-					<Button
-						v-if="isEdit"
-						variant="outline"
-						size="sm"
-						label="+ Add Profile to Series"
-						:route="`/series-studio/profiles/new?series=${encodeURIComponent(form.series_code)}`"
-					/>
+					<div v-if="isEdit" class="flex flex-wrap items-center gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							label="Section Configuration"
+							data-testid="section-config-btn"
+							:route="`/series-studio/series/${encodeURIComponent(form.series_code || props.name || '')}/section-config`"
+						/>
+						<Button
+							variant="outline"
+							size="sm"
+							label="+ Add Profile to Series"
+							:route="`/series-studio/profiles/new?series=${encodeURIComponent(form.series_code)}`"
+						/>
+					</div>
 				</div>
 
 				<div v-if="!isEdit" class="py-6 text-sm text-ink-gray-5">
@@ -235,13 +319,16 @@
 </template>
 
 <script setup lang="ts">
-import { Alert, Badge, Button, FormControl, toast, useList } from 'frappe-ui'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { Alert, Badge, Button, FormControl, Popover, toast, useList } from 'frappe-ui'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
 	getProfileSeriesDoc,
+	parseSupportedProducts,
 	saveProfileSeries,
+	SUPPORTED_PRODUCT_OPTIONS,
 	type FenestrationProfileRow,
+	type SupportedProduct,
 } from '@/studio/api'
 import {
 	computeCardSvgMetrics,
@@ -264,18 +351,49 @@ const systemTypeOptions = [
 	{ label: 'Door', value: 'Door' },
 ]
 
+function defaultProductsForSystem(systemType: 'Casement' | 'Sliding' | 'Door'): SupportedProduct[] {
+	if (systemType === 'Sliding') return ['Sliding Window', 'Sliding Door']
+	if (systemType === 'Door') return ['Door']
+	return ['Window']
+}
+
 const form = reactive({
 	series_code: '',
 	series_title: '',
 	system_type: 'Casement' as 'Casement' | 'Sliding' | 'Door',
+	supported_products: ['Window'] as SupportedProduct[],
 	published_version: '' as string | null | undefined,
 })
 
-const canSave = computed(() =>
-	Boolean(form.series_code.trim() && form.series_title.trim() && form.system_type && !saving.value),
+const userEditedProducts = ref(false)
+watch(
+	() => form.system_type,
+	(next) => {
+		if (!isEdit.value && !userEditedProducts.value) {
+			form.supported_products = defaultProductsForSystem(next)
+		}
+	},
 )
 
-const roles = ['ALL', 'frame', 'sash', 'mullion', 'transom', 'bead', 'accessory'] as const
+function toggleSupportedProduct(val: SupportedProduct) {
+	userEditedProducts.value = true
+	const set = new Set<SupportedProduct>(form.supported_products)
+	if (set.has(val)) set.delete(val)
+	else set.add(val)
+	form.supported_products = SUPPORTED_PRODUCT_OPTIONS.map((o) => o.value).filter((v) => set.has(v))
+}
+
+const canSave = computed(() =>
+	Boolean(
+		form.series_code.trim() &&
+			form.series_title.trim() &&
+			form.system_type &&
+			form.supported_products.length > 0 &&
+			!saving.value,
+	),
+)
+
+const roles = ['ALL', 'frame', 'sash', 'mullion', 'transom', 'bead', 'gasket', 'accessory'] as const
 const selectedRole = ref<string>('ALL')
 const profileSearch = ref('')
 
@@ -298,6 +416,8 @@ const profileResource = useList<FenestrationProfileRow>({
 		'dxf_file',
 		'section_svg',
 		'section_rotation',
+		'section_flip_x',
+		'section_flip_y',
 	],
 	orderBy: 'profile_code asc',
 	limit: 500,
@@ -331,6 +451,8 @@ onMounted(async () => {
 		form.series_code = doc.series_code || doc.name
 		form.series_title = doc.series_title || ''
 		form.system_type = doc.system_type || 'Casement'
+		const parsedProducts = parseSupportedProducts(doc.supported_products)
+		form.supported_products = parsedProducts.length ? parsedProducts : defaultProductsForSystem(form.system_type)
 		form.published_version = doc.published_version || null
 	} catch (e) {
 		error.value = e instanceof Error ? e.message : 'Could not load profile series'
@@ -349,6 +471,7 @@ async function save() {
 				series_code: form.series_code.trim(),
 				series_title: form.series_title.trim(),
 				system_type: form.system_type,
+				supported_products: form.supported_products,
 			},
 			props.name || null,
 		)

@@ -47,7 +47,7 @@
    "fieldname": "angle_end",
    "fieldtype": "Int",
    "label": "Angle End",
-   "default": "135",
+   "default": "45",
    "in_list_view": 1
   },
   {

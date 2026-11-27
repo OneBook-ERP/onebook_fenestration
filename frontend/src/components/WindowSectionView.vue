@@ -295,6 +295,8 @@ const profileResource = useList<FenestrationProfileRow>({
 		'depth_mm',
 		'section_svg',
 		'section_rotation',
+		'section_flip_x',
+		'section_flip_y',
 	],
 	limit: 200,
 })

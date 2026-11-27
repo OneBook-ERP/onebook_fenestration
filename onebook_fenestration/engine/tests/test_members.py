@@ -16,13 +16,13 @@ class TestMembers(unittest.TestCase):
 		members, issues, _ = run(load("w01.json"))
 		got = sorted((m.panel, m.position, m.profile, m.length, m.angles) for m in members)
 		expected = [
-			("F1", "B", "E104156", 915.0, (45, 135)),
-			("F1", "T", "E104156", 915.0, (45, 135)),
-			("F1", "L", "E104156", 1220.0, (45, 135)),
-			("F1", "R", "E104156", 1220.0, (45, 135)),
+			("F1", "B", "E104156", 915.0, (45, 45)),
+			("F1", "T", "E104156", 915.0, (45, 45)),
+			("F1", "L", "E104156", 1220.0, (45, 45)),
+			("F1", "R", "E104156", 1220.0, (45, 45)),
 			("F1", "H", "E104159", 1172.0, (90, 90)),
-			*[(p, s, "E104160", 434.0, (45, 135)) for p in ("F1-S1", "F1-S2") for s in ("B", "T")],
-			*[(p, s, "E104160", 1184.0, (45, 135)) for p in ("F1-S1", "F1-S2") for s in ("L", "R")],
+			*[(p, s, "E104160", 434.0, (45, 45)) for p in ("F1-S1", "F1-S2") for s in ("B", "T")],
+			*[(p, s, "E104160", 1184.0, (45, 45)) for p in ("F1-S1", "F1-S2") for s in ("L", "R")],
 		]
 		self.assertEqual(got, sorted(expected))
 		self.assertEqual(issues, [])
@@ -101,6 +101,12 @@ class TestMemberRuleWhen(unittest.TestCase):
 		result = compute(design, with_bead_rule("True"))
 		self.assertEqual([m for m in result.members if m.role == "bead"], [])
 
+	def test_fixed_pane_with_bead_false_yields_no_beads_or_warning(self):
+		design = {"width": 1000, "height": 800, "root": {"type": "fixed", "glass": "6CTG", "bead": False}}
+		result = compute(design, with_bead_rule("True"))
+		self.assertEqual([m for m in result.members if m.role == "bead"], [])
+		self.assertNotIn("no_glazing_bead", [i.code for i in result.issues])
+
 	def test_fixed_pane_without_bead_warns(self):
 		result = compute(FIXED_6, with_bead_rule("glass_t > 100"))
 		self.assertIn(
@@ -161,7 +167,7 @@ class TestMemberRuleWhen(unittest.TestCase):
 					"id": "t_adaptor",
 					"role": "glass_adaptor",
 					"profile": "E104159",
-					"angles": [45, 135],
+					"angles": [45, 45],
 					"length": "opening_w if position in 'TB' else opening_h",
 				}
 			)
@@ -182,3 +188,113 @@ class TestMemberRuleWhen(unittest.TestCase):
 				with self.subTest(series=snap.version, design=design):
 					roles = {m.role for m in compute(load(design), snap).members}
 					self.assertLessEqual(roles, {"frame", "sash", "mullion", "transom"})
+
+	def test_explicit_bead_override_without_series_rule_emits_beads(self):
+		from onebook_fenestration.engine.tests.helpers import snapshot_with
+
+		def add_bead_profiles(data):
+			data["profiles"]["E104161"] = {
+				"name": "5mm Glass Beading",
+				"kg_per_m": 0.228,
+				"bar_lengths": [4880, 5800],
+				"visible_perimeter_mm": 150,
+				"total_perimeter_mm": 148.8,
+			}
+			data["profiles"]["CS4807"] = {
+				"name": "6 & 8mm Glass Beading",
+				"kg_per_m": 0.233,
+				"bar_lengths": [4880, 5800],
+				"visible_perimeter_mm": 140,
+				"total_perimeter_mm": 150.9,
+			}
+
+		snap = snapshot_with(add_bead_profiles)
+		design = {
+			"width": 1220,
+			"height": 1220,
+			"beadProfileId": "E104161",
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [610],
+				"children": [
+					{"type": "fixed", "glass": "6CTG", "bead": True},
+					{"type": "fixed", "glass": "6CTG", "bead": True, "beadProfileId": "CS4807"},
+				],
+			},
+			"profiles": {"bead": "E104161", "F1.1:bead": "CS4807"},
+		}
+		result = compute(design, snap)
+		beads = [m for m in result.members if m.role == "bead"]
+		self.assertEqual(len(beads), 8)
+		self.assertEqual({m.profile for m in beads if m.path == "F1.0"}, {"E104161"})
+		self.assertEqual({m.profile for m in beads if m.path == "F1.1"}, {"CS4807"})
+		# CS400: glass 550 x 1160, clearance per side = 30 - 24 = 6 => opening 562 x 1172, default mitered (45, 45)
+		self.assertEqual(
+			sorted((m.position, m.length, m.angles) for m in beads if m.path == "F1.0"),
+			[("B", 562.0, (45, 45)), ("L", 1172.0, (45, 45)), ("R", 1172.0, (45, 45)), ("T", 562.0, (45, 45))],
+		)
+
+		butt = compute({**design, "beadJoint": "b"}, snap)
+		butt_beads = [m for m in butt.members if m.role == "bead" and m.path == "F1.0"]
+		self.assertEqual({m.angles for m in butt_beads}, {(90, 90)})
+
+	def test_bead_override_respects_bead_false_and_existing_rules(self):
+		from onebook_fenestration.engine.tests.helpers import snapshot_with
+
+		def add_rule_and_profile(data):
+			data["profiles"]["E104161"] = {
+				"name": "5mm Glass Beading",
+				"kg_per_m": 0.228,
+				"bar_lengths": [4880, 5800],
+				"visible_perimeter_mm": 150,
+				"total_perimeter_mm": 148.8,
+			}
+			data["member_rules"].append(
+				{
+					"id": "t_bead",
+					"role": "bead",
+					"profile": "E104160",
+					"angles": [90, 90],
+					"when": "glass_t <= 8",
+					"length": "opening_w if position in 'TB' else opening_h - 2*bead_depth",
+				}
+			)
+			data["constants"].update({"glass_clearance": 4, "bead_depth": 20})
+
+		snap = snapshot_with(add_rule_and_profile)
+		design = {
+			"width": 1200,
+			"height": 800,
+			"beadProfileId": "E104161",
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [600],
+				"children": [
+					{"type": "fixed", "glass": "6CTG", "bead": True},
+					{"type": "fixed", "glass": "6CTG", "bead": False},
+				],
+			},
+		}
+		result = compute(design, snap)
+		beads = [m for m in result.members if m.role == "bead"]
+		self.assertEqual({m.path for m in beads}, {"F1.0"})
+		self.assertEqual({m.profile for m in beads}, {"E104161"})
+
+	def test_mullion_and_sash_id_fallbacks(self):
+		design = {
+			"width": 1200,
+			"height": 900,
+			"mullionProfileId": "E104156",
+			"sashProfileId": "E104159",
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [600],
+				"children": [{"type": "sash", "glass": "6CTG"}, {"type": "fixed", "glass": "6CTG"}],
+			},
+		}
+		members, _, _ = cut_members(design, snapshot(), *layout(design))
+		self.assertEqual({m.profile for m in members if m.role == "mullion"}, {"E104156"})
+		self.assertEqual({m.profile for m in members if m.role == "sash"}, {"E104159"})

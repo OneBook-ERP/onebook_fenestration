@@ -1,101 +1,52 @@
 <template>
 	<div
-		class="relative flex h-full w-full flex-col overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100 p-4 select-none"
+		ref="stageEl"
+		class="relative h-full w-full overflow-hidden bg-[#f8fafc] select-none"
 		data-testid="window-3d-view"
+		@click="onStageClick"
+		@dragenter.prevent="onDragOver"
+		@dragover="onDragOver"
+		@dragleave="onDragLeave"
+		@drop="onDrop"
 	>
-		<!-- Top 3D Control Bar -->
-		<div
-			class="z-10 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white/95 px-4 py-2.5 shadow-xs backdrop-blur"
-		>
-			<div class="flex items-center gap-2">
-				<span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Camera</span>
-				<div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-					<button
-						type="button"
-						class="rounded-md px-2.5 py-1 text-xs font-semibold transition"
-						:class="activeCameraPreset === 'iso' ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-700 hover:text-gray-900'"
-						@click="setCameraPreset('iso')"
-					>
-						Isometric
-					</button>
-					<button
-						type="button"
-						class="rounded-md px-2.5 py-1 text-xs font-semibold transition"
-						:class="activeCameraPreset === 'front' ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-700 hover:text-gray-900'"
-						title="Interior front view"
-						@click="setCameraPreset('front')"
-					>
-						Front
-					</button>
-					<button
-						type="button"
-						class="rounded-md px-2.5 py-1 text-xs font-semibold transition"
-						:class="activeCameraPreset === 'exterior' ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-700 hover:text-gray-900'"
-						@click="setCameraPreset('exterior')"
-					>
-						Exterior
-					</button>
-					<button
-						type="button"
-						class="rounded-md px-2.5 py-1 text-xs font-semibold transition"
-						:class="activeCameraPreset === 'mitre' ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-700 hover:text-gray-900'"
-						title="Close-up inspection of 45° mitre corner"
-						@click="setCameraPreset('mitre')"
-					>
-						Mitre Close-up
-					</button>
-				</div>
-			</div>
+		<canvas
+			v-show="webGLSupported"
+			ref="canvasEl"
+			class="h-full w-full block cursor-grab active:cursor-grabbing outline-none window3d-canvas-reveal"
+			:class="sceneReady ? 'is-ready' : hasCompletedInitialOutlinesRef ? 'is-loading' : 'is-initial-loading'"
+		/>
 
-			<div class="inline-flex items-center rounded-lg bg-gray-100 p-0.5 text-xs" role="group" aria-label="Shader">
-				<button
-					type="button"
-					data-testid="shader-v1-btn"
-					class="rounded-md px-2.5 py-1 font-semibold transition"
-					:class="shaderMode === 'v1' ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-500 hover:text-gray-800'"
-					:aria-pressed="shaderMode === 'v1'"
-					title="Shader v1: fast engineering view with baked section ambient occlusion"
-					@click="shaderMode = 'v1'"
-				>
-					Shader v1
-				</button>
-				<button
-					type="button"
-					data-testid="shader-v2-btn"
-					class="rounded-md px-2.5 py-1 font-semibold transition"
-					:class="shaderMode === 'v2' ? 'bg-white text-gray-900 shadow-2xs' : 'text-gray-500 hover:text-gray-800'"
-					:aria-pressed="shaderMode === 'v2'"
-					title="Shader v2: physical glass (IOR 1.52) and finish materials"
-					@click="shaderMode = 'v2'"
-				>
-					Shader v2
-				</button>
-			</div>
+		<!-- Gradual blur + centered Uiverse loader while 3D preview is calculating -->
+		<div
+			v-if="webGLSupported"
+			data-testid="window-3d-loader"
+			class="window3d-loader-overlay pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+			:class="sceneReady ? 'is-ready' : 'is-loading'"
+			:aria-busy="!sceneReady"
+		>
+			<StarfishLoader />
 		</div>
 
-		<!-- 3D Viewport Stage -->
 		<div
-			ref="stageEl"
-			class="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-b from-white via-slate-50 to-slate-200/60"
-			@click="onStageClick"
+			v-if="dragOverEmpty"
+			class="pointer-events-none absolute inset-3 z-20 rounded-lg border-2 border-dashed border-[#1a6fd4]/55 bg-[#1a6fd4]/[0.03]"
+		/>
+
+		<!-- Drag-and-drop cell / empty-space target badge when dropping palette items onto 3D model -->
+		<div
+			v-if="dragOverEmpty || dragOverCell"
+			data-testid="window-3d-drop-badge"
+			class="pointer-events-none absolute top-4 left-1/2 z-30 -translate-x-1/2 rounded-full border border-[#1a6fd4]/40 bg-[#e6effb]/95 px-3.5 py-1 text-xs font-semibold text-[#1a6fd4] shadow-sm backdrop-blur-sm"
 		>
-			<canvas
-				v-show="webGLSupported"
-				ref="canvasEl"
-				class="h-full w-full block cursor-grab active:cursor-grabbing outline-none"
-			/>
+			{{ dragOverEmpty ? 'Drop in empty space to replace design' : `Drop onto cell ${dragOverCellLabel}` }}
+		</div>
 
-			<div
-				v-if="!webGLSupported"
-				class="flex flex-col items-center justify-center p-8 text-center text-gray-500"
-			>
-				<p class="font-medium text-sm">WebGL 3D preview</p>
-				<p class="mt-1 text-xs text-gray-400">Hardware acceleration is not available in this environment.</p>
-			</div>
-
-			<div class="pointer-events-none absolute bottom-3 left-4 flex items-center gap-3 text-xs text-gray-500 bg-white/75 px-3 py-1 rounded-full shadow-2xs backdrop-blur-xs">
-				<span>Drag to orbit · Scroll to zoom · Click any member to select</span>
-			</div>
+		<div
+			v-if="!webGLSupported"
+			class="flex h-full w-full flex-col items-center justify-center p-8 text-center text-gray-500"
+		>
+			<p class="font-medium text-sm">WebGL 3D preview</p>
+			<p class="mt-1 text-xs text-gray-400">Hardware acceleration is not available in this environment.</p>
 		</div>
 	</div>
 </template>
@@ -106,9 +57,15 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { createGlassMaterialPair } from './glass3D'
+import { createCutGlassGeometry, createGlassMaterialPair, createSteelMaterialPair } from './glass3D'
+import { createArchitecturalHandle, measureClosingStilePlacement } from './handle3D'
+import { pickWindowHit } from './grillPicking'
+import { grillMembers } from '@/design/grill'
+import { exhaustCut, steelThickness, type ExhaustCut } from '@/design/exhaustCut'
+import { fitGlassInDomain, glassDomainFromPiece } from '@/design/glassDomain'
 import { createLouverGroup } from './louver3D'
 import { seatAtDepth, splitAtSeatDepths, type ButtSeat } from './buttJoint'
+import StarfishLoader from './StarfishLoader.vue'
 import { createSectionAO, type SectionAO } from './profileAO'
 import { createV2Materials, disposeV2Textures, finishVertexTint, identifyFinish } from './materialsV2'
 import { crossSection, windowAssembly, type CrossSection, type SectionOutline, type WindowAssembly } from '@/api'
@@ -122,12 +79,16 @@ const props = withDefaults(
 	defineProps<{
 		design: Design
 		selectedPath?: string | null
+		side?: 'inside' | 'outside'
+		sashesOpen?: boolean
 		finishColor?: string
 		outsideFinishColor?: string
 		finishName?: string
 	}>(),
 	{
 		selectedPath: null,
+		side: 'inside',
+		sashesOpen: false,
 		finishColor: '#8A8F98',
 		outsideFinishColor: '',
 		finishName: 'Grey',
@@ -136,16 +97,28 @@ const props = withDefaults(
 
 const emit = defineEmits<{
 	select: [path: string]
+	'update:side': [side: 'inside' | 'outside']
+	'drop-tool': [payload: { kind: string; id: string; cellPath: string; replaceDesign?: boolean }]
 }>()
 
 const store = useDesignerStore()
 
 const stageEl = ref<HTMLDivElement | null>(null)
 const canvasEl = ref<HTMLCanvasElement | null>(null)
-const openAngle = ref(0)
-const shaderMode = ref<'v1' | 'v2'>('v1')
-const activeCameraPreset = ref<'iso' | 'front' | 'exterior' | 'mitre'>('iso')
+const openAngle = ref(props.sashesOpen ? 45 : 0)
+const shaderMode = ref<'v2'>('v2')
+const activeCameraPreset = ref<'iso' | 'front' | 'exterior' | 'mitre'>(props.side === 'outside' ? 'exterior' : 'front')
 const webGLSupported = ref(true)
+const sceneReady = ref(false)
+const hasCompletedInitialOutlinesRef = ref(false)
+const dragOverCell = ref<string | null>(null)
+const dragOverEmpty = ref(false)
+const dragOverCellLabel = computed(() => {
+	if (!dragOverCell.value) return ''
+	const cells = layoutGeom(props.design).cells
+	const idx = cells.findIndex((c) => c.path === dragOverCell.value)
+	return idx >= 0 ? `G${idx + 1}` : dragOverCell.value
+})
 
 watch([shaderMode, () => props.finishName], () => rebuildSceneDebounced())
 
@@ -177,6 +150,11 @@ const sashPivots: {
 	opening: string
 	initialRotY: number
 	initialRotX: number
+	isSliding?: boolean
+	slideFixed?: boolean
+	slideDir?: 'left' | 'right'
+	slideTravel?: number
+	initialX?: number
 }[] = []
 
 const raycaster = new THREE.Raycaster()
@@ -208,8 +186,89 @@ function checkWebGL(): boolean {
 	}
 }
 
-async function loadOutlines() {
-	if (!store.seriesVersion) { rebuildSceneDebounced(); return }
+let loadStartTs = 0
+let loadMinMs = 220
+let revealTimer: ReturnType<typeof setTimeout> | undefined
+const MIN_LOADER_MS = 220
+
+function designOutlinesKey(d: Design, sv: string): string {
+	return JSON.stringify({
+		sv,
+		w: d.width,
+		h: d.height,
+		fc: d.frameConfig ?? '4-side',
+		sl: Boolean(d.isSliding),
+		tc: d.trackCount ?? null,
+		fp: d.frameProfileId ?? null,
+		p: d.profiles ?? null,
+		r: d.root,
+	})
+}
+
+let hasCompletedInitialOutlines = false
+let loadedOutlinesKey = ''
+
+function beginModelLoad(force = false, minMs = MIN_LOADER_MS) {
+	if (!webGLSupported.value) {
+		sceneReady.value = true
+		return
+	}
+	clearTimeout(revealTimer)
+	if (!force && sceneReady.value && hasCompletedInitialOutlines) {
+		return
+	}
+	loadMinMs = minMs
+	loadStartTs = minMs > 0 ? (typeof performance !== 'undefined' ? performance.now() : Date.now()) : 0
+	sceneReady.value = false
+}
+
+function finishModelLoad() {
+	clearTimeout(revealTimer)
+	if (sceneReady.value) return
+	if (!webGLSupported.value) {
+		sceneReady.value = true
+		return
+	}
+	const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+	const elapsed = loadStartTs > 0 ? now - loadStartTs : loadMinMs
+	const wait = Math.max(0, loadMinMs - elapsed)
+	const reveal = () => {
+		if (typeof requestAnimationFrame === 'function') {
+			requestAnimationFrame(() => {
+				sceneReady.value = true
+			})
+		} else {
+			sceneReady.value = true
+		}
+	}
+	if (wait > 0) {
+		revealTimer = setTimeout(reveal, wait)
+	} else {
+		reveal()
+	}
+}
+
+async function loadOutlines(showLoader = false) {
+	const keyAtStart = designOutlinesKey(props.design, store.seriesVersion)
+	if (showLoader || !hasCompletedInitialOutlines) {
+		if (showLoader) {
+			hasCompletedInitialOutlines = false
+			hasCompletedInitialOutlinesRef.value = false
+			loadedOutlinesKey = ''
+		}
+		beginModelLoad(false, MIN_LOADER_MS)
+	} else if (loadedOutlinesKey !== keyAtStart) {
+		// Prevent showing a stale/disfigured scene while new outlines and assembly compute.
+		beginModelLoad(true, 0)
+	}
+	if (!store.seriesVersion) {
+		loadedOutlinesKey = keyAtStart
+		hasCompletedInitialOutlines = true
+		hasCompletedInitialOutlinesRef.value = true
+		clearTimeout(rebuildTimer)
+		rebuild3DWindow()
+		return
+	}
 	const mine = ++outlineRequest
 	try {
 		const { cells } = layoutGeom(props.design)
@@ -227,18 +286,29 @@ async function loadOutlines() {
 			cuts.push(res.result)
 		}
 		sectionCuts.value = cuts
+		loadedOutlinesKey = keyAtStart
 		if (complete.ok) {
 			assembly.value = complete.result
 			profileOutlines.value = { ...outlines, ...complete.outlines }
-			rebuildSceneDebounced()
+			hasCompletedInitialOutlines = true
+			hasCompletedInitialOutlinesRef.value = true
+			clearTimeout(rebuildTimer)
+			rebuild3DWindow()
 			return
 		}
 		// Compatibility while a site has not yet received the assembly endpoint.
 		assembly.value = null
 		profileOutlines.value = outlines
-		rebuildSceneDebounced()
+		hasCompletedInitialOutlines = true
+		hasCompletedInitialOutlinesRef.value = true
+		clearTimeout(rebuildTimer)
+		rebuild3DWindow()
 	} catch (e) {
 		console.warn('[3D] could not load section data', e)
+		loadedOutlinesKey = keyAtStart
+		hasCompletedInitialOutlines = true
+		hasCompletedInitialOutlinesRef.value = true
+		finishModelLoad()
 	}
 }
 
@@ -301,6 +371,19 @@ function getPieceTransform(
 		}
 		if (sectionMap[`${effAxis}:${effIndex}:${canonKey}`]) {
 			return sectionMap[`${effAxis}:${effIndex}:${canonKey}`]
+		}
+	}
+
+	const cfg = piece.config_placement
+	if (cfg && cfg.source === 'series_section_template' && piece.kind === 'profile') {
+		return {
+			offsetAlong: typeof cfg.offsetAlong === 'number' ? cfg.offsetAlong : 0,
+			offsetDepth: typeof cfg.offsetDepth === 'number' ? cfg.offsetDepth : 0,
+			rotation: typeof cfg.rotation === 'number' ? ((((cfg.rotation % 360) + 360) % 360) as 0 | 90 | 180 | 270) : 0,
+			flipX: Boolean(cfg.flipX),
+			flipY: Boolean(cfg.flipY),
+			...(typeof cfg.originU === 'number' ? { originU: cfg.originU } : {}),
+			...(typeof cfg.originDepth === 'number' ? { originDepth: cfg.originDepth } : {}),
 		}
 	}
 
@@ -400,8 +483,8 @@ function buildProfileShape(
 	const rot = (((transform?.rotation || 0) % 360) + 360) % 360
 	const flipX = Boolean(transform?.flipX)
 	const flipY = Boolean(transform?.flipY)
-	const cx = transform?.originU ?? rawW / 2
-	const cy = transform?.originDepth ?? rawD / 2
+	const cx = rawW / 2
+	const cy = rawD / 2
 
 	const transformedRings = rings.map((ring) =>
 		ring.map((p) => {
@@ -461,7 +544,9 @@ function buildProfileShape(
 		// The section editor negates offsetAlong on a mirrored piece. Do the
 		// same here. Do not also mirror the outline; the rail yaw already
 		// points +u into the opening.
-		alongOffset: (mirrored ? -1 : 1) * (transform?.offsetAlong || 0),
+		// loops are normalized by minU above; restore that origin when placing
+		// the rail, otherwise it moves relative to the section and the grill.
+		alongOffset: minU + (mirrored ? -1 : 1) * (transform?.offsetAlong || 0),
 		cacheId: `${outline?.svg ?? `fallback:${rawW}x${rawD}`}:${rot}:${flipX ? 1 : 0}:${flipY ? 1 : 0}:${depthOffset}`,
 	}
 }
@@ -536,17 +621,19 @@ function paintProfileColors(
 function getExtrudedMemberGeometry(
 	shapeData: ProfileShapeData,
 	length: number,
-	isMitred = true,
+	isMitred: boolean | { start: boolean; end: boolean } = true,
 	cacheKey?: string,
 	colors?: { inside: THREE.Color; outside: THREE.Color },
 	mitreStart = 0,
 	mitreEnd = 0,
 	buttSeats?: { start?: ButtSeat; end?: ButtSeat },
 ): THREE.BufferGeometry {
+	const mitreStartOn = typeof isMitred === 'boolean' ? isMitred : isMitred.start
+	const mitreEndOn = typeof isMitred === 'boolean' ? isMitred : isMitred.end
 	const inside = colors?.inside ?? profileInside
 	const outside = colors?.outside ?? profileOutside
 	const key = cacheKey
-		? `${cacheKey}:${shapeData.cacheId}:${length}:${JSON.stringify(buttSeats ?? null)}:${isMitred ? 'm' : 's'}:${Math.round(mitreStart * 100)}:${Math.round(mitreEnd * 100)}:${inside.getHexString()}:${outside.getHexString()}`
+		? `${cacheKey}:${shapeData.cacheId}:${length}:${JSON.stringify(buttSeats ?? null)}:${mitreStartOn ? 'm' : 's'}${mitreEndOn ? 'm' : 's'}:${Math.round(mitreStart * 100)}:${Math.round(mitreEnd * 100)}:${inside.getHexString()}:${outside.getHexString()}`
 		: null
 	if (key && geometryCache.has(key)) {
 		return geometryCache.get(key)!
@@ -583,14 +670,13 @@ function getExtrudedMemberGeometry(
 		const u = pos.getY(i)
 		const z = pos.getZ(i)
 		let t = z
-		if (isMitred) {
+		if (mitreStartOn || mitreEndOn) {
 			// Anchor each 45° cut to the neighbouring rail's inward offset at
 			// that corner. Adjacent rails can have different section transforms.
-			t = z <= zMid
-				? u + mitreStart - mitreOverlap
-				: length - u - mitreEnd + mitreOverlap
+			if (z <= zMid && mitreStartOn) t = u + mitreStart - mitreOverlap
+			else if (z > zMid && mitreEndOn) t = length - u - mitreEnd + mitreOverlap
 		}
-		if (!isMitred && buttSeats) {
+		if (!mitreStartOn && !mitreEndOn && buttSeats) {
 			const start = z <= zMid
 			const seat = start ? buttSeats.start : buttSeats.end
 			const surface = seat ? seatAtDepth(seat, depth + shapeData.depthOffset, start) : null
@@ -682,16 +768,18 @@ function createSectionRing(
 	path: string,
 	cachePrefix: string,
 	colors?: { inside: THREE.Color; outside: THREE.Color },
+	frameConfig: '4-side' | '3-side' | '3-side-threshold' = '4-side',
 ): THREE.Group {
 	const group = new THREE.Group()
 	group.name = path
 	const kind = path.startsWith('GASKET') ? 'gasket' : path.startsWith('BEAD') ? 'bead' : 'member'
-	const definitions: { side: 'B' | 'R' | 'T' | 'L'; x: number; y: number; rotation: number; length: number }[] = [
-		{ side: 'B', x: box.x0, y: box.y0, rotation: 0, length: box.w },
-		{ side: 'R', x: box.x0 + box.w, y: box.y0, rotation: Math.PI / 2, length: box.h },
-		{ side: 'T', x: box.x0 + box.w, y: box.y0 + box.h, rotation: Math.PI, length: box.w },
-		{ side: 'L', x: box.x0, y: box.y0 + box.h, rotation: -Math.PI / 2, length: box.h },
+	const allDefs: { side: 'B' | 'R' | 'T' | 'L'; x: number; y: number; rotation: number; length: number; mitre: { start: boolean; end: boolean } }[] = [
+		{ side: 'B', x: box.x0, y: box.y0, rotation: 0, length: box.w, mitre: { start: frameConfig === '4-side', end: frameConfig === '4-side' } },
+		{ side: 'R', x: box.x0 + box.w, y: box.y0, rotation: Math.PI / 2, length: box.h, mitre: { start: frameConfig === '4-side', end: true } },
+		{ side: 'T', x: box.x0 + box.w, y: box.y0 + box.h, rotation: Math.PI, length: box.w, mitre: { start: true, end: true } },
+		{ side: 'L', x: box.x0, y: box.y0 + box.h, rotation: -Math.PI / 2, length: box.h, mitre: { start: true, end: frameConfig === '4-side' } },
 	]
+	const definitions = frameConfig === '3-side' ? allDefs.filter((d) => d.side !== 'B') : allDefs
 	const neighbours = {
 		B: { start: 'L', end: 'R' },
 		R: { start: 'B', end: 'T' },
@@ -704,7 +792,7 @@ function createSectionRing(
 			getExtrudedMemberGeometry(
 				sides[def.side],
 				def.length,
-				true,
+				def.mitre,
 				`${cachePrefix}:${def.side}`,
 				colors,
 				sides[neighbour.start].alongOffset,
@@ -773,27 +861,16 @@ function createGlassMesh(
 	thickness = GLASS_THICKNESS,
 	material: THREE.Material,
 	path: string,
+	cutout: ExhaustCut | null = null,
+	steel = false,
 ): THREE.Mesh {
-	const geom = new THREE.BoxGeometry(Math.max(2, w), Math.max(2, h), thickness)
-	const pair = createGlassMaterialPair(material, selectedGlassMat ?? material, w, h, thickness)
+	const geom = cutout ? createCutGlassGeometry(w, h, thickness, cutout) : new THREE.BoxGeometry(Math.max(2, w), Math.max(2, h), thickness)
+	const pair = steel ? createSteelMaterialPair() : createGlassMaterialPair(material, selectedGlassMat ?? material, w, h, thickness, Boolean(cutout))
 	const mesh = new THREE.Mesh(geom, pair.normal)
-	mesh.userData = { path, kind: 'glass', normalMaterial: pair.normal, selectedMaterial: pair.selected }
+	mesh.userData = { path, kind: 'glass', infillMaterial: steel ? 'steel' : 'glass', normalMaterial: pair.normal, selectedMaterial: pair.selected }
 	mesh.castShadow = false
 	mesh.receiveShadow = true
 	interactiveMeshes.push(mesh)
-	return mesh
-}
-
-// ---------------------------------------------------------------------------
-// Casement Hardware (Handle Marker)
-// ---------------------------------------------------------------------------
-
-function createHandleMesh(material: THREE.Material): THREE.Mesh {
-	// A small subtle rectangular marker/indicator on the sash stile instead of a bulky lever
-	const geom = new THREE.BoxGeometry(4, 22, 2.5)
-	const mesh = new THREE.Mesh(geom, material)
-	mesh.castShadow = true
-	mesh.receiveShadow = true
 	return mesh
 }
 
@@ -809,12 +886,18 @@ let hasFramedOnce = false
 
 function rebuildSceneDebounced() {
 	clearTimeout(rebuildTimer)
-	rebuildTimer = setTimeout(() => rebuild3DWindow(), 80)
+	if (store.seriesVersion && loadedOutlinesKey !== designOutlinesKey(props.design, store.seriesVersion)) {
+		return
+	}
+	rebuildTimer = setTimeout(() => rebuild3DWindow(), 24)
 }
 
 function loadOutlinesDebounced() {
 	clearTimeout(outlineTimer)
-	outlineTimer = setTimeout(() => void loadOutlines(), 100)
+	if (store.seriesVersion && loadedOutlinesKey !== designOutlinesKey(props.design, store.seriesVersion)) {
+		clearTimeout(rebuildTimer)
+	}
+	outlineTimer = setTimeout(() => void loadOutlines(), 16)
 }
 
 function disposeWindowObject(object: THREE.Object3D) {
@@ -883,6 +966,9 @@ function createMaterials() {
 
 function rebuild3DWindow() {
 	if (!scene) return
+	if (store.seriesVersion && loadedOutlinesKey !== designOutlinesKey(props.design, store.seriesVersion)) {
+		return
+	}
 
 	// Clear previous model objects
 	const toRemove = scene.children.filter((c) => c.name === 'window-root')
@@ -937,7 +1023,12 @@ function rebuild3DWindow() {
 	const hardwareMat = mats.hardware
 
 	// 1. Resolve Frame Profile & Build Outer Frame Ring
-	const frameCode = design.frameProfileId || design.profiles?.frame || store.seriesInfo?.role_defaults?.frame
+	const frameCode =
+		design.frameProfileId ||
+		design.profiles?.frame ||
+		sectionPieces('F1', 'frame')[0]?.code ||
+		assemblyMember('F1', 'frame')?.profile ||
+		store.seriesInfo?.role_defaults?.frame
 	const frameOutline = frameCode ? profileOutlines.value[frameCode] : undefined
 	const frameFaceWidth = profileFaceWidth(frameCode, 'frame', frameOutline?.width || DEFAULT_FRAME_WIDTH)
 	const frameSides = {
@@ -947,21 +1038,28 @@ function rebuild3DWindow() {
 		L: sideShape('F1', 'frame', 'L', frameCode, frameOutline, frameFaceWidth, DEFAULT_FRAME_DEPTH),
 	}
 	const frameShape = frameSides.B
+	const frameCfg = design.frameConfig ?? '4-side'
 	const outerRingGroup = createSectionRing(
 		{ x0: 0, y0: 0, w: design.width, h: design.height },
 		frameSides,
 		frameMat!,
 		'FRAME',
-		`frame:${frameCode || 'default'}`,
+		`frame:${frameCode || 'default'}:${frameCfg}`,
 		profileColors,
+		frameCfg,
 	)
 	rootGroup.add(outerRingGroup)
 
 	// Resolve all bar profiles before fitting the ends to their neighbours.
 	const barShapes = new Map<string, ProfileShapeData>()
 	for (const bar of geom.bars) {
+		if (design.isSliding && bar.dir === 'v') continue
 		const barRole = bar.dir === 'v' ? 'mullion' : 'transom'
-		const barCode = design.profiles?.[bar.id] || store.seriesInfo?.role_defaults?.[barRole]
+		const barCode =
+			design.profiles?.[bar.id] ||
+			sectionPieces(bar.id, barRole)[0]?.code ||
+			assemblyMember(bar.id, barRole)?.profile ||
+			store.seriesInfo?.role_defaults?.[barRole]
 		const barOutline = barCode ? profileOutlines.value[barCode] : undefined
 		const barFaceWidth = profileFaceWidth(barCode, barRole, barOutline?.width || DEFAULT_BAR_WIDTH)
 		const barPiece = sectionPieces(bar.id, barRole)[0]
@@ -979,6 +1077,7 @@ function rebuild3DWindow() {
 		barShapes.set(bar.id, barShape)
 	}
 	for (const bar of geom.bars) {
+		if (design.isSliding && bar.dir === 'v') continue
 		const barRole = bar.dir === 'v' ? 'mullion' : 'transom'
 		const barShape = barShapes.get(bar.id)!
 		// Keep the manufacturing span as the datum; fit each rendered cap to
@@ -1023,31 +1122,57 @@ function rebuild3DWindow() {
 		rootGroup.add(barMesh)
 	}
 
+	// Collect structural occluder bounds (outer frame + mullions/transoms) in rootGroup local coords
+	// so handle centering always measures the truly visible interior face of each sash stile.
+	const structuralOccluders: THREE.Box3[] = []
+	const collectLocalBox = (mesh: THREE.Mesh) => {
+		mesh.updateMatrix()
+		mesh.geometry.computeBoundingBox()
+		if (mesh.geometry.boundingBox) {
+			structuralOccluders.push(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix))
+		}
+	}
+	for (const child of outerRingGroup.children) {
+		if (child instanceof THREE.Mesh) collectLocalBox(child)
+	}
+	for (const child of rootGroup.children) {
+		if (child instanceof THREE.Mesh && child.userData.kind === 'bar') collectLocalBox(child)
+	}
+
 	// 3. Cells (Sashes, Fixed Glass, Louvers)
 	for (const cell of geom.cells) {
 		if (cell.node.type === 'sash') {
 			const sashNode = cell.node as SashNode
-			const sashCode = sashNode.profile || design.profiles?.[cell.path] || store.seriesInfo?.role_defaults?.sash
-			const sashOutline = sashCode ? profileOutlines.value[sashCode] : undefined
-			const sashFaceWidth = profileFaceWidth(sashCode, 'sash', sashOutline?.width || DEFAULT_SASH_WIDTH)
+			const isSlidingSash = Boolean(sashNode.isSliding)
 			// Cut pieces are keyed by panel (F1-S1), not the design path (F1.0).
 			const sashPanel = panelFor(cell.path, 'sash')
+			const sashCode =
+				sashNode.profile ||
+				design.profiles?.[cell.path] ||
+				sectionPieces(sashPanel, 'sash')[0]?.code ||
+				assemblyMember(cell.path, 'sash')?.profile ||
+				store.seriesInfo?.role_defaults?.sash
+			const sashOutline = sashCode ? profileOutlines.value[sashCode] : undefined
+			const sashFaceWidth = profileFaceWidth(sashCode, 'sash', sashOutline?.width || DEFAULT_SASH_WIDTH)
 
 			// The section engine has already made all side deductions.  A B-B cut
 			// supplies X bounds and an A-A cut supplies Y bounds for this sash.
 			const sashXSpan = sectionSpan(sashPanel, 'sash', 'h')
 			const sashYSpan = sectionSpan(sashPanel, 'sash', 'v')
 			const sashAssembly = assemblyMember(cell.path, 'sash')
-			const l = cell.x === 0 ? frameShape.faceWidth : DEFAULT_BAR_WIDTH / 2
+			const atLeftEdge = cell.x <= 0.1
+			const atRightEdge = Math.abs(cell.x + cell.w - design.width) < 0.1
+			const l = atLeftEdge ? frameShape.faceWidth : DEFAULT_BAR_WIDTH / 2
 			const b = cell.y === 0 ? frameShape.faceWidth : DEFAULT_BAR_WIDTH / 2
-			const sashX = sashAssembly?.x ?? sashXSpan?.min ?? cell.x + l
+			const interlockHalf = isSlidingSash ? Math.min(18, sashFaceWidth * 0.38) : 0
+			const rawSashX0 = atLeftEdge ? frameShape.faceWidth - 4 : cell.x - interlockHalf
+			const rawSashX1 = atRightEdge ? design.width - frameShape.faceWidth + 4 : cell.x + cell.w + interlockHalf
+			const sashX = isSlidingSash ? rawSashX0 : (sashAssembly?.x ?? sashXSpan?.min ?? cell.x + l)
 			const sashY = sashAssembly?.y ?? sashYSpan?.min ?? cell.y + b
-			const sashW = Math.max(20, sashAssembly?.width ?? (sashXSpan ? sashXSpan.max - sashXSpan.min : cell.w - 2 * l))
+			const sashW = Math.max(20, isSlidingSash ? rawSashX1 - rawSashX0 : (sashAssembly?.width ?? (sashXSpan ? sashXSpan.max - sashXSpan.min : cell.w - 2 * l)))
 			const sashH = Math.max(20, sashAssembly?.height ?? (sashYSpan ? sashYSpan.max - sashYSpan.min : cell.h - 2 * b))
-			// `buildProfileShape` already applies the section depth transform;
-			// keeping the pivot at zero avoids applying it twice when swinging.
-			const sashZ = 0
-
+			const trackCount = Math.max(2, sashNode.trackCount || design.trackCount || 2)
+			const trackIdx = sashNode.trackIdx ?? 0
 			const sashSides = {
 				B: sideShape(sashPanel, 'sash', 'B', sashCode, sashOutline, sashFaceWidth, DEFAULT_SASH_DEPTH, sectionMap[cell.path]),
 				R: sideShape(sashPanel, 'sash', 'R', sashCode, sashOutline, sashFaceWidth, DEFAULT_SASH_DEPTH, sectionMap[cell.path]),
@@ -1055,6 +1180,9 @@ function rebuild3DWindow() {
 				L: sideShape(sashPanel, 'sash', 'L', sashCode, sashOutline, sashFaceWidth, DEFAULT_SASH_DEPTH, sectionMap[cell.path]),
 			}
 			const sashShape = sashSides.B
+			// Separate multi-track sliding sashes in depth (+Z exterior -> -Z interior) so they pass cleanly.
+			const trackStep = Math.max(26, sashShape.depth * 0.72 + 4)
+			const sashZ = isSlidingSash ? (trackCount / 2 - 0.5 - trackIdx) * trackStep : 0
 
 			// Sash Group containing mitred frame, glass, and handle
 			const sashGroup = new THREE.Group()
@@ -1076,15 +1204,22 @@ function rebuild3DWindow() {
 			const glassXSpan = sectionSpan(sashPanel, 'glass', 'h')
 			const glassYSpan = sectionSpan(sashPanel, 'glass', 'v')
 			const paneAssembly = assemblyPane(cell.path)
-			const glassW = Math.max(10, paneAssembly?.width ?? (glassXSpan ? glassXSpan.max - glassXSpan.min : sashW - 2 * sashShape.faceWidth))
+			const glassW = Math.max(
+				10,
+				isSlidingSash
+					? sashW - 2 * sashShape.faceWidth + 10
+					: (paneAssembly?.width ?? (glassXSpan ? glassXSpan.max - glassXSpan.min : sashW - 2 * sashShape.faceWidth)),
+			)
 			const glassH = Math.max(10, paneAssembly?.height ?? (glassYSpan ? glassYSpan.max - glassYSpan.min : sashH - 2 * sashShape.faceWidth))
-			const glassThickness = glassPiece?.thickness || GLASS_THICKNESS
+			const glassThickness = cell.node.fan ? steelThickness(cell.node) : glassPiece?.thickness || GLASS_THICKNESS
 			const glassMesh = createGlassMesh(
 				glassW,
 				glassH,
 				glassThickness,
 				glassMat!,
 				`GLASS:${cell.path}`,
+				exhaustCut(cell.node, glassW, glassH),
+				Boolean(cell.node.fan),
 			)
 			const beadOffsetDepth = Number(props.design.beadOffset?.depth ?? 23)
 			const defaultGlassDepth = Math.max(14, beadOffsetDepth - glassThickness / 2)
@@ -1094,7 +1229,13 @@ function rebuild3DWindow() {
 					: defaultGlassDepth
 
 			glassMesh.position.set(
-				paneAssembly ? paneAssembly.x + paneAssembly.width / 2 - sashX : glassXSpan ? (glassXSpan.min + glassXSpan.max) / 2 - sashX : sashW / 2,
+				isSlidingSash
+					? sashW / 2
+					: paneAssembly
+						? paneAssembly.x + paneAssembly.width / 2 - sashX
+						: glassXSpan
+							? (glassXSpan.min + glassXSpan.max) / 2 - sashX
+							: sashW / 2,
 				paneAssembly ? paneAssembly.y + paneAssembly.height / 2 - sashY : glassYSpan ? (glassYSpan.min + glassYSpan.max) / 2 - sashY : sashH / 2,
 				sectionDepthToWorldZ(effGlassDepth),
 			)
@@ -1102,58 +1243,114 @@ function rebuild3DWindow() {
 
 			// Beads/gaskets are real catalog profiles too.  Their section
 			// cuts define the 4-sided ring around the pane.
-			for (const role of ['bead', 'gasket']) {
-				const beadPanel = panelFor(cell.path, role)
-				const bead = sectionPieces(beadPanel, role)[0]
-				const bx = sectionSpan(beadPanel, role, 'h')
-				const by = sectionSpan(beadPanel, role, 'v')
-				if (!bead || !bx || !by) continue
-				const outline = profileOutlines.value[bead.code]
-				const beadFaceWidth = profileFaceWidth(bead.code, role, 12)
-				const beadSides = {
-					B: sideShape(beadPanel, role, 'B', bead.code, outline, beadFaceWidth, DEFAULT_SASH_DEPTH),
-					R: sideShape(beadPanel, role, 'R', bead.code, outline, beadFaceWidth, DEFAULT_SASH_DEPTH),
-					T: sideShape(beadPanel, role, 'T', bead.code, outline, beadFaceWidth, DEFAULT_SASH_DEPTH),
-					L: sideShape(beadPanel, role, 'L', bead.code, outline, beadFaceWidth, DEFAULT_SASH_DEPTH),
+			if (!isSlidingSash) {
+				for (const role of ['bead', 'gasket']) {
+					const beadPanel = panelFor(cell.path, role)
+					const bead = sectionPieces(beadPanel, role)[0]
+					const bx = sectionSpan(beadPanel, role, 'h')
+					const by = sectionSpan(beadPanel, role, 'v')
+					if (!bead || !bx || !by) continue
+					const outline = profileOutlines.value[bead.code]
+					const beadFaceWidth = profileFaceWidth(bead.code, role, 12)
+					const beadSides = {
+						B: sideShape(beadPanel, role, 'B', bead.code, outline, beadFaceWidth, DEFAULT_SASH_DEPTH),
+						R: sideShape(beadPanel, role, 'R', bead.code, outline, beadFaceWidth, DEFAULT_SASH_DEPTH),
+						T: sideShape(beadPanel, role, 'T', bead.code, outline, beadFaceWidth, DEFAULT_SASH_DEPTH),
+						L: sideShape(beadPanel, role, 'L', bead.code, outline, beadFaceWidth, DEFAULT_SASH_DEPTH),
+					}
+					const gasketColors = { inside: new THREE.Color(0x20252b), outside: new THREE.Color(0x20252b) }
+					const beadRing = createSectionRing(
+						{ x0: bx.min - sashX, y0: by.min - sashY, w: bx.max - bx.min, h: by.max - by.min },
+						beadSides,
+						role === 'gasket' ? gasketMat! : frameMat!,
+						`${role.toUpperCase()}:${cell.path}`,
+						`${role}:${bead.code}`,
+						role === 'gasket' ? gasketColors : profileColors,
+					)
+					sashGroup.add(beadRing)
 				}
-				const gasketColors = { inside: new THREE.Color(0x20252b), outside: new THREE.Color(0x20252b) }
-				const beadRing = createSectionRing(
-					{ x0: bx.min - sashX, y0: by.min - sashY, w: bx.max - bx.min, h: by.max - by.min },
-					beadSides,
-					role === 'gasket' ? gasketMat! : frameMat!,
-					`${role.toUpperCase()}:${cell.path}`,
-					`${role}:${bead.code}`,
-					role === 'gasket' ? gasketColors : profileColors,
+			}
+
+			// Hardware Handle mounted dead-center on the actual visible interior face of the closing/lock stile
+			const isDoorSash = sashNode.sashConfig === 'door'
+			const skipHandle = sashNode.handle === 'none' || (isDoorSash && sashNode.activeLeaf === false) || (isSlidingSash && sashNode.slideFixed)
+			if (!skipHandle) {
+				const hinge = sashNode.hinge || 'left'
+				const slideDir = sashNode.slideDir || 'right'
+				const closingSide: 'L' | 'R' | 'B' | 'T' = isSlidingSash
+					? (slideDir === 'right' ? 'L' : 'R')
+					: hinge === 'right'
+						? 'L'
+						: hinge === 'top'
+							? 'B'
+							: hinge === 'bottom'
+								? 'T'
+								: 'R'
+				const closingMesh = sashRing.children.find(
+					(c): c is THREE.Mesh => c instanceof THREE.Mesh && c.userData.part === closingSide,
 				)
-				sashGroup.add(beadRing)
+				const localOccluders = structuralOccluders.map((b) =>
+					new THREE.Box3(
+						new THREE.Vector3(b.min.x - sashX, b.min.y - sashY, b.min.z - sashZ),
+						new THREE.Vector3(b.max.x - sashX, b.max.y - sashY, b.max.z - sashZ),
+					),
+				)
+				const glassBox = {
+					minX: glassMesh.position.x - glassW / 2,
+					maxX: glassMesh.position.x + glassW / 2,
+					minY: glassMesh.position.y - glassH / 2,
+					maxY: glassMesh.position.y + glassH / 2,
+				}
+				const fallbackCenter = closingSide === 'R' ? sashW - sashShape.faceWidth / 2 : sashShape.faceWidth / 2
+				const placed = closingMesh
+					? measureClosingStilePlacement(closingMesh, closingSide, glassBox, localOccluders)
+					: {
+							center: fallbackCenter,
+							exteriorCenter: fallbackCenter,
+							interiorZ: sectionDepthToWorldZ(sashShape.depth + sashShape.depthOffset),
+							exteriorZ: sectionDepthToWorldZ(sashShape.depthOffset),
+						}
+				const handleStyle: 'casement' | 'door' | 'sliding' = isSlidingSash ? 'sliding' : isDoorSash ? 'door' : 'casement'
+				const leverSign = closingSide === 'R' ? -1 : 1
+				const handleMesh = createArchitecturalHandle(handleStyle, leverSign, hardwareMat)
+				let handleX = closingSide === 'L' || closingSide === 'R' ? placed.center : sashW / 2
+				let handleY = sashH / 2
+				let extHandleX = closingSide === 'L' || closingSide === 'R' ? placed.exteriorCenter : sashW / 2
+				let extHandleY = sashH / 2
+				if (!isSlidingSash && hinge === 'top') {
+					handleX = sashW / 2
+					handleY = placed.center
+					extHandleX = sashW / 2
+					extHandleY = placed.exteriorCenter
+					handleMesh.rotation.z = Math.PI / 2
+				} else if (!isSlidingSash && hinge === 'bottom') {
+					handleX = sashW / 2
+					handleY = placed.center
+					extHandleX = sashW / 2
+					extHandleY = placed.exteriorCenter
+					handleMesh.rotation.z = Math.PI
+				}
+				handleMesh.position.set(handleX, handleY, placed.interiorZ)
+				sashGroup.add(handleMesh)
+
+				if (isDoorSash && !isSlidingSash) {
+					// Flip leverSign because rotation.y = Math.PI negates local X, keeping exterior lever over the glass
+					const extHandle = createArchitecturalHandle('door', -leverSign, hardwareMat)
+					extHandle.rotation.y = Math.PI
+					extHandle.position.set(extHandleX, extHandleY, placed.exteriorZ)
+					sashGroup.add(extHandle)
+				}
 			}
 
-			// Casement Handle Marker on closing stile (opposite side of hinge)
-			const handleMesh = createHandleMesh(hardwareMat)
-			const isLeftHinge = (sashNode.hinge || 'left') === 'left'
-			const stileInset = sashShape.faceWidth / 2
-			let handleX = isLeftHinge ? sashW - stileInset : stileInset
-			let handleY = sashH / 2
-			if (sashNode.hinge === 'top') {
-				handleX = sashW / 2
-				handleY = stileInset
-				handleMesh.rotation.z = Math.PI / 2
-			} else {
-				const targetY = typeof sashNode.ghh === 'number' && sashNode.ghh > 0
-					? Math.max(sashShape.faceWidth + 20, Math.min(sashH - sashShape.faceWidth - 20, sashNode.ghh - sashY))
-					: sashH / 2
-				handleY = targetY
-			}
-			const interiorZ = sectionDepthToWorldZ(sashShape.depth + sashShape.depthOffset) - 1.25
-			handleMesh.position.set(handleX, handleY, interiorZ)
-			sashGroup.add(handleMesh)
-
-			// Pivot setup for swing opening animation
+			// Pivot/Slide setup for opening animation
 			const hinge = sashNode.hinge || 'left'
 			const opening = sashNode.opening || 'out'
 			const pivotGroup = new THREE.Group()
 
-			if (hinge === 'left') {
+			if (isSlidingSash) {
+				pivotGroup.position.set(sashX, sashY, sashZ)
+				sashGroup.position.set(0, 0, 0)
+			} else if (hinge === 'left') {
 				pivotGroup.position.set(sashX, sashY, sashZ)
 				sashGroup.position.set(0, 0, 0)
 			} else if (hinge === 'right') {
@@ -1176,6 +1373,11 @@ function rebuild3DWindow() {
 				opening,
 				initialRotY: pivotGroup.rotation.y,
 				initialRotX: pivotGroup.rotation.x,
+				isSliding: isSlidingSash,
+				slideFixed: Boolean(sashNode.slideFixed),
+				slideDir: sashNode.slideDir || 'right',
+				slideTravel: sashW * 0.72,
+				initialX: pivotGroup.position.x,
 			})
 		} else if (cell.node.type === 'louver') {
 			const xs = sectionSpan(cell.path, 'louver', 'h')
@@ -1208,13 +1410,15 @@ function rebuild3DWindow() {
 			const b = cell.y === 0 ? frameShape.faceWidth : DEFAULT_BAR_WIDTH / 2
 			const cellW = Math.max(10, paneAssembly?.width ?? (glassXSpan ? glassXSpan.max - glassXSpan.min : cell.w - 2 * l))
 			const cellH = Math.max(10, paneAssembly?.height ?? (glassYSpan ? glassYSpan.max - glassYSpan.min : cell.h - 2 * b))
-			const glassThickness = glassPiece?.thickness || GLASS_THICKNESS
+			const glassThickness = cell.node.fan ? steelThickness(cell.node) : glassPiece?.thickness || GLASS_THICKNESS
 			const glassMesh = createGlassMesh(
 				cellW,
 				cellH,
 				glassThickness,
 				glassMat!,
 				`GLASS:${cell.path}`,
+				exhaustCut(cell.node, cellW, cellH),
+				Boolean(cell.node.fan),
 			)
 
 			const beadOffsetDepth = Number(props.design.beadOffset?.depth ?? 23)
@@ -1259,12 +1463,23 @@ function rebuild3DWindow() {
 		}
 	}
 
+ for (const bar of grillMembers(design)) {
+  const material = new THREE.MeshStandardMaterial({ color: 0x616873, roughness: 0.5, metalness: 0.65 })
+  const selected = material.clone(); selected.emissive.set(0x2563eb); selected.emissiveIntensity = 0.3
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(bar.w, bar.h, bar.depth), material)
+  mesh.position.set(bar.x+bar.w/2, bar.y+bar.h/2, sectionDepthToWorldZ(bar.offset))
+  mesh.userData = { path: `GRILL:${bar.path}`, kind: 'grill', normalMaterial: material, selectedMaterial: selected }
+  rootGroup.add(mesh); interactiveMeshes.push(mesh)
+ }
 	updateSashOpeningAngles()
 	highlightSelection()
-	// Only frame camera on first mount; preserving user orbit/zoom during design & profile edits
+	// Frame camera on initial mount & once real section outlines arrive
 	if (!hasFramedOnce) {
 		setCameraPreset(activeCameraPreset.value)
-		hasFramedOnce = true
+		if (hasCompletedInitialOutlines) hasFramedOnce = true
+	}
+	if (hasCompletedInitialOutlines) {
+		finishModelLoad()
 	}
 }
 
@@ -1322,6 +1537,17 @@ function getGlassTransformForCell(
 	if (sectionMap[cell.path]) return sectionMap[cell.path]
 
 	if (piece) {
+		const domain = glassDomainFromPiece(piece)
+		if (domain) {
+			const fit = fitGlassInDomain(piece.start, piece.end, piece.thickness, domain)
+			return {
+				offsetAlong: fit.offsetAlong,
+				offsetDepth: fit.offsetDepth,
+				rotation: 0,
+				flipX: false,
+				flipY: false,
+			}
+		}
 		const canonKey = `${piece.role}:${piece.code}`
 		if (sectionMap[canonKey]) return canonicalTransformForPiece(piece, sectionMap[canonKey])
 		for (const k of Object.keys(sectionMap)) {
@@ -1345,7 +1571,7 @@ function getGlassTransformForCell(
 
 function highlightSelection() {
 	if (!frameMat || !selectedFrameMat || !glassMat || !selectedGlassMat || !gasketMat) return
-	const sel = props.selectedPath || ''
+	const sel = dragOverCell.value ? `GLASS:${dragOverCell.value}` : (props.selectedPath || '')
 	for (const mesh of interactiveMeshes) {
 		const path = String(mesh.userData.path || '')
 		const kind = String(mesh.userData.kind || '')
@@ -1368,8 +1594,15 @@ function highlightSelection() {
 function updateSashOpeningAngles() {
 	const deg = animatedOpenAngle
 	const rad = THREE.MathUtils.degToRad(deg)
+	const slideFrac = deg / 45
 
 	for (const sp of sashPivots) {
+		if (sp.isSliding) {
+			if (!sp.slideFixed && sp.initialX !== undefined && sp.slideTravel) {
+				sp.pivot.position.x = sp.initialX + slideFrac * sp.slideTravel * (sp.slideDir === 'left' ? -1 : 1)
+			}
+			continue
+		}
 		if (sp.opening === 'none') {
 			sp.pivot.rotation.y = sp.initialRotY
 			sp.pivot.rotation.x = sp.initialRotX
@@ -1392,7 +1625,22 @@ watch(openAngle, () => undefined)
 // Camera Presets
 // ---------------------------------------------------------------------------
 
-function setCameraPreset(preset: 'iso' | 'front' | 'exterior' | 'mitre') {
+interface CamOrbitAnim {
+	startAzimuth: number
+	deltaAzimuth: number
+	startY: number
+	targetY: number
+	startDist: number
+	targetDist: number
+	startTarget: THREE.Vector3
+	endTarget: THREE.Vector3
+	t0: number
+	durMs: number
+}
+let camOrbitAnim: CamOrbitAnim | null = null
+let skipNextSideWatch = false
+
+function setCameraPreset(preset: 'iso' | 'front' | 'exterior' | 'mitre', animate = false) {
 	activeCameraPreset.value = preset
 	if (!camera || !controls) return
 
@@ -1407,38 +1655,92 @@ function setCameraPreset(preset: 'iso' | 'front' | 'exterior' | 'mitre') {
 	const size = bounds.isEmpty()
 		? new THREE.Vector3(props.design.width, props.design.height, 80)
 		: bounds.getSize(new THREE.Vector3())
-	const span = Math.max(size.x, size.y, 100)
 	const aspect = Math.max(0.1, stageEl.value?.clientWidth && stageEl.value?.clientHeight
 		? stageEl.value.clientWidth / stageEl.value.clientHeight : 1)
-	const fitHeight = Math.max(size.y, size.x / aspect) * 1.12
+	const fitHeight = Math.max(size.y, size.x / aspect) * 1.38
 	const frontDistance = fitHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))
 	camera.aspect = aspect
-	camera.near = 0.1
-	camera.far = 20000
+	camera.near = Math.max(8, frontDistance * 0.025)
+	camera.far = Math.max(6000, frontDistance * 10)
 	camera.updateProjectionMatrix()
 
-	controls.target.copy(center)
 	let target = center.clone()
+	let destPos = new THREE.Vector3(center.x, center.y, center.z - frontDistance)
 
 	if (preset === 'iso') {
-		// Strong enough Z angle to read actual profile depth, without hiding the
-		// plan opening behind the front rail.
-		camera.position.set(center.x + frontDistance * 0.55, center.y + frontDistance * 0.34, center.z + frontDistance * 0.92)
+		destPos.set(center.x + frontDistance * 0.55, center.y + frontDistance * 0.34, center.z + frontDistance * 0.92)
 	} else if (preset === 'front') {
-		camera.position.set(center.x, center.y, center.z - frontDistance)
+		destPos.set(center.x, center.y, center.z - frontDistance)
 	} else if (preset === 'exterior') {
-		camera.position.set(center.x, center.y, center.z + frontDistance)
+		destPos.set(center.x, center.y, center.z + frontDistance)
 	} else if (preset === 'mitre') {
-		// Close-up inspection of top-left 45° mitre corner seam
 		const frameFace = Math.max(20, size.x > 0 ? Math.min(size.x, size.y) * 0.06 : DEFAULT_FRAME_WIDTH)
 		target.set(bounds.min.x + frameFace, bounds.max.y - frameFace, center.z)
-		controls.target.copy(target)
-		camera.position.set(target.x + frameFace * 5, target.y - frameFace * 4, target.z + frameFace * 9)
+		destPos.set(target.x + frameFace * 5, target.y - frameFace * 4, target.z + frameFace * 9)
 	}
-	camera.lookAt(target)
 
+	if (animate && typeof performance !== 'undefined') {
+		const curOff = camera.position.clone().sub(controls.target)
+		const endOff = destPos.clone().sub(target)
+		const startDist = Math.max(1, Math.hypot(curOff.x, curOff.z))
+		const targetDist = Math.max(1, Math.hypot(endOff.x, endOff.z))
+		const startAzimuth = Math.atan2(curOff.x, curOff.z)
+		const targetAzimuth = Math.atan2(endOff.x, endOff.z)
+		let deltaAzimuth = targetAzimuth - startAzimuth
+		while (deltaAzimuth > Math.PI) deltaAzimuth -= Math.PI * 2
+		while (deltaAzimuth < -Math.PI) deltaAzimuth += Math.PI * 2
+		if (Math.abs(Math.abs(deltaAzimuth) - Math.PI) < 0.02) {
+			deltaAzimuth = preset === 'exterior' ? Math.PI : -Math.PI
+		}
+		camOrbitAnim = {
+			startAzimuth,
+			deltaAzimuth,
+			startY: curOff.y,
+			targetY: endOff.y,
+			startDist,
+			targetDist,
+			startTarget: controls.target.clone(),
+			endTarget: target.clone(),
+			t0: performance.now(),
+			durMs: 420,
+		}
+		return
+	}
+
+	camOrbitAnim = null
+	controls.target.copy(target)
+	camera.position.copy(destPos)
+	camera.lookAt(target)
 	controls.update()
 }
+
+function resetCam() {
+	if (props.side !== 'inside') {
+		skipNextSideWatch = true
+		emit('update:side', 'inside')
+	}
+	setCameraPreset('front', true)
+}
+
+watch(
+	() => props.side,
+	(nextSide) => {
+		if (skipNextSideWatch) {
+			skipNextSideWatch = false
+			return
+		}
+		setCameraPreset(nextSide === 'outside' ? 'exterior' : 'front', true)
+	},
+)
+
+watch(
+	() => props.sashesOpen,
+	(open) => {
+		openAngle.value = open ? 45 : 0
+	},
+)
+
+defineExpose({ resetCam })
 
 // ---------------------------------------------------------------------------
 // Interactive Object Selection (Raycaster)
@@ -1460,7 +1762,7 @@ function onStageClick(e: MouseEvent) {
 	const hits = raycaster.intersectObjects(interactiveMeshes, false)
 
 	if (hits.length > 0) {
-		const hit = hits[0]
+		const hit = pickWindowHit(hits)!
 		const path = (hit.object.userData?.path as string) || ''
 		if (path) {
 			emit('select', path)
@@ -1471,7 +1773,119 @@ function onStageClick(e: MouseEvent) {
 }
 
 function onPointerDown(e: PointerEvent) {
+	camOrbitAnim = null
 	pointerDownPos = { x: e.clientX, y: e.clientY }
+}
+
+function parseDragPayload(e: DragEvent): { kind: string; id: string } | null {
+	const raw =
+		e.dataTransfer?.getData('application/json') ||
+		e.dataTransfer?.getData('text/plain') ||
+		(window as unknown as { __fenDragPayload?: string }).__fenDragPayload
+	if (!raw) return null
+	try {
+		const parsed = JSON.parse(raw)
+		if (parsed && typeof parsed.kind === 'string' && typeof parsed.id === 'string') return parsed
+	} catch {
+		// ignore malformed payload
+	}
+	return null
+}
+
+function peekWindowDragKind(): string | null {
+	const raw = (window as unknown as { __fenDragPayload?: string }).__fenDragPayload
+	if (!raw) return null
+	try {
+		const parsed = JSON.parse(raw)
+		return typeof parsed?.kind === 'string' ? parsed.kind : null
+	} catch {
+		return null
+	}
+}
+
+function hitDropTarget(clientX: number, clientY: number): { cellPath: string; emptySpace: boolean } {
+	const cells = layoutGeom(props.design).cells
+	const validPaths = new Set(cells.map((c) => c.path))
+	const fallbackCell = cells[0]?.path || 'F1'
+	if (stageEl.value && camera && scene) {
+		const rect = stageEl.value.getBoundingClientRect()
+		if (rect.width > 0 && rect.height > 0) {
+			mouseVec.x = ((clientX - rect.left) / rect.width) * 2 - 1
+			mouseVec.y = -((clientY - rect.top) / rect.height) * 2 + 1
+			raycaster.setFromCamera(mouseVec, camera)
+
+			const hits = raycaster.intersectObjects(interactiveMeshes, false)
+			for (const hit of hits) {
+				const rawPath = String(hit.object.userData?.path || '')
+				const cellPath = rawPath.replace(/^(GLASS|BEAD|GASKET|GRILL):/, '')
+				if (validPaths.has(cellPath)) return { cellPath, emptySpace: false }
+			}
+
+			// Fallback: intersect window plane z = 0 in scene coordinates, accounting for rootGroup mirror (x -> W - x)
+			const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
+			const pt = new THREE.Vector3()
+			const hitPlane = raycaster.ray.intersectPlane(plane, pt)
+			const dx = props.design.width - pt.x
+			const dy = pt.y
+			const insideWindowBounds =
+				Boolean(hitPlane) && dx >= 0 && dx <= props.design.width && dy >= 0 && dy <= props.design.height
+
+			if (hits.length === 0 && !insideWindowBounds) {
+				return { cellPath: '', emptySpace: true }
+			}
+
+			if (hitPlane) {
+				const inside = cells.find((c) => dx >= c.x && dx <= c.x + c.w && dy >= c.y && dy <= c.y + c.h)
+				if (inside) return { cellPath: inside.path, emptySpace: false }
+				let nearest = fallbackCell
+				let bestD = Infinity
+				for (const c of cells) {
+					const cx = c.x + c.w / 2
+					const cy = c.y + c.h / 2
+					const d = Math.hypot(dx - cx, dy - cy)
+					if (d < bestD) {
+						bestD = d
+						nearest = c.path
+					}
+				}
+				return { cellPath: nearest, emptySpace: false }
+			}
+		}
+	}
+	return { cellPath: fallbackCell, emptySpace: false }
+}
+
+function onDragOver(e: DragEvent) {
+	e.preventDefault()
+	if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+	const target = hitDropTarget(e.clientX, e.clientY)
+	const nextCell = target.emptySpace ? null : target.cellPath
+	const nextEmpty = target.emptySpace && peekWindowDragKind() !== 'info'
+	const changed = dragOverCell.value !== nextCell
+	dragOverCell.value = nextCell
+	dragOverEmpty.value = nextEmpty
+	if (changed) highlightSelection()
+}
+
+function onDragLeave(e: DragEvent) {
+	const nextTarget = e.relatedTarget as Node | null
+	if (nextTarget && stageEl.value?.contains(nextTarget)) return
+	const changed = dragOverCell.value !== null
+	dragOverCell.value = null
+	dragOverEmpty.value = false
+	if (changed) highlightSelection()
+}
+
+function onDrop(e: DragEvent) {
+	e.preventDefault()
+	e.stopPropagation()
+	const target = hitDropTarget(e.clientX, e.clientY)
+	dragOverCell.value = null
+	dragOverEmpty.value = false
+	highlightSelection()
+	const payload = parseDragPayload(e)
+	;(window as unknown as { __fenDragPayload?: string }).__fenDragPayload = undefined
+	if (payload) emit('drop-tool', { ...payload, cellPath: target.cellPath, replaceDesign: target.emptySpace })
 }
 
 // ---------------------------------------------------------------------------
@@ -1541,9 +1955,9 @@ function initThree() {
 	const hemiLight = new THREE.HemisphereLight(0xffffff, 0x64748b, 0.25)
 	scene.add(hemiLight)
 
-	setCameraPreset('iso')
+	setCameraPreset(props.side === 'outside' ? 'exterior' : 'front')
 	hasFramedOnce = true
-	rebuild3DWindow()
+	if (!store.seriesVersion) rebuild3DWindow()
 
 	stageEl.value.addEventListener('pointerdown', onPointerDown)
 
@@ -1558,11 +1972,34 @@ function initThree() {
 			animatedOpenAngle = target
 			updateSashOpeningAngles()
 		}
+		if (camOrbitAnim && camera && controls) {
+			const t = Math.min(1, (performance.now() - camOrbitAnim.t0) / camOrbitAnim.durMs)
+			const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+			const az = camOrbitAnim.startAzimuth + camOrbitAnim.deltaAzimuth * e
+			const dist = camOrbitAnim.startDist + (camOrbitAnim.targetDist - camOrbitAnim.startDist) * e
+			const oy = camOrbitAnim.startY + (camOrbitAnim.targetY - camOrbitAnim.startY) * e
+			const curTarget = camOrbitAnim.startTarget.clone().lerp(camOrbitAnim.endTarget, e)
+			controls.target.copy(curTarget)
+			camera.position.set(
+				curTarget.x + dist * Math.sin(az),
+				curTarget.y + oy,
+				curTarget.z + dist * Math.cos(az),
+			)
+			camera.lookAt(curTarget)
+			if (t >= 1) camOrbitAnim = null
+		}
 		controls?.update()
+		if (!camOrbitAnim && camera && controls) {
+			const nextSide: 'inside' | 'outside' = (camera.position.z - controls.target.z) >= 0 ? 'outside' : 'inside'
+			if (nextSide !== props.side) {
+				skipNextSideWatch = true
+				emit('update:side', nextSide)
+			}
+		}
 		if (camera && controls) {
 			const dist = Math.max(1, camera.position.distanceTo(controls.target))
-			const near = Math.min(5, Math.max(0.05, dist * 0.002))
-			const far = Math.max(4000, dist * 12)
+			const near = Math.max(8, dist * 0.025)
+			const far = Math.max(6000, dist * 10)
 			if (Math.abs(camera.near - near) > near * 0.2 || Math.abs(camera.far - far) > far * 0.2) {
 				camera.near = near
 				camera.far = far
@@ -1589,13 +2026,15 @@ function initThree() {
 }
 
 onMounted(() => {
+	beginModelLoad()
 	initThree()
-	loadOutlines()
+	loadOutlines(true)
 })
 
 onUnmounted(() => {
 	clearTimeout(rebuildTimer)
 	clearTimeout(outlineTimer)
+	clearTimeout(revealTimer)
 	if (animFrameId !== null) cancelAnimationFrame(animFrameId)
 	if (stageEl.value) stageEl.value.removeEventListener('pointerdown', onPointerDown)
 	resizeObserver?.disconnect()
@@ -1638,12 +2077,60 @@ watch(
 
 watch(
 	() => store.seriesVersion,
-	() => loadOutlines(),
+	() => loadOutlines(true),
 )
 </script>
 
 <style scoped>
 canvas {
 	touch-action: none;
+}
+
+.window3d-canvas-reveal {
+	transition:
+		opacity 0.7s ease-in-out,
+		filter 0.7s ease-in-out,
+		transform 0.7s ease-in-out;
+	will-change: opacity, filter, transform;
+}
+
+.window3d-canvas-reveal.is-initial-loading {
+	opacity: 0;
+	filter: blur(8px);
+	transform: scale(0.985);
+}
+
+.window3d-canvas-reveal.is-loading {
+	opacity: 0.35;
+	filter: blur(10px);
+	transform: scale(0.99);
+}
+
+.window3d-canvas-reveal.is-ready {
+	opacity: 1;
+	filter: blur(0px);
+	transform: scale(1);
+}
+
+.window3d-loader-overlay {
+	background-color: rgba(248, 250, 252, 0.72);
+	transition:
+		opacity 0.7s ease-in-out,
+		backdrop-filter 0.7s ease-in-out,
+		visibility 0.7s ease-in-out;
+}
+
+.window3d-loader-overlay.is-loading {
+	opacity: 1;
+	backdrop-filter: blur(10px);
+	visibility: visible;
+	pointer-events: auto;
+}
+
+.window3d-loader-overlay.is-ready {
+	opacity: 0;
+	backdrop-filter: blur(0px);
+	visibility: hidden;
+	pointer-events: none;
 }
 </style>

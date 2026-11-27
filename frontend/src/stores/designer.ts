@@ -53,6 +53,8 @@ export const useDesignerStore = defineStore('designer', {
 		result: null as ComputeResult | null,
 		seriesInfo: null as SeriesInfo | null,
 		seriesVersion: '',
+		catalogProfileWidths: {} as Record<string, number>,
+		catalogRoleDefaults: {} as Record<string, string>,
 		finish: '' as string,
 		priceStructure: '' as string,
 		error: null as string | null,
@@ -65,11 +67,12 @@ export const useDesignerStore = defineStore('designer', {
 		selection(state): SelectionState {
 			const sel = state.selectedPath
 			if (!sel) return { kind: 'none', id: '' }
+			if (sel.startsWith('GRILL:')) return {kind:'grill',id:sel,memberPath:sel.slice(6)}
 			if (sel.startsWith('BEAD:')) {
 				const memberPath = sel.replace(/^BEAD:/, '')
 				return { kind: 'bead', id: sel, memberPath }
 			}
-			if (sel === 'FRAME' || sel === 'F1') {
+			if (sel === 'FRAME' || (sel === 'F1' && state.design.root.type === 'split')) {
 				// If root is a split, F1 is the outer frame context in designer
 				return { kind: 'frame', id: 'FRAME', panelId: 'F1' }
 			}
@@ -137,6 +140,11 @@ export const useDesignerStore = defineStore('designer', {
 		/** After undo/redo the selected node may be gone: select its nearest existing ancestor. */
 		keepSelection() {
 			let path = this.selectedPath
+            if(path.startsWith('GRILL:')) {
+             const cell=path.slice(6)
+             this.selectedPath=hasNode(this.design,cell) ? path : 'F1'
+             return
+            }
 			if (!path) return
 			if (/^[MT]\d+$/.test(path)) {
 				const exists = layoutGeom(this.design).bars.some((b) => b.id === path)
@@ -175,7 +183,7 @@ export const useDesignerStore = defineStore('designer', {
 			// Role validation
 			if (roleTag && cleanCode) {
 				const tag = roleTag.toLowerCase()
-				if (kind === 'frame' && tag !== 'frame') {
+				if (kind === 'frame' && tag !== 'frame' && tag !== 'threshold') {
 					throw new Error(`Cannot assign role '${roleTag}' to outer frame`)
 				}
 				if (kind === 'sash' && tag !== 'sash') {
@@ -193,6 +201,22 @@ export const useDesignerStore = defineStore('designer', {
 				const nextProfiles = { ...(d.profiles ?? {}) }
 
 				if (kind === 'frame') {
+					if (id.startsWith('F1.')) {
+						const side = id.slice(3)
+						const nextOverridden = { ...(d.frameOverridden ?? {}) }
+						if (cleanCode) {
+							nextProfiles[id] = cleanCode
+							nextOverridden[side] = true
+						} else {
+							delete nextProfiles[id]
+							delete nextOverridden[side]
+						}
+						return {
+							...d,
+							profiles: Object.keys(nextProfiles).length ? nextProfiles : undefined,
+							frameOverridden: Object.keys(nextOverridden).length ? nextOverridden : undefined,
+						}
+					}
 					if (cleanCode) {
 						nextProfiles.frame = cleanCode
 					} else {
@@ -340,21 +364,31 @@ export const useDesignerStore = defineStore('designer', {
 		setSectionMap(map: Record<string, SectionPieceTransform>) {
 			this.apply((d) => ({ ...d, sectionMap: map }))
 		},
+		setCatalogProfileMeta(widths: Record<string, number>, roleDefaults: Record<string, string>) {
+			this.catalogProfileWidths = widths
+			this.catalogRoleDefaults = roleDefaults
+		},
 		reset(design: Design, seriesVersion: string, finish = '', priceStructure = '') {
 			const migrated = migrateDesignProfiles(design)
-			this.$patch({
-				design: migrated,
-				seriesVersion,
-				finish,
-				priceStructure,
-				selectedPath: 'F1',
-				past: [],
-				future: [],
-				result: null,
-				seriesInfo: null,
-				error: null,
-				dirty: false,
-				dragOrigin: null,
+			const sameSeries = seriesVersion === this.seriesVersion
+			// Callback $patch replaces design atomically; object $patch mutates root.type before root.children, breaking sync watchers.
+			this.$patch((state) => {
+				state.design = migrated
+				state.seriesVersion = seriesVersion
+				state.finish = finish
+				state.priceStructure = priceStructure
+				state.selectedPath = 'F1'
+				state.past = []
+				state.future = []
+				state.result = null
+				state.seriesInfo = null
+				if (!sameSeries) {
+					state.catalogProfileWidths = {}
+					state.catalogRoleDefaults = {}
+				}
+				state.error = null
+				state.dirty = false
+				state.dragOrigin = null
 			})
 			this.scheduleCompute()
 		},

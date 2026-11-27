@@ -3,3 +3,48 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Polished Select floating dropdown menu (portaled via Reka SelectContent[role="listbox"]) */
+[data-slot='content'][role='listbox'] [data-slot='content-body'] {
+	border: 1px solid #d5dbe3 !important;
+	border-radius: 9px !important;
+	background-color: #ffffff !important;
+	box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.14), 0 4px 10px -3px rgba(15, 23, 42, 0.06) !important;
+	--tw-ring-shadow: 0 0 #0000 !important;
+}
+
+[data-slot='content'][role='listbox'] [data-reka-select-viewport] {
+	padding: 5px !important;
+	gap: 2px !important;
+	max-height: 280px;
+	overflow-y: auto;
+}
+
+[data-slot='content'][role='listbox'] [data-slot='item'] {
+	border-radius: 6px !important;
+	min-height: 32px !important;
+	padding: 5px 8px !important;
+	font-size: 13px !important;
+	color: #1e293b !important;
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease;
+}
+
+[data-slot='content'][role='listbox'] [data-slot='item'][data-highlighted] {
+	background-color: #f1f5f9 !important;
+	color: #0f172a !important;
+}
+
+[data-slot='content'][role='listbox'] [data-slot='item'][data-state='checked'] {
+	background-color: #edf4ff !important;
+	color: #1a6fd4 !important;
+	font-weight: 600 !important;
+}
+
+[data-slot='content'][role='listbox'] [data-slot='item'][data-state='checked'][data-highlighted] {
+	background-color: #e0ecff !important;
+}
+
+[data-slot='content'][role='listbox'] [data-slot='item'] .lucide-check {
+	color: #1a6fd4 !important;
+}

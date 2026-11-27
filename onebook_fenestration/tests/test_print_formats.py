@@ -253,3 +253,23 @@ class TestAssemblyPrints(IntegrationTestCase):
 				self.assertIn("&lt;b&gt;x&lt;/b&gt;", html)
 			self.assertTrue(get_pdf(html).startswith(b"%PDF"))
 
+	def test_cutting_sheets_render(self):
+		from onebook_fenestration.production import cutting_sheet
+
+		w01 = frappe.get_doc("Window Design", {"project": self.project.name, "design_ref": "W01"})
+		win_ctx = cutting_sheet.window_cutting_sheet(w01)
+		self.assertEqual(win_ctx["project_code"], self.project.name)
+		self.assertTrue(win_ctx["groups"])
+		self.assertTrue(win_ctx["groups"][0]["patterns"][0]["diagram_uri"].startswith("data:image/svg+xml;base64,"))
+		win_html = frappe.get_print("Window Design", w01.name, print_format="Window Cutting Sheet")
+		self.assertIn("Cutting Sheet", win_html)
+		self.assertIn("W01", win_html)
+		self.assertTrue(get_pdf(win_html).startswith(b"%PDF"))
+
+		proj_ctx = cutting_sheet.project_cutting_sheet(self.project)
+		self.assertTrue(proj_ctx["summary"])
+		proj_html = frappe.get_print("Fenestration Project", self.project.name, print_format="Fenestration Cutting Sheet")
+		self.assertIn("Residual lengths", proj_html)
+		self.assertIn(test_quotation.COMPANY, proj_html)
+		self.assertTrue(get_pdf(proj_html).startswith(b"%PDF"))
+

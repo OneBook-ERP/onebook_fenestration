@@ -285,14 +285,14 @@ class TestEvaGoldenOnCs400V2(unittest.TestCase):
 # EvA design 123 (CS4800, 1500 x 1500, 12 mm toughened glass, fixed | outward sash split at 750): every profile cut.
 # Panel ids are the engine's (fixed pane "F1", sash pane "F1-S1"), EvA's F1-G1 / F1-S1-G2.
 EVA_123_CUTS = [
-	*[("CS4801", "F1", p, 1500.0, (45, 135)) for p in "BTLR"],
+	*[("CS4801", "F1", p, 1500.0, (45, 45)) for p in "BTLR"],
 	("CS4802", "F1", "H", 1449.0, (90, 90)),
-	*[("CS4803", "F1-S1", p, 727.0, (45, 135)) for p in "BT"],
-	*[("CS4803", "F1-S1", p, 1463.0, (45, 135)) for p in "LR"],
+	*[("CS4803", "F1-S1", p, 727.0, (45, 45)) for p in "BT"],
+	*[("CS4803", "F1-S1", p, 1463.0, (45, 45)) for p in "LR"],
 	*[("CS4808", "F1", p, 713.0, (90, 90)) for p in "BT"],
 	*[("CS4808", "F1", p, 1409.0, (90, 90)) for p in "LR"],
-	*[("HSL3410", "F1-S1", p, 621.0, (45, 135)) for p in "BT"],
-	*[("HSL3410", "F1-S1", p, 1357.0, (45, 135)) for p in "LR"],
+	*[("HSL3410", "F1-S1", p, 621.0, (45, 45)) for p in "BT"],
+	*[("HSL3410", "F1-S1", p, 1357.0, (45, 45)) for p in "LR"],
 ]
 
 

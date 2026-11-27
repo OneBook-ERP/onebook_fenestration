@@ -128,7 +128,17 @@
 						>
 							{{ displayProfileCode(p) }} · {{ p.profile_name }}
 						</div>
-						<span class="shrink-0 text-xs capitalize text-ink-gray-5">{{ p.role || '—' }}</span>
+						<div class="flex shrink-0 items-center gap-1.5">
+							<span
+								v-if="p.role !== 'bead' && p.role !== 'gasket' && p.profile_type && p.profile_type !== 'Both'"
+								data-testid="profile-type-badge"
+								class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+								:class="p.profile_type === 'Door' ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-700'"
+							>
+								{{ p.profile_type }}
+							</span>
+							<span class="text-xs capitalize text-ink-gray-5">{{ p.role || '—' }}</span>
+						</div>
 					</div>
 
 					<div class="mb-2 text-xs text-ink-gray-5">
@@ -213,7 +223,7 @@ defineEmits<{
 }>()
 
 const router = useRouter()
-const roles = ['ALL', 'frame', 'sash', 'mullion', 'transom', 'bead', 'accessory'] as const
+const roles = ['ALL', 'frame', 'sash', 'mullion', 'transom', 'bead', 'gasket', 'accessory'] as const
 const selectedSeries = ref<string>(props.initialSeries || 'ALL')
 const selectedRole = ref<string>('ALL')
 const search = ref('')
@@ -265,7 +275,7 @@ const filtered = computed(() => {
 		if (selectedSeries.value !== 'ALL' && p.series !== selectedSeries.value) return false
 		if (selectedRole.value !== 'ALL' && p.role !== selectedRole.value) return false
 		if (q) {
-			const hay = `${p.profile_code || ''} ${p.profile_name || ''} ${p.series || ''} ${p.role || ''}`.toLowerCase()
+			const hay = `${p.profile_code || ''} ${p.profile_name || ''} ${p.series || ''} ${p.role || ''} ${p.profile_type || ''}`.toLowerCase()
 			if (!hay.includes(q)) return false
 		}
 		return true

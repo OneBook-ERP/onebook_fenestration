@@ -190,10 +190,14 @@ def schedule_context(doc) -> dict:
 
 
 def _bar_row(bar: dict) -> dict:
+	length = bar.get("bar_length") or 0
+	rem = bar.get("remainder_mm") or 0
+	used_pct = round(max(0.0, min(100.0, ((length - rem) / length) * 100.0)), 1) if length else 0.0
 	return {
-		"bar_length": f"{bar['bar_length']:g}",
+		"bar_length": f"{length:g}",
 		"cuts": "; ".join(_cut_text(piece) for piece in bar["pieces"]),
-		"remainder": f"{bar['remainder_mm']:g}",
+		"remainder": f"{rem:g}",
+		"used_pct": used_pct,
 		"kind": "Rest" if bar["is_rest"] else "Waste",
 	}
 

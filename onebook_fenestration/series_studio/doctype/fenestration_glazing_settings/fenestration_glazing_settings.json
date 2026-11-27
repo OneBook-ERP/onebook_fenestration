@@ -1,0 +1,47 @@
+{
+    "actions": [],
+    "creation": "2026-11-24 00:00:00",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "rules_json",
+        "auto_config_json"
+    ],
+    "fields": [
+        {
+            "fieldname": "rules_json",
+            "fieldtype": "Long Text",
+            "label": "Global Bead & Gasket Rules JSON"
+        },
+        {
+            "fieldname": "auto_config_json",
+            "fieldtype": "Long Text",
+            "label": "Auto Bead & Gasket Width Config JSON"
+        }
+    ],
+    "issingle": 1,
+    "modified": "2026-11-24 00:00:00",
+    "modified_by": "Administrator",
+    "module": "Series Studio",
+    "name": "Fenestration Glazing Settings",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "read": 1,
+            "role": "Sales User"
+        },
+        {
+            "create": 1,
+            "delete": 1,
+            "read": 1,
+            "role": "System Manager",
+            "write": 1
+        },
+        {
+            "create": 1,
+            "read": 1,
+            "role": "Fenestration Engineer",
+            "write": 1
+        }
+    ]
+}

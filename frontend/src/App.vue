@@ -6,7 +6,7 @@
     </div>
     <RouterView v-else-if="$route.meta.fullscreen" />
     <AppShell v-else-if="session" :user="session.user" :roles="session.roles">
-      <RouterView :key="$route.fullPath" />
+      <RouterView :key="$route.path" />
     </AppShell>
   </FrappeUIProvider>
 </template>

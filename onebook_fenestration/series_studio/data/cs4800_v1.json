@@ -64,7 +64,7 @@
 			"profile": "CS4800-PH-FRAME",
 			"angles": [
 				45,
-				135
+				45
 			],
 			"length": "span",
 			"note": "PLACEHOLDER until DXF (copied from CS400)"
@@ -75,7 +75,7 @@
 			"profile": "CS4800-PH-SASH",
 			"angles": [
 				45,
-				135
+				45
 			],
 			"length": "span - d_start - d_end",
 			"note": "PLACEHOLDER until DXF (copied from CS400)"

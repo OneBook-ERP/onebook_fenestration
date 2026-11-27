@@ -1,7 +1,7 @@
 import re
 import unittest
 
-from onebook_fenestration.series_studio.outline import rotate_path, svg_extents
+from onebook_fenestration.series_studio.outline import compose_section_transform, rotate_path, svg_extents, transform_path
 
 RECT = "M 0 0 L 40 0 L 40 60 L 0 60 Z"
 
@@ -52,3 +52,28 @@ class TestRotatePath(unittest.TestCase):
 	def test_svg_extents(self):
 		self.assertEqual(svg_extents("M 5 5 L 45 5 L 45 65 Z"), (40, 60))
 		self.assertEqual(svg_extents(""), (0, 0))
+
+	def test_transform_path_flip_and_arc_sweep(self):
+		d, width, depth = transform_path("M 0 0 L 40 0 L 40 60 M 10 20 A 5 3 15 0 1 20 20", degrees=0, flip_x=True)
+		self.assertEqual((width, depth), (40, 60))
+		self.assertTrue(d.startswith("M 40 0 L 0 0 L 0 60 M 30 20"))
+		arc = re.search(r"A ([^A-Za-z]+)", d).group(1).split()
+		# Odd reflection negates x-axis-rotation mod 360 and flips sweep flag
+		self.assertEqual(arc, ["5", "3", "345", "0", "0", "20", "20"])
+
+	def test_transform_path_flip_y_then_rotate_90(self):
+		tri = "M 0 0 L 10 0 L 0 20 Z"
+		d, width, depth = transform_path(tri, degrees=90, flip_y=True)
+		self.assertEqual((width, depth), (20, 10))
+		# flip_y: (0,0)->(0,0), (10,0)->(10,0), (0,20)->(0,-20); rot 90: (0,0), (0,10), (20,0)
+		self.assertEqual(d, "M 0 0 L 0 10 L 20 0 Z")
+
+	def test_compose_section_transform_d4_order(self):
+		# Flip H (0, 1, 0) then rotate +90 = (90, 1, 0)
+		self.assertEqual(compose_section_transform(0, 0, 0, 90, True, False), (90, 1, 0))
+		# Now rotate that (90, 1, 0) again by +90 -> M(90) * M(90,1,0) = [[ -1, 0 ], [ 0, 1 ]] *? wait: M(90)*M(90,1,0) = (180,1,0) = M(0, 0, 1) (pure flip Y!)
+		self.assertEqual(compose_section_transform(90, 1, 0, 90, False, False), (0, 0, 1))
+		# Flip H twice returns identity
+		self.assertEqual(compose_section_transform(0, 1, 0, 0, True, False), (0, 0, 0))
+		# Flip X then Flip Y = 180° rotation with no flip
+		self.assertEqual(compose_section_transform(0, 1, 0, 0, False, True), (180, 0, 0))

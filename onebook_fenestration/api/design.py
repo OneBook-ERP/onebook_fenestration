@@ -13,7 +13,7 @@ from onebook_fenestration.fenestration.doctype.window_design.window_design impor
 	pricing_to_dict,
 	result_to_dict,
 )
-from onebook_fenestration.series_studio.outline import rotate_path
+from onebook_fenestration.series_studio.outline import transform_path
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 from onebook_fenestration.pricing.rates import (
 	missing_defaults_message,
@@ -82,7 +82,12 @@ def cross_section(design: dict | str, series_version: str, axis: str, at: float 
 		return {"ok": False, "error_type": "series", "message": str(exc)}
 	codes = {piece.code for piece in section.pieces if piece.kind == "profile"}
 	outlines = {code: _outline(p) for code, p in sorted(profiles.items()) if code in codes and p.section_svg}
-	return {"ok": True, "result": json.loads(json.dumps(dataclasses.asdict(section))), "outlines": outlines}
+	return {
+		"ok": True,
+		"result": json.loads(json.dumps(dataclasses.asdict(section))),
+		"outlines": outlines,
+		"section_config": snapshot.section_config or {},
+	}
 
 
 @frappe.whitelist()
@@ -146,7 +151,7 @@ def window_assembly(design: dict | str, series_version: str) -> dict:
 	pane_rows = []
 	for pane in result.glass:
 		x, y, w, h = _pane_rect(pane, by_path[pane.path], snapshot)
-		pane_rows.append({"id": f"glass:{pane.path}", "panel": pane.panel, "path": pane.path, "glass": pane.glass, "x": x, "y": y, "width": w, "height": h, "thickness": snapshot.glasses[pane.glass].thickness_mm})
+		pane_rows.append({"id": f"glass:{pane.path}", "panel": pane.panel, "path": pane.path, "glass": pane.glass, "x": x, "y": y, "width": w, "height": h, "thickness": pane.thickness or snapshot.glasses[pane.glass].thickness_mm, "cutout": pane.cutout, "material": pane.material})
 	codes = {m["profile"] for m in member_rows}
 	outlines = {code: _outline(p) for code, p in profiles.items() if code in codes and p.section_svg}
 	return {"ok": True, "result": {"width": design["width"], "height": design["height"], "members": member_rows, "panes": pane_rows, "issues": [dataclasses.asdict(i) for i in result.issues]}, "outlines": outlines}
@@ -165,17 +170,27 @@ def profile_catalog(series_version: str = "", start: int = 0, page_length: int =
 			series = get_snapshot(series_version).code
 		except (RuleError, frappe.DoesNotExistError):
 			pass
-	fields = ["name", "profile_code", "profile_name", "series", "role", "width_mm", "depth_mm", "section_svg", "section_rotation"]
-	rows = frappe.get_list("Fenestration Profile", fields=fields, order_by="profile_code asc", start=start, page_length=page_length)
+	fields = ["name", "profile_code", "profile_name", "series", "role", "width_mm", "depth_mm", "section_svg", "section_rotation", "section_flip_x", "section_flip_y"]
+	try:
+		rows = frappe.get_list("Fenestration Profile", fields=fields, order_by="profile_code asc", start=start, page_length=page_length)
+	except frappe.db.OperationalError:
+		rows = frappe.get_list("Fenestration Profile", fields=fields[:-2], order_by="profile_code asc", start=start, page_length=page_length)
 	count = frappe.db.count("Fenestration Profile")
 	items = []
 	for row in rows:
-		d = row.as_dict() if hasattr(row, "as_dict") else dict(row)
+		d = row.as_dict() if callable(getattr(row, "as_dict", None)) else dict(row)
 		d["code"] = d.get("profile_code") or d.get("name")
 		d["has_outline"] = bool(d.get("section_svg"))
 		d["current_series"] = bool(series and d.get("series") == series)
-		if d.get("section_svg") and int(d.get("section_rotation") or 0):
-			d["section_svg"] = _outline(d)["svg"]
+		d["outline_transformed"] = False
+		if d.get("section_svg") and (int(d.get("section_rotation") or 0) or int(d.get("section_flip_x") or 0) or int(d.get("section_flip_y") or 0)):
+			transformed = _outline(d)
+			d["section_svg"] = transformed["svg"]
+			if transformed.get("width") is not None:
+				d["width_mm"] = transformed["width"]
+			if transformed.get("depth") is not None:
+				d["depth_mm"] = transformed["depth"]
+			d["outline_transformed"] = True
 		items.append(d)
 	return {"ok": True, "items": items, "total": count, "next_start": start + len(items) if start + len(items) < count else None, "series": series}
 
@@ -196,16 +211,22 @@ def _pane_rect(pane, cell, snapshot):
 
 
 def _outline(profile) -> dict:
-	"""The stored outline turned by the profile's `section_rotation`: face along x, bbox at 0,0."""
-	if not int(profile.section_rotation or 0):
-		return {"svg": profile.section_svg, "width": profile.width_mm, "depth": profile.depth_mm}
-	svg, width, depth = rotate_path(profile.section_svg, profile.section_rotation)
+	"""The stored outline flipped and turned by the profile's defaults: face along x, bbox at 0,0."""
+	rot = int(profile.get("section_rotation") if isinstance(profile, dict) else getattr(profile, "section_rotation", 0) or 0)
+	fx = bool(int(profile.get("section_flip_x") if isinstance(profile, dict) else getattr(profile, "section_flip_x", 0) or 0))
+	fy = bool(int(profile.get("section_flip_y") if isinstance(profile, dict) else getattr(profile, "section_flip_y", 0) or 0))
+	svg_raw = profile.get("section_svg") if isinstance(profile, dict) else profile.section_svg
+	w_raw = profile.get("width_mm") if isinstance(profile, dict) else profile.width_mm
+	d_raw = profile.get("depth_mm") if isinstance(profile, dict) else profile.depth_mm
+	if not rot and not fx and not fy:
+		return {"svg": svg_raw, "width": w_raw, "depth": d_raw}
+	svg, width, depth = transform_path(svg_raw, rot, fx, fy)
 	return {"svg": svg, "width": width, "depth": depth}
 
 
 def _profile_sections(codes: list[str]) -> dict:
 	"""Outline and face size of each profile; read without per-user permission, like the series snapshot itself."""
-	fields = ["name", "section_svg", "section_rotation", "width_mm", "depth_mm"]
+	fields = ["name", "section_svg", "section_rotation", "section_flip_x", "section_flip_y", "width_mm", "depth_mm"]
 	try:
 		rows = frappe.get_all(
 			"Fenestration Profile",
@@ -213,11 +234,18 @@ def _profile_sections(codes: list[str]) -> dict:
 			fields=fields,
 		)
 	except frappe.db.OperationalError:
-		rows = frappe.get_all(
-			"Fenestration Profile",
-			filters={"name": ("in", codes or [""])},
-			fields=["name", "section_svg", "width_mm", "depth_mm"],
-		)
+		try:
+			rows = frappe.get_all(
+				"Fenestration Profile",
+				filters={"name": ("in", codes or [""])},
+				fields=["name", "section_svg", "section_rotation", "width_mm", "depth_mm"],
+			)
+		except frappe.db.OperationalError:
+			rows = frappe.get_all(
+				"Fenestration Profile",
+				filters={"name": ("in", codes or [""])},
+				fields=["name", "section_svg", "width_mm", "depth_mm"],
+			)
 	return {row.name: row for row in rows}
 
 
@@ -258,6 +286,8 @@ def series_info(series_version: str) -> dict:
 			"limiter": snapshot.constants.get("default_limiter", 0) == 1,
 			"mesh": snapshot.constants.get("default_mesh", 0) == 1,
 		},
+		"section_config": snapshot.section_config or {},
+		"supported_products": list(getattr(snapshot, "supported_products", ()) or ()),
 	}
 
 
@@ -270,6 +300,7 @@ def save_design(
 	svg: str = "",
 	qty: int = 1,
 	design_name: str = "",
+	floor: str = "",
 	location: str = "",
 	name: str | None = None,
 	finish: str | None = None,
@@ -292,6 +323,7 @@ def save_design(
 			"design_json": json.dumps(design),
 			"qty": qty,
 			"design_name": design_name,
+			"floor": floor,
 			"location": location,
 		}
 	)
@@ -344,6 +376,7 @@ def get_design(name: str) -> dict:
 		"design_ref",
 		"design_name",
 		"qty",
+		"floor",
 		"location",
 		"series_version",
 		"design_svg",
@@ -369,6 +402,7 @@ COPY_FIELDS = (
 	"finish",
 	"price_structure",
 	"qty",
+	"floor",
 	"location",
 	"design_name",
 	"design_svg",

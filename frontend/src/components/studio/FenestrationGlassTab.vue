@@ -5,7 +5,7 @@
 				Showing <strong class="text-ink-gray-9">{{ filtered.length }}</strong> of {{ glassList.length }} glass specifications
 			</div>
 
-			<div class="flex items-center gap-3">
+			<div class="flex flex-wrap items-center gap-2.5">
 				<FormControl
 					v-model="search"
 					type="search"
@@ -13,6 +13,16 @@
 					aria-label="Search glass"
 					class="w-60"
 				/>
+				<Button
+					variant="outline"
+					data-testid="global-glazing-config-btn"
+					route="/series-studio/glazing-config"
+				>
+					<template #prefix>
+						<span class="lucide-sliders-horizontal size-3.5 text-ink-gray-6" />
+					</template>
+					Bead &amp; Gasket Config
+				</Button>
 				<Button
 					variant="solid"
 					data-testid="new-glass-btn"

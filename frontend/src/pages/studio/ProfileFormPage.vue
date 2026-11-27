@@ -22,6 +22,11 @@
 					</h1>
 					<Badge :theme="hasSvg ? 'green' : 'gray'" :label="hasSvg ? 'DXF Parsed' : 'No DXF'" />
 					<Badge v-if="form.role" theme="blue" :label="form.role" />
+					<Badge
+						v-if="showProfileType && form.profile_type && form.profile_type !== 'Both'"
+						:theme="form.profile_type === 'Door' ? 'amber' : 'blue'"
+						:label="form.profile_type"
+					/>
 				</div>
 			</div>
 
@@ -78,7 +83,20 @@
 							type="select"
 							label="Role *"
 							:options="roleOptions"
+							data-testid="profile-role-select"
 						/>
+						<div v-if="showProfileType" data-testid="profile-type-field">
+							<FormControl
+								v-model="form.profile_type"
+								type="select"
+								label="Profile Type"
+								:options="profileTypeOptions"
+								data-testid="profile-type-select"
+							/>
+							<p class="mt-1 text-xs text-ink-gray-5">
+								Automatically assigns this profile to Window or Door templates in Section Templates.
+							</p>
+						</div>
 						<Combobox
 							v-model="form.item"
 							label="ERPNext Item"
@@ -234,6 +252,26 @@
 									<path d="M552 256L408 256C398.3 256 389.5 250.2 385.8 241.2C382.1 232.2 384.1 221.9 391 215L437.7 168.3C362.4 109.7 253.4 115 184.2 184.2C109.2 259.2 109.2 380.7 184.2 455.7C259.2 530.7 380.7 530.7 455.7 455.7C463.9 447.5 471.2 438.8 477.6 429.6C487.7 415.1 507.7 411.6 522.2 421.7C536.7 431.8 540.2 451.8 530.1 466.3C521.6 478.5 511.9 490.1 501 501C401 601 238.9 601 139 501C39.1 401 39 239 139 139C233.3 44.7 382.7 39.4 483.3 122.8L535 71C541.9 64.1 552.2 62.1 561.2 65.8C570.2 69.5 576 78.3 576 88L576 232C576 245.3 565.3 256 552 256z" />
 								</svg>
 							</button>
+							<button
+								type="button"
+								class="flex h-7 items-center justify-center border-l border-outline-gray-2 px-2 text-xs font-semibold transition-colors hover:bg-surface-gray-3"
+								:class="form.section_flip_x ? 'bg-blue-50 text-blue-700' : 'text-ink-gray-6 hover:text-ink-gray-9'"
+								title="Flip horizontally"
+								aria-label="Flip horizontally"
+								@click="flipProfile('x')"
+							>
+								Flip H
+							</button>
+							<button
+								type="button"
+								class="flex h-7 items-center justify-center border-l border-outline-gray-2 px-2 text-xs font-semibold transition-colors hover:bg-surface-gray-3"
+								:class="form.section_flip_y ? 'bg-blue-50 text-blue-700' : 'text-ink-gray-6 hover:text-ink-gray-9'"
+								title="Flip vertically"
+								aria-label="Flip vertically"
+								@click="flipProfile('y')"
+							>
+								Flip V
+							</button>
 						</div>
 
 						<Button
@@ -285,11 +323,12 @@
 
 				<div
 					v-if="hasSvg"
-					class="flex min-h-[320px] items-center justify-center overflow-hidden rounded-xl border border-outline-gray-2 bg-slate-50"
+					class="flex min-h-[340px] items-center justify-center overflow-hidden rounded-xl border border-outline-gray-2 bg-slate-50"
 				>
 					<svg
+						data-testid="profile-blueprint-svg"
 						:viewBox="`0 0 ${metrics.cw} ${metrics.ch}`"
-						class="block h-[320px] w-full"
+						class="block h-[340px] w-full select-none"
 						xmlns="http://www.w3.org/2000/svg"
 					>
 						<defs>
@@ -543,7 +582,7 @@
 
 <script setup lang="ts">
 import { Alert, Badge, Button, Checkbox, Combobox, FormControl, toast, upload, useList } from 'frappe-ui'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
 	getFenestrationProfileDoc,
@@ -551,9 +590,10 @@ import {
 	saveFenestrationProfile,
 	setProfileOrientation,
 	type FenestrationProfileRow,
+	type ProfileApplicationType,
 	type ProfileSeriesRow,
 } from '@/studio/api'
-import { cleanDxfFilename, computeBlueprintSvgMetrics } from '@/studio/sectionSvg'
+import { cleanDxfFilename, computeBlueprintSvgMetrics, profileRotationTransform } from '@/studio/sectionSvg'
 
 const props = defineProps<{ name?: string }>()
 const route = useRoute()
@@ -581,6 +621,7 @@ const form = reactive<{
 	profile_name: string
 	series: string
 	role: FenestrationProfileRow['role']
+	profile_type: ProfileApplicationType
 	item: string
 	bar_lengths: string
 	kg_per_m: number
@@ -592,6 +633,8 @@ const form = reactive<{
 	raw_width_mm: number | null
 	raw_depth_mm: number | null
 	section_rotation: string
+	section_flip_x: boolean
+	section_flip_y: boolean
 	perimeter_mm: number | null
 	total_perimeter_mm: number | null
 	visible_perimeter_mm: number | null
@@ -606,6 +649,7 @@ const form = reactive<{
 	profile_name: '',
 	series: String(route.query.series || ''),
 	role: 'frame',
+	profile_type: 'Both',
 	item: '',
 	bar_lengths: '4880, 5800',
 	kg_per_m: 1.0,
@@ -617,6 +661,8 @@ const form = reactive<{
 	raw_width_mm: null,
 	raw_depth_mm: null,
 	section_rotation: '0',
+	section_flip_x: false,
+	section_flip_y: false,
 	perimeter_mm: null,
 	total_perimeter_mm: null,
 	visible_perimeter_mm: null,
@@ -647,14 +693,33 @@ const seriesOptions = computed(() =>
 	})),
 )
 
+watch(
+	seriesOptions,
+	(opts) => {
+		if (!isEdit.value && !form.series && opts.length > 0) {
+			form.series = opts[0].value
+		}
+	},
+	{ immediate: true },
+)
+
 const roleOptions = [
 	{ label: 'Frame', value: 'frame' },
 	{ label: 'Sash', value: 'sash' },
 	{ label: 'Mullion', value: 'mullion' },
 	{ label: 'Transom', value: 'transom' },
 	{ label: 'Bead', value: 'bead' },
+	{ label: 'Gasket', value: 'gasket' },
 	{ label: 'Accessory', value: 'accessory' },
 ]
+
+const profileTypeOptions = [
+	{ label: 'Both (Window & Door)', value: 'Both' },
+	{ label: 'Window', value: 'Window' },
+	{ label: 'Door', value: 'Door' },
+]
+
+const showProfileType = computed(() => form.role !== 'bead' && form.role !== 'gasket')
 
 const itemOptions = computed(() => {
 	const all = itemsResource.data ?? []
@@ -692,15 +757,20 @@ const canSave = computed(() =>
 	),
 )
 
-const rotationTransform = computed(() => {
-	const rot = (((Number(form.section_rotation || 0) % 360) + 360) % 360)
-	const w0 = form.raw_width_mm ?? form.width_mm ?? 0
-	const h0 = form.raw_depth_mm ?? form.depth_mm ?? 0
-	if (rot === 90) return `translate(${h0}, 0) rotate(90)`
-	if (rot === 180) return `translate(${w0}, ${h0}) rotate(180)`
-	if (rot === 270) return `translate(0, ${w0}) rotate(270)`
-	return ''
-})
+const rotationTransform = computed(() =>
+	profileRotationTransform({
+		section_rotation: form.section_rotation,
+		section_flip_x: form.section_flip_x,
+		section_flip_y: form.section_flip_y,
+		width_mm: form.width_mm,
+		depth_mm: form.depth_mm,
+	}),
+)
+
+function flipProfile(dir: 'x' | 'y') {
+	if (dir === 'x') form.section_flip_x = !form.section_flip_x
+	else form.section_flip_y = !form.section_flip_y
+}
 
 function rotateProfile(deltaDeg: number) {
 	const cur = Number(form.section_rotation || 0)
@@ -724,8 +794,14 @@ async function saveDefaultOrientation() {
 	}
 	savingOrientation.value = true
 	try {
-		const res = await setProfileOrientation(props.name, form.section_rotation)
+		const res = await setProfileOrientation(props.name, {
+			rotation: form.section_rotation,
+			flip_x: form.section_flip_x,
+			flip_y: form.section_flip_y,
+		})
 		form.section_rotation = String(res.section_rotation)
+		form.section_flip_x = Boolean(res.section_flip_x)
+		form.section_flip_y = Boolean(res.section_flip_y)
 		form.width_mm = res.width_mm
 		form.depth_mm = res.depth_mm
 		toast.success(`Default orientation set to ${res.section_rotation}°`)
@@ -760,6 +836,8 @@ function applyDoc(doc: FenestrationProfileRow) {
 	form.profile_name = doc.profile_name || ''
 	form.series = doc.series || ''
 	form.role = doc.role || 'frame'
+	form.profile_type =
+		doc.profile_type === 'Window' || doc.profile_type === 'Door' ? doc.profile_type : 'Both'
 	form.item = doc.item || ''
 	form.bar_lengths = doc.bar_lengths || '4880, 5800'
 	form.kg_per_m = Number(doc.kg_per_m || 0)
@@ -767,6 +845,8 @@ function applyDoc(doc: FenestrationProfileRow) {
 	form.use_computed_weight = Boolean(doc.use_computed_weight)
 	form.area_mm2 = doc.area_mm2 ?? null
 	form.section_rotation = String(doc.section_rotation || '0')
+	form.section_flip_x = Boolean(Number(doc.section_flip_x || 0))
+	form.section_flip_y = Boolean(Number(doc.section_flip_y || 0))
 	const rot = (((Number(form.section_rotation || 0) % 360) + 360) % 360)
 	const isTurned = rot === 90 || rot === 270
 	form.raw_width_mm = isTurned ? (doc.depth_mm ?? null) : (doc.width_mm ?? null)
@@ -826,6 +906,10 @@ async function handleDxfFile(file: File) {
 			form.raw_width_mm = res.section.width_mm
 			form.raw_depth_mm = res.section.depth_mm
 			form.section_rotation = '0'
+	form.section_flip_x = false
+	form.section_flip_y = false
+			form.section_flip_x = false
+			form.section_flip_y = false
 			form.perimeter_mm = res.section.perimeter_mm
 			form.total_perimeter_mm = res.section.total_perimeter_mm
 			form.ix_mm4 = res.section.ix_mm4
@@ -855,6 +939,8 @@ function clearDxf() {
 	form.raw_width_mm = null
 	form.raw_depth_mm = null
 	form.section_rotation = '0'
+	form.section_flip_x = false
+	form.section_flip_y = false
 	form.perimeter_mm = null
 	form.total_perimeter_mm = null
 	form.ix_mm4 = null
@@ -881,17 +967,20 @@ async function save() {
 	try {
 		const saved = await saveFenestrationProfile(
 			{
-				profile_code: form.profile_code.trim(),
-				profile_name: form.profile_name.trim(),
+				profile_code: String(form.profile_code ?? '').trim(),
+				profile_name: String(form.profile_name ?? '').trim(),
 				series: form.series,
 				role: form.role,
-				item: form.item.trim() || null,
-				bar_lengths: form.bar_lengths.trim(),
+				profile_type: showProfileType.value ? form.profile_type : 'Both',
+				item: String(form.item ?? '').trim() || null,
+				bar_lengths: String(form.bar_lengths ?? '').trim(),
 				kg_per_m: Number(form.kg_per_m),
 				dxf_file: form.dxf_file || null,
 				use_computed_weight: form.use_computed_weight,
 				visible_perimeter_mm: form.visible_perimeter_mm,
 				section_rotation: form.section_rotation || '0',
+				section_flip_x: form.section_flip_x ? 1 : 0,
+				section_flip_y: form.section_flip_y ? 1 : 0,
 			},
 			props.name || null,
 		)

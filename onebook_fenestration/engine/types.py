@@ -40,6 +40,9 @@ class ProfileSpec:
 	bar_lengths: tuple[float, ...]
 	visible_perimeter_mm: float = 0.0
 	total_perimeter_mm: float = 0.0
+	width_mm: float = 0.0
+	depth_mm: float = 0.0
+	section_anchors: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -81,6 +84,7 @@ class GlassSpec:
 	name: str
 	thickness_mm: float
 	glass_mm: float | None = None
+	glazing_rules: tuple[dict, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -94,6 +98,11 @@ class SeriesSnapshot:
 	validation_rules: tuple[ValidationRule, ...]
 	glasses: dict[str, GlassSpec]
 	constants: dict[str, float]
+	section_config: dict = field(default_factory=dict)
+	global_glazing_rules: tuple[dict, ...] = ()
+	global_glazing_auto: dict = field(default_factory=dict)
+	gasket_catalog: tuple[dict, ...] = ()
+	supported_products: tuple[str, ...] = ()
 
 	@classmethod
 	def from_dict(cls, data: dict) -> "SeriesSnapshot":
@@ -107,12 +116,21 @@ class SeriesSnapshot:
 		for pcode, p in sections["profiles"].items():
 			spec = _row(ProfileSpec, {**p, "code": pcode}, f"profile {pcode}")
 			profiles[pcode] = ProfileSpec(
-				spec.code, spec.name, spec.kg_per_m, tuple(spec.bar_lengths), spec.visible_perimeter_mm, spec.total_perimeter_mm
+				spec.code,
+				spec.name,
+				spec.kg_per_m,
+				tuple(spec.bar_lengths),
+				spec.visible_perimeter_mm,
+				spec.total_perimeter_mm,
+				spec.width_mm,
+				spec.depth_mm,
+				dict(spec.section_anchors or {}),
 			)
 		member_rules = []
 		for r in sections["member_rules"]:
 			rule = _row(MemberRule, r, f"member rule {r.get('id')}")
-			angles, when = tuple(rule.angles), rule.when or ""
+			angles = tuple(45 if int(a) == 135 else int(a) for a in rule.angles)
+			when = rule.when or ""
 			member_rules.append(MemberRule(rule.id, rule.role, rule.profile, angles, rule.length, when))
 		return cls(
 			code=code,
@@ -122,8 +140,22 @@ class SeriesSnapshot:
 			member_rules=tuple(member_rules),
 			hardware_rules=tuple(_row(HardwareRule, r, f"hardware rule {r.get('id')}") for r in sections["hardware_rules"]),
 			validation_rules=tuple(_row(ValidationRule, r, f"validation rule {r.get('id')}") for r in sections["validation_rules"]),
-			glasses={gcode: _row(GlassSpec, {**g, "code": gcode}, f"glass {gcode}") for gcode, g in sections["glasses"].items()},
+			glasses={
+				gcode: GlassSpec(
+					code=gcode,
+					name=g["name"],
+					thickness_mm=g["thickness_mm"],
+					glass_mm=g.get("glass_mm"),
+					glazing_rules=tuple(g.get("glazing_rules") or ()),
+				)
+				for gcode, g in sections["glasses"].items()
+			},
 			constants=dict(sections["constants"]),
+			section_config=dict(data.get("section_config") or {}),
+			global_glazing_rules=tuple(data.get("global_glazing_rules") or ()),
+			global_glazing_auto=dict(data.get("global_glazing_auto") or {}),
+			gasket_catalog=tuple(data.get("gasket_catalog") or ()),
+			supported_products=tuple(data.get("supported_products") or ()),
 		)
 
 	def check(self) -> None:
@@ -176,6 +208,10 @@ class GlassPane:
 	height: float
 	path: str = ""
 
+	cutout: dict | None = None
+	material: str = "glass"
+	thickness: float = 0.0
+	bead: bool = True
 
 @dataclass(frozen=True)
 class BomLine:

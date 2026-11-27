@@ -208,3 +208,23 @@ class TestSectionCut(unittest.TestCase):
 		self.assertEqual({p.thickness for p in glass}, {6})
 		self.assertEqual({p.thickness for p in section.pieces if p.kind == "profile"}, {0})
 		self.assertEqual(asdict(glass[0])["thickness"], 6)
+
+	def test_sliding_horizontal_cut_omits_casement_mullions(self):
+		design = {
+			"width": 1200,
+			"height": 1200,
+			"isSliding": True,
+			"trackCount": 2,
+			"root": {
+				"type": "split",
+				"dir": "v",
+				"at": [600],
+				"children": [
+					{"type": "sash", "glass": "6CTG", "isSliding": True, "slideDir": "right", "trackIdx": 0},
+					{"type": "sash", "glass": "6CTG", "isSliding": True, "slideDir": "left", "trackIdx": 1},
+				],
+			},
+		}
+		cs = cross_section(design, cs4800(), "h")
+		roles = [p.role for p in cs.pieces]
+		self.assertNotIn("mullion", roles)

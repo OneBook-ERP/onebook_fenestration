@@ -72,6 +72,7 @@ def price(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingInput)
 	lines = []
 	seen = set()
 	issues = [Issue("warn", "no_rate", f"{name}: no rate", path="") for name in pricing.missing]
+	issues += [Issue("warn", "steel_rate_missing", "Steel sheet: no material rate configured; sheet cost is excluded", p.panel, path=p.path) for p in result.glass if p.material == "steel"]
 	warned = set()
 	for head in pricing.heads:
 		if head.key in _RESERVED or head.key in seen:
@@ -115,7 +116,7 @@ def _variables(result: EngineResult, snapshot: SeriesSnapshot, pricing: PricingI
 	)
 	hardware_cost = sum(b.qty * pricing.item_rates.get(b.item, 0) for b in result.bom if b.group != "Gasket")
 	gasket_cost = sum((b.length or 0) / 1000 * pricing.item_rates.get(b.item, 0) for b in result.bom if b.group == "Gasket")
-	glass_cost = sum(g.width * g.height / 1e6 * pricing.glass_rates.get(g.glass, 0) for g in result.glass)
+	glass_cost = sum(g.width * g.height / 1e6 * pricing.glass_rates.get(g.glass, 0) for g in result.glass if g.material != "steel")
 	return {
 		"profile_cost": profile_cost,
 		"hardware_cost": hardware_cost,

@@ -1,4 +1,5 @@
 import json
+import re
 
 import frappe
 from frappe.utils import escape_html, flt
@@ -14,6 +15,7 @@ DESIGN_FIELDS = (
 	"design_ref",
 	"design_name",
 	"qty",
+	"floor",
 	"location",
 	"series_version",
 	"finish",
@@ -22,6 +24,7 @@ DESIGN_FIELDS = (
 	"unit_price",
 	"rate_per_sqft",
 	"line_total",
+	"area_m2",
 	"area_sqft",
 	"window_kg",
 	"design_svg",
@@ -55,47 +58,99 @@ def assembly_summary(doc) -> list[dict]:
 				"refs": [],
 				"qty": 0,
 				"area_sqft": 0,
+				"weight_kg": 0,
 				"series": row["series"],
 				"typology": row["typology"],
+				"finishes": [],
+				"glasses": [],
+				"svg": row["svg"],
 			},
 		)
 		group["refs"].append(row["ref"])
 		group["qty"] += row["qty"]
 		group["area_sqft"] += row["area_sqft"] * row["qty"]
+		group["weight_kg"] += row["weight"] * row["qty"]
+		if row["finish"] and row["finish"] not in group["finishes"]:
+			group["finishes"].append(row["finish"])
+		for g in row["glass"]:
+			if g and g not in group["glasses"]:
+				group["glasses"].append(g)
+		if not group["svg"] and row["svg"]:
+			group["svg"] = row["svg"]
 	result = sorted(groups.values(), key=lambda g: (g["width"] or 0, g["height"] or 0), reverse=True)
 	for group in result:
 		group["refs"] = ", ".join(group["refs"])
 		group["area_sqft"] = round(group["area_sqft"], 3)
+		group["weight_kg"] = round(group["weight_kg"], 2)
+		group["finishes"] = ", ".join(group["finishes"])
+		group["glasses"] = ", ".join(group["glasses"])
 	return result
 
 
 def assembly_detail(doc) -> list[dict]:
-	"""One block per current design with its cut pieces (panel, position, profile, length, angles) for the Assembly Detail format."""
+	"""One block per current design with its cut pieces and glazing schedule for the Assembly Detail format."""
 	return [_detail_block(design) for design in current_designs(doc.name, DESIGN_FIELDS)]
 
 
 def _detail_block(design) -> dict:
 	row = _row(design)
 	snapshot = get_snapshot(design.series_version)
-	members = compute(json.loads(design.design_json or "{}"), snapshot).members
+	computed = compute(json.loads(design.design_json or "{}"), snapshot)
+	design_qty = design.qty or 1
 	counts: dict[tuple, int] = {}
-	for m in members:
-		key = (m.panel, m.position, m.profile, m.length, f"{m.angles[0]}/{m.angles[1]}")
+	for m in computed.members:
+		key = (m.panel, m.position, m.profile, m.length, f"{m.angles[0]}/{m.angles[1]}", m.role)
 		counts[key] = counts.get(key, 0) + 1
-	pieces = [
-		{
-			"panel": escape_html(panel),
-			"position": position,
-			"profile": escape_html(profile),
-			"profile_name": _profile_names(snapshot, [profile]),
-			"length": length,
-			"angles": angles,
-			"qty_per_window": count,
-		}
-		for (panel, position, profile, length, angles), count in counts.items()
-	]
+	pieces = []
+	for (panel, position, profile, length, angles, role), count in counts.items():
+		prof_spec = snapshot.profiles.get(profile)
+		kg_per_m = prof_spec.kg_per_m if prof_spec else 0.0
+		total_qty = count * design_qty
+		pieces.append(
+			{
+				"panel": escape_html(panel),
+				"position": position,
+				"role": escape_html(role),
+				"profile": escape_html(profile),
+				"profile_name": _profile_names(snapshot, [profile]),
+				"length": length,
+				"angles": angles,
+				"qty_per_window": count,
+				"total_qty": total_qty,
+				"weight_kg": round((length / 1000.0) * kg_per_m * total_qty, 3),
+			}
+		)
 	pieces.sort(key=lambda p: (p["panel"], _position_rank(p["position"])))
-	return {key: row[key] for key in ("ref", "name", "qty", "width", "height", "svg")} | {"pieces": pieces}
+	glazing = _detail_glazing(computed.glass, snapshot, design_qty)
+	return {
+		**{key: row[key] for key in ("ref", "name", "qty", "width", "height", "svg", "series", "finish", "finish_color", "floor", "location", "area_m2", "area_sqft", "weight")},
+		"total_weight": round(row["weight"] * design_qty, 2),
+		"pieces": pieces,
+		"glazing": glazing,
+	}
+
+
+def _detail_glazing(panes, snapshot, design_qty: int) -> list[dict]:
+	grouped: dict[tuple, int] = {}
+	for pane in panes:
+		key = (round(pane.width, 1), round(pane.height, 1), pane.glass, pane.material)
+		grouped[key] = grouped.get(key, 0) + 1
+	result = []
+	for (w, h, code, material), count in grouped.items():
+		label = "Steel" if material == "steel" else (snapshot.glasses[code].name if code in snapshot.glasses else code)
+		total_qty = count * design_qty
+		result.append(
+			{
+				"glass": escape_html(code or ""),
+				"glass_name": escape_html(label or ""),
+				"width": w,
+				"height": h,
+				"qty_per_window": count,
+				"total_qty": total_qty,
+				"area_m2": round((w * h / 1_000_000.0) * total_qty, 3),
+			}
+		)
+	return result
 
 
 def _position_rank(position: str) -> int:
@@ -103,20 +158,44 @@ def _position_rank(position: str) -> int:
 
 
 def company_header(company: str | None) -> dict:
-	"""Name, logo and address lines of the company, for formats that print without a Letter Head."""
+	"""Name, logo, contact and address lines of the company, for print formats."""
 	company = company or frappe.defaults.get_global_default("company")
 	address = company_address(company) if company else None
+	comp = (
+		frappe.db.get_value(
+			"Company",
+			company,
+			("company_logo", "phone_no", "email", "website", "tax_id"),
+			as_dict=True,
+		)
+		if company
+		else None
+	) or {}
+	addr_meta = _address_details(address) if address else {}
 	return {
 		"name": escape_html(company or ""),
-		"logo": company and frappe.db.get_value("Company", company, "company_logo"),
-		"address": escape_html(_address_line(address)) if address else "",
+		"logo": comp.get("company_logo"),
+		"address": escape_html(addr_meta.get("line") or ""),
+		"phone": escape_html(comp.get("phone_no") or addr_meta.get("phone") or ""),
+		"email": escape_html(comp.get("email") or addr_meta.get("email_id") or ""),
+		"website": escape_html(comp.get("website") or ""),
+		"tax_id": escape_html(comp.get("tax_id") or addr_meta.get("gstin") or ""),
 	}
 
 
-def _address_line(address: str) -> str:
-	fields = ("address_line1", "address_line2", "city", "state", "pincode")
-	values = frappe.db.get_value("Address", address, fields, as_dict=True)
-	return ", ".join(values[field] for field in fields if values[field])
+def _address_details(address: str) -> dict:
+	addr_fields = ["address_line1", "address_line2", "city", "state", "pincode", "phone", "email_id"]
+	has_gstin = frappe.get_meta("Address").has_field("gstin")
+	if has_gstin:
+		addr_fields.append("gstin")
+	values = frappe.db.get_value("Address", address, addr_fields, as_dict=True) or {}
+	line = ", ".join(values[f] for f in ("address_line1", "address_line2", "city", "state", "pincode") if values.get(f))
+	return {
+		"line": line,
+		"phone": values.get("phone") or "",
+		"email_id": values.get("email_id") or "",
+		"gstin": values.get("gstin") or "" if has_gstin else "",
+	}
 
 
 def quote_totals(doc, rows: list[dict]) -> dict:
@@ -169,9 +248,11 @@ def _row(design) -> dict:
 		"height": spec.get("height"),
 		"series": escape_html(_series_title(design.series_version) or ""),
 		"finish": escape_html(finish.finish_name) if finish else "",
-		"finish_color": escape_html(finish.color or "") if finish else "",
+		"finish_color": _safe_color(finish.color if finish else None),
 		"glass": [escape_html(snapshot.glasses[c].name if c in snapshot.glasses else c) for c in glass_codes],
+		"floor": escape_html(design.floor or ""),
 		"location": escape_html(design.location or ""),
+		"area_m2": flt(design.area_m2),
 		"area_sqft": flt(design.area_sqft),
 		"rate_per_sqft": flt(design.rate_per_sqft),
 		"unit_price": flt(design.unit_price),
@@ -197,3 +278,10 @@ def _profile_names(snapshot, codes) -> str:
 
 def _first_matching(names: list[str], word: str) -> str:
 	return escape_html(next((name for name in dict.fromkeys(names) if word in name.upper()), ""))
+
+
+def _safe_color(color: str | None) -> str:
+	val = (color or "").strip()
+	if re.fullmatch(r"#[0-9A-Fa-f]{3,8}|[A-Za-z]{3,20}", val):
+		return val
+	return ""

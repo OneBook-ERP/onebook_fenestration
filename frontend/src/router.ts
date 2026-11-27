@@ -4,6 +4,36 @@ export const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/projects' },
   { path: '/projects', name: 'Projects', component: () => import('@/pages/Projects.vue') },
   {
+    path: '/quotes',
+    name: 'Quotes',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'quotes' },
+  },
+  {
+    path: '/orders',
+    name: 'Orders',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'orders' },
+  },
+  {
+    path: '/production',
+    name: 'Production',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'production' },
+  },
+  {
+    path: '/install',
+    name: 'Install',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'install' },
+  },
+  {
+    path: '/reports',
+    name: 'Reports',
+    component: () => import('@/pages/PipelineOverviewPage.vue'),
+    props: { section: 'reports' },
+  },
+  {
     path: '/projects/:project',
     name: 'Project',
     component: () => import('@/pages/ProjectWorkspace.vue'),
@@ -31,6 +61,12 @@ export const routes: RouteRecordRaw[] = [
     path: '/series-studio/series/new',
     name: 'NewProfileSeries',
     component: () => import('@/pages/studio/ProfileSeriesFormPage.vue'),
+  },
+  {
+    path: '/series-studio/series/:name/section-config',
+    name: 'SeriesSectionConfig',
+    component: () => import('@/pages/studio/SeriesSectionConfigPage.vue'),
+    props: true,
   },
   {
     path: '/series-studio/series/:name',
@@ -69,6 +105,22 @@ export const routes: RouteRecordRaw[] = [
     path: '/series-studio/glass/:name',
     name: 'EditFenestrationGlass',
     component: () => import('@/pages/studio/GlassFormPage.vue'),
+    props: true,
+  },
+  {
+    path: '/series-studio/glazing-config',
+    name: 'GlazingConfig',
+    component: () => import('@/pages/studio/GlazingConfigPage.vue'),
+  },
+  {
+    path: '/series-studio/hardware/new',
+    name: 'NewFenestrationHardware',
+    component: () => import('@/pages/studio/HardwareFormPage.vue'),
+  },
+  {
+    path: '/series-studio/hardware/:name',
+    name: 'EditFenestrationHardware',
+    component: () => import('@/pages/studio/HardwareFormPage.vue'),
     props: true,
   },
 ]

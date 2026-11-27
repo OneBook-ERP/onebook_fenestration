@@ -3,7 +3,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from onebook_fenestration.engine import SectionError, analyze_dxf
-from onebook_fenestration.series_studio.outline import rotate_path
+from onebook_fenestration.series_studio.outline import transform_path
 
 SECTION_FIELDS = (
 	"area_mm2",
@@ -29,24 +29,37 @@ class FenestrationProfile(Document):
 				self.clear_section()
 		elif self.has_value_changed("dxf_file") or not self.area_mm2:
 			self.fill_section_from_dxf()
-			if int(self.section_rotation or 0):
+			if (
+				int(self.section_rotation or 0)
+				or int(getattr(self, "section_flip_x", 0) or 0)
+				or int(getattr(self, "section_flip_y", 0) or 0)
+			):
 				self.apply_section_rotation()
 			return
 		if self.rotation_changed():
 			self.apply_section_rotation()
 
 	def rotation_changed(self) -> bool:
-		# a new doc reports every field as changed; there only a non-zero rotation means anything
+		# a new doc reports every field as changed; there only a non-zero transform means anything
 		if self.is_new():
-			return bool(int(self.section_rotation or 0))
-		return self.has_value_changed("section_rotation")
+			return bool(int(self.section_rotation or 0) or int(getattr(self, "section_flip_x", 0) or 0) or int(getattr(self, "section_flip_y", 0) or 0))
+		return (
+			self.has_value_changed("section_rotation")
+			or self.has_value_changed("section_flip_x")
+			or self.has_value_changed("section_flip_y")
+		)
 
 	def apply_section_rotation(self):
-		"""width_mm / depth_mm become the outline's extents after `section_rotation` (face along the cut)."""
+		"""width_mm / depth_mm become the outline's extents after `section_rotation` and flips (face along the cut)."""
 		if not self.section_svg:
 			return
 		try:
-			_svg, self.width_mm, self.depth_mm = rotate_path(self.section_svg, self.section_rotation)
+			_svg, self.width_mm, self.depth_mm = transform_path(
+				self.section_svg,
+				self.section_rotation,
+				getattr(self, "section_flip_x", 0),
+				getattr(self, "section_flip_y", 0),
+			)
 		except ValueError as exc:
 			frappe.throw(_("Could not rotate the section outline: {0}").format(exc), title=_("Section outline"))
 

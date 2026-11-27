@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from onebook_fenestration.engine.layout import layout
+from onebook_fenestration.engine.exhaust_cut import exhaust_cut
 
 VIEW_W = 640
 VIEW_H = 760
@@ -68,38 +69,62 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 	]
 
 	# Outer Frame
+	frame_config = design.get("frameConfig") or "4-side"
+	bottom_face = 0.0 if frame_config == "3-side" else (round(FRAME_FACE * 0.45) if frame_config == "3-side-threshold" else FRAME_FACE)
 	fw = width * scale
 	fh = height * scale
 	fx = px(0)
 	fy = py(height)
-	parts.append(
-		f'<rect x="{_fmt(fx)}" y="{_fmt(fy)}" width="{_fmt(fw)}" height="{_fmt(fh)}" '
-		f'fill="{finish}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
-	)
-
-	# Frame 45-degree corner miter lines
 	ff = FRAME_FACE * scale
-	parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-	parts.append(f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-	parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy + fh)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + fh - ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
-	parts.append(f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy + fh)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + fh - ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+	bff = bottom_face * scale
+
+	if frame_config == "4-side":
+		parts.append(
+			f'<rect x="{_fmt(fx)}" y="{_fmt(fy)}" width="{_fmt(fw)}" height="{_fmt(fh)}" '
+			f'fill="{finish}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+		)
+		parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+		parts.append(f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+		parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy + fh)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + fh - ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+		parts.append(f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy + fh)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + fh - ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+	else:
+		u_path = (
+			f"M {_fmt(fx)} {_fmt(fy + fh)} L {_fmt(fx)} {_fmt(fy)} L {_fmt(fx + fw)} {_fmt(fy)} "
+			f"L {_fmt(fx + fw)} {_fmt(fy + fh)} L {_fmt(fx + fw - ff)} {_fmt(fy + fh)} "
+			f"L {_fmt(fx + fw - ff)} {_fmt(fy + ff)} L {_fmt(fx + ff)} {_fmt(fy + ff)} "
+			f"L {_fmt(fx + ff)} {_fmt(fy + fh)} Z"
+		)
+		parts.append(f'<path d="{u_path}" fill="{finish}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+		parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+		parts.append(f'<line x1="{_fmt(fx + fw)}" y1="{_fmt(fy)}" x2="{_fmt(fx + fw - ff)}" y2="{_fmt(fy + ff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+		if frame_config == "3-side-threshold":
+			parts.append(
+				f'<rect x="{_fmt(fx + ff)}" y="{_fmt(fy + fh - bff)}" width="{_fmt(fw - 2 * ff)}" height="{_fmt(bff)}" '
+				f'fill="#64748B" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+			)
+			parts.append(f'<line x1="{_fmt(fx)}" y1="{_fmt(fy + fh - bff)}" x2="{_fmt(fx + ff)}" y2="{_fmt(fy + fh - bff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
+			parts.append(f'<line x1="{_fmt(fx + fw - ff)}" y1="{_fmt(fy + fh - bff)}" x2="{_fmt(fx + fw)}" y2="{_fmt(fy + fh - bff)}" stroke="{STROKE_COLOR}" stroke-width="1"/>')
 
 	# Bars (Mullions & Transoms)
 	for bar in bars:
 		if bar.kind == "mullion":
 			bw = BAR_FACE * scale
 			bx = px(bar.at) - bw / 2
-			by = py(bar.start + bar.length_span)
-			bh = bar.length_span * scale
+			b_bot = bottom_face if bar.start == 0 else BAR_FACE / 2
+			b_top = FRAME_FACE if (bar.start + bar.length_span) >= height - 0.01 else BAR_FACE / 2
+			by = py(bar.start + bar.length_span - b_top)
+			bh = max(0.0, (bar.length_span - b_bot - b_top) * scale)
 			parts.append(
 				f'<rect x="{_fmt(bx)}" y="{_fmt(by)}" width="{_fmt(bw)}" height="{_fmt(bh)}" '
 				f'fill="{finish}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
 			)
 		else:
 			bh = BAR_FACE * scale
-			bx = px(bar.start)
+			b_left = FRAME_FACE if bar.start == 0 else BAR_FACE / 2
+			b_right = FRAME_FACE if (bar.start + bar.length_span) >= width - 0.01 else BAR_FACE / 2
+			bx = px(bar.start + b_left)
 			by = py(bar.at) - bh / 2
-			bw = bar.length_span * scale
+			bw = max(0.0, (bar.length_span - b_left - b_right) * scale)
 			parts.append(
 				f'<rect x="{_fmt(bx)}" y="{_fmt(by)}" width="{_fmt(bw)}" height="{_fmt(bh)}" '
 				f'fill="{finish}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
@@ -109,7 +134,7 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 	for cell in cells:
 		l = FRAME_FACE if cell.x == 0 else BAR_FACE / 2
 		r = FRAME_FACE if (cell.x + cell.w) >= width - 0.01 else BAR_FACE / 2
-		b = FRAME_FACE if cell.y == 0 else BAR_FACE / 2
+		b = bottom_face if cell.y == 0 else BAR_FACE / 2
 		t = FRAME_FACE if (cell.y + cell.h) >= height - 0.01 else BAR_FACE / 2
 
 		cx = px(cell.x + l)
@@ -118,6 +143,9 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 		ch = (cell.h - t - b) * scale
 
 		node_type = cell.node.get("type", "fixed")
+		steel = bool(cell.node.get("fan")) and node_type != "louver"
+		infill = "#A8ADB5" if steel else GLASS_FILL
+		gx, gy, gw, gh = cx, cy, cw, ch
 		if node_type == "sash":
 			# Sash outer frame
 			parts.append(
@@ -138,7 +166,7 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 			gh = max(0.0, ch - 2 * sf)
 			parts.append(
 				f'<rect x="{_fmt(gx)}" y="{_fmt(gy)}" width="{_fmt(gw)}" height="{_fmt(gh)}" '
-				f'fill="{GLASS_FILL}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+				f'fill="{infill}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
 			)
 
 			# Sash swing dashed polyline
@@ -162,8 +190,19 @@ def generate_elevation_svg(design: dict[str, Any], finish_color: str | None = No
 			# Fixed or louver glass pane
 			parts.append(
 				f'<rect x="{_fmt(cx)}" y="{_fmt(cy)}" width="{_fmt(cw)}" height="{_fmt(ch)}" '
-				f'fill="{GLASS_FILL}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
+				f'fill="{infill}" stroke="{STROKE_COLOR}" stroke-width="1"/>'
 			)
+
+		if steel and scale > 0:
+			try:
+				cut = exhaust_cut(cell.node, gw / scale, gh / scale)
+			except ValueError:
+				cut = None
+			if cut:
+				parts.append(
+					f'<circle cx="{_fmt(gx + cut["centerX"] * scale)}" cy="{_fmt(gy + cut["centerY"] * scale)}" '
+					f'r="{_fmt(cut["diameter"] / 2 * scale)}" fill="white" stroke="{STROKE_COLOR}"/>'
+				)
 
 	# Overall dimensions
 	# Width dimension below

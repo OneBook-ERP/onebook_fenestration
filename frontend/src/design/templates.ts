@@ -19,9 +19,22 @@ const sash = (hinge: 'left' | 'right' | 'top' = 'left', mesh = false): DesignNod
 	hinge,
 	ghh: 732,
 	lock: 'multipoint',
+	bead: true,
 	...(mesh ? { mesh: true } : {}),
 })
-const fixed = (): DesignNode => ({ type: 'fixed', glass: GLASS })
+const doorSash = (hinge: 'left' | 'right' = 'left', activeLeaf = true): DesignNode => ({
+	type: 'sash',
+	glass: GLASS,
+	opening: 'out',
+	hinge,
+	sashConfig: 'door',
+	hingeStay: 'Hinges',
+	activeLeaf,
+	ghh: 1050,
+	lock: 'multipoint',
+	bead: true,
+})
+const fixed = (): DesignNode => ({ type: 'fixed', glass: GLASS, bead: true })
 const split = (dir: 'v' | 'h', at: number[], children: DesignNode[]): DesignNode => ({
 	type: 'split',
 	dir,
@@ -51,7 +64,7 @@ export const CS4800_SECTION_MAP: Record<string, SectionPieceTransform> = {
 	'bead:CS4809': { offsetAlong: 0, offsetDepth: 22, rotation: 0, flipX: false, flipY: false },
 }
 
-function cs400Design(w: number, h: number, root: DesignNode, withBead = true): Design {
+function cs400Design(w: number, h: number, root: DesignNode, withBead = false): Design {
 	return {
 		...newDesign(w, h, root),
 		...(withBead ? { beadProfileId: 'E104161' } : {}),
@@ -59,7 +72,7 @@ function cs400Design(w: number, h: number, root: DesignNode, withBead = true): D
 	}
 }
 
-function cs4800Design(w: number, h: number, root: DesignNode, withBead = true): Design {
+function cs4800Design(w: number, h: number, root: DesignNode, withBead = false): Design {
 	return {
 		...newDesign(w, h, root),
 		...(withBead ? { beadProfileId: 'CS4808' } : {}),
@@ -75,7 +88,7 @@ export const TEMPLATES: DesignTemplate[] = [
 		series: 'CS400',
 		defaultW: 915,
 		defaultH: 1220,
-		build: (w, h) => cs400Design(w, h, fixed(), true),
+		build: (w, h) => cs400Design(w, h, fixed(), false),
 	},
 	{
 		id: 'cs400-fixmull',
@@ -83,7 +96,7 @@ export const TEMPLATES: DesignTemplate[] = [
 		series: 'CS400',
 		defaultW: 1220,
 		defaultH: 1220,
-		build: (w, h) => cs400Design(w, h, split('v', [w / 2], [fixed(), fixed()]), true),
+		build: (w, h) => cs400Design(w, h, split('v', [w / 2], [fixed(), fixed()]), false),
 	},
 	{
 		id: 'cs400-single',
@@ -122,7 +135,7 @@ export const TEMPLATES: DesignTemplate[] = [
 				w,
 				h,
 				split('h', [splitPos], [split('v', [w / 2], [sash('left'), sash('right')]), fixed()]),
-				true,
+				false,
 			)
 		},
 	},
@@ -134,7 +147,7 @@ export const TEMPLATES: DesignTemplate[] = [
 		series: 'CS4800',
 		defaultW: 1200,
 		defaultH: 1200,
-		build: (w, h) => cs4800Design(w, h, fixed(), true),
+		build: (w, h) => cs4800Design(w, h, fixed(), false),
 	},
 	{
 		id: 'cs4800-fixmull',
@@ -142,7 +155,7 @@ export const TEMPLATES: DesignTemplate[] = [
 		series: 'CS4800',
 		defaultW: 1200,
 		defaultH: 1200,
-		build: (w, h) => cs4800Design(w, h, split('v', [w / 2], [fixed(), fixed()]), true),
+		build: (w, h) => cs4800Design(w, h, split('v', [w / 2], [fixed(), fixed()]), false),
 	},
 	{
 		id: 'cs4800-single',
@@ -191,7 +204,7 @@ export const TEMPLATES: DesignTemplate[] = [
 		series: 'CS4800',
 		defaultW: 900,
 		defaultH: 2100,
-		build: (w, h) => cs4800Design(w, h, sash('left'), false),
+		build: (w, h) => ({ ...cs4800Design(w, h, doorSash('left', true), false), frameConfig: '3-side' }),
 	},
 	{
 		id: 'cs4800-door-single-thresh',
@@ -199,7 +212,7 @@ export const TEMPLATES: DesignTemplate[] = [
 		series: 'CS4800',
 		defaultW: 900,
 		defaultH: 2100,
-		build: (w, h) => cs4800Design(w, h, sash('left'), false),
+		build: (w, h) => ({ ...cs4800Design(w, h, doorSash('left', true), false), frameConfig: '3-side-threshold' }),
 	},
 	{
 		id: 'cs4800-door-double',
@@ -207,7 +220,10 @@ export const TEMPLATES: DesignTemplate[] = [
 		series: 'CS4800',
 		defaultW: 1800,
 		defaultH: 2100,
-		build: (w, h) => cs4800Design(w, h, split('v', [w / 2], [sash('left'), sash('right')]), false),
+		build: (w, h) => ({
+			...cs4800Design(w, h, split('v', [w / 2], [doorSash('left', false), doorSash('right', true)]), false),
+			frameConfig: '3-side',
+		}),
 	},
 	{
 		id: 'cs4800-door-dcf',
@@ -217,12 +233,15 @@ export const TEMPLATES: DesignTemplate[] = [
 		defaultH: 2400,
 		build: (w, h) => {
 			const splitPos = h - 500 > 500 ? h - 500 : h * 0.75
-			return cs4800Design(
-				w,
-				h,
-				split('h', [splitPos], [split('v', [w / 2], [sash('left'), sash('right')]), fixed()]),
-				true,
-			)
+			return {
+				...cs4800Design(
+					w,
+					h,
+					split('h', [splitPos], [split('v', [w / 2], [doorSash('left', false), doorSash('right', true)]), fixed()]),
+					false,
+				),
+				frameConfig: '3-side',
+			}
 		},
 	},
 

@@ -1,5 +1,5 @@
 <template>
-	<div class="mx-auto max-w-4xl p-6">
+	<div class="mx-auto max-w-5xl p-6">
 		<header class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-gray-2 pb-4">
 			<div>
 				<nav aria-label="Breadcrumb" class="mb-1 flex items-center gap-1.5 text-sm text-ink-gray-5">
@@ -38,9 +38,10 @@
 			Loading glass specification…
 		</div>
 
-		<div v-else class="space-y-8">
+		<div v-else class="space-y-6">
 			<Alert v-if="error" theme="red" :title="error" />
 
+			<!-- Section 1: Glass Specification -->
 			<section>
 				<h2 class="mb-4 text-base font-semibold text-ink-gray-9">Glass Specification</h2>
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -75,6 +76,19 @@
 					</div>
 				</div>
 			</section>
+
+			<!-- Subtle link to Global Bead & Gasket Configuration -->
+			<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-gray-2 bg-surface-gray-1/60 px-4 py-3 text-xs text-ink-gray-6">
+				<span>
+					Beading and glazing gaskets are configured globally by glass thickness across all Profile Series.
+				</span>
+				<router-link
+					to="/series-studio/glazing-config"
+					class="font-semibold text-blue-600 hover:underline"
+				>
+					Open Bead &amp; Gasket Config →
+				</router-link>
+			</div>
 		</div>
 	</div>
 </template>
@@ -100,9 +114,9 @@ const form = reactive({
 	item: '',
 })
 
-const itemsResource = useList<{ name: string; item_name?: string }>({
+const itemsResource = useList<{ name: string; item_name?: string; fen_item_kind?: string }>({
 	doctype: 'Item',
-	fields: ['name', 'item_name'],
+	fields: ['name', 'item_name', 'fen_item_kind'],
 	limit: 500,
 })
 
@@ -115,8 +129,8 @@ const itemOptions = computed(() =>
 
 const canSave = computed(() =>
 	Boolean(
-		form.glass_code.trim() &&
-			form.glass_name.trim() &&
+		String(form.glass_code ?? '').trim() &&
+			String(form.glass_name ?? '').trim() &&
 			Number(form.thickness_mm) > 0 &&
 			!saving.value,
 	),
@@ -145,10 +159,10 @@ async function save() {
 	try {
 		const savedName = await saveFenestrationGlass(
 			{
-				glass_code: form.glass_code.trim(),
-				glass_name: form.glass_name.trim(),
+				glass_code: String(form.glass_code ?? '').trim(),
+				glass_name: String(form.glass_name ?? '').trim(),
 				thickness_mm: Number(form.thickness_mm),
-				item: form.item.trim() || null,
+				item: String(form.item ?? '').trim() || null,
 			},
 			props.name || null,
 		)
@@ -163,4 +177,3 @@ async function save() {
 	}
 }
 </script>
-

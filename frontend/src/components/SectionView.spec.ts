@@ -6,13 +6,29 @@ import SectionView from './SectionView.vue'
 
 const fake = vi.hoisted(() => ({
 	calls: [] as Record<string, unknown>[],
+	orientationCalls: [] as { profileName: string; opts: unknown }[],
 	response: null as unknown,
+	orientationResult: null as Record<string, unknown> | null,
 }))
 
 vi.mock('@/api', () => ({
 	crossSection: async (design: unknown, seriesVersion: string, axis: string, at: number | null) => {
 		fake.calls.push({ design, series_version: seriesVersion, axis, at })
 		return structuredClone(fake.response)
+	},
+	setProfileOrientation: async (profileName: string, opts: unknown) => {
+		fake.orientationCalls.push({ profileName, opts })
+		return (
+			fake.orientationResult ?? {
+				ok: true,
+				profile_name: profileName,
+				section_rotation: '90',
+				section_flip_x: 0,
+				section_flip_y: 0,
+				width_mm: 60,
+				depth_mm: 40,
+			}
+		)
 	},
 }))
 
@@ -84,6 +100,136 @@ describe('SectionView', () => {
 		vi.useFakeTimers()
 	})
 	afterEach(() => vi.useRealTimers())
+
+	it('renders two glass segments and an exhaust label when the section intersects a cut', async () => {
+		(fake.response as any).result.pieces[2].material = 'steel';
+		(fake.response as any).result.pieces[2].cutout = { start: 145, end: 325, diameter: 180 }
+		const w = mountView()
+		await flushPromises()
+		expect(w.get('[data-testid="exhaust-section-cut"]').findAll('polygon')).toHaveLength(2)
+		expect(w.get('[data-testid="exhaust-section-cut"]').text()).toContain('Ø180 exhaust cut')
+		expect(w.find('rect[data-piece="2"]').exists()).toBe(false)
+		expect(w.get('[data-testid="exhaust-section-cut"] polygon').attributes('fill')).toBe('#A8ADB5')
+		expect(w.get('[data-testid="exhaust-section-cut"]').text()).toContain('Steel')
+	})
+
+	it.each(['h', 'v'])('keeps profile focus framing stable with a large exhaust cut on the %s axis', async (axis) => {
+		const baseline = mountView({ axis })
+		await flushPromises()
+		const viewBox = baseline.get('svg[role="img"]').attributes('viewBox')
+		const profiles = baseline.findAll('path[data-piece]').map(p => p.attributes('transform'))
+		baseline.unmount();
+		(fake.response as any).result.pieces[2].cutout = { start: 85, end: 385, diameter: 300 }
+		const w = mountView({ axis })
+		await flushPromises()
+		expect(w.get('[data-testid="toggle-compact-glass"]').attributes('aria-pressed')).toBe('true')
+		expect(w.get('svg[role="img"]').attributes('viewBox')).toBe(viewBox)
+		expect(w.findAll('path[data-piece]').map(p => p.attributes('transform'))).toEqual(profiles)
+		expect(w.get('[data-testid="exhaust-section-cut"]').findAll('polygon')).toHaveLength(2)
+		expect(w.text()).toContain('Ø300 exhaust cut')
+		await w.get('[data-testid="toggle-compact-glass"]').trigger('click')
+		expect(w.get('svg[role="img"]').attributes('viewBox')).not.toBe(viewBox)
+	})
+
+	it('shows the grill where the section crosses its selected panel', async () => {
+ const design = structuredClone(w01) as any
+ design.root.children[0].grill = {vertical:3,horizontal:2}
+ const w=mountView({design})
+ await flushPromises()
+ expect(w.get('[data-testid="grill-section"]').findAll('rect').length).toBeGreaterThan(0)
+ expect(w.get('[data-testid="grill-section"]').text()).toContain('Grill')
+ expect(w.get('[data-testid="toggle-compact-glass"]').attributes('aria-pressed')).toBe('true')
+ })
+
+	it.each(['h','v'])('shows one continuous grill band with axis-specific markers and commits a drag on the %s axis', async axis => {
+ (fake.response as any).result.at=600
+ const design={width:1200,height:1200,root:{type:'fixed',glass:'6CTG',grill:{}}}
+ const w=mountView({design,axis})
+ await flushPromises()
+ const bars=w.findAll('[data-grill-path]')
+ expect(bars).toHaveLength(1)
+ await bars[0].trigger('click')
+ expect(w.emitted('select')!.at(-1)).toEqual(['GRILL:F1'])
+ await w.setProps({selectedPath:'GRILL:F1'})
+ expect(w.get('[data-testid="grill-band"]').attributes('stroke')).toBe('#2563EB')
+ expect(w.find('[data-testid="profile-inspector"]').exists()).toBe(false)
+ expect(w.findAll('[data-testid="grill-band"]')).toHaveLength(1)
+ expect(w.findAll('[data-testid="grill-bar-marker"]')).toHaveLength(axis==='h'?3:2)
+ expect(w.get('[data-testid="grill-section"]').text()).toContain(axis==='h'?'3 vertical bars':'2 horizontal bars')
+ await bars[0].trigger('pointerdown',{button:0,clientX:100,clientY:100,pointerId:1})
+ window.dispatchEvent(new MouseEvent('pointermove',{clientX:120,clientY:100,pointerId:1}))
+ await w.vm.$nextTick()
+ expect(w.find('[data-testid="grill-smart-guides"]').exists()).toBe(true)
+ expect(w.findAll('[data-testid="grill-smart-guides"] line').length).toBeGreaterThan(0)
+ window.dispatchEvent(new MouseEvent('pointerup',{clientX:120,clientY:100,pointerId:1}))
+ await w.vm.$nextTick()
+ const updates=w.emitted('update:grill')!
+ expect(updates).toHaveLength(1)
+ expect(updates[0][0]).toBe('F1')
+ const grill=updates[0][1] as any
+ if(axis==='v') { expect(grill.offset).toBeGreaterThan(-30); expect(grill.shiftY).toBe(0) }
+ else { expect(grill.shiftX).toBeGreaterThan(0); expect(grill.offset).toBe(-30) }
+ })
+
+	it.each(['h', 'v'])('preserves grill edge clearances and translation in profile focus on %s', async axis => {
+		fake.response = {
+			ok: true, outlines: {}, result: { axis, at: 600, length: 1200, dims: [], issues: [], pieces: [
+				{ kind: 'glass', role: 'glass', code: '6CTG', panel: 'F1', path: 'F1', start: 30, end: 1170, thickness: 6, mirrored: false },
+			] },
+		}
+		const design: Design = { width: 1200, height: 1200, root: { type: 'fixed', glass: '6CTG', grill: {} } }
+		const w = mountView({ design, axis })
+		await flushPromises()
+		const state = w.vm.$.setupState as any
+		expect(state.grillSections[0]).toMatchObject({ x: 42, w: 72, alongScale: 1 })
+		// A physical 12 mm clearance must still be 12 mm beside either profile.
+		expect(126 - (state.grillSections[0].x + state.grillSections[0].w)).toBe(12)
+		await w.setProps({ design: { ...design, root: { ...design.root, grill: { shiftX: 8, shiftY: 8 } } } })
+		await flushPromises()
+		expect(state.grillSections[0]).toMatchObject({ x: 50, w: 72, alongScale: 1 })
+		await w.get('[data-testid="toggle-compact-glass"]').trigger('click')
+		expect(state.grillSections[0]).toMatchObject({ x: 50, w: 1116, alongScale: 1 })
+	})
+
+	it.each(['h', 'v'])('reflects glazing bead rotation instead of rotating both sides together on %s', async axis => {
+		fake.response = structuredClone(W_MULLION_BEADS_CUT)
+		const w = mountView({ axis })
+		await flushPromises()
+		await w.get('[data-piece-group="1"]').trigger('click')
+		await w.get('button[aria-label="Rotate clockwise"]').trigger('click')
+		const map = w.emitted('update:section-map')!.at(-1)![0] as Record<string, SectionPieceTransform>
+		expect(map[`${axis}:OBL`].rotation).toBe(90)
+		expect(map[`${axis}:MBR`].rotation).toBe(90)
+		expect(w.get('[data-piece="1"]').attributes('transform')).toContain('rotate(90)')
+		expect(w.get('[data-piece="7"]').attributes('transform')).toContain('rotate(270)')
+		const other = axis === 'h' ? 'v' : 'h'
+		expect(map[`${other}:MBR`]).toEqual(map[`${axis}:MBR`])
+	})
+
+	it('mirrors glass moves across mullion divider and reflects along offset', async () => {
+		fake.response = structuredClone(W_MULLION_BEADS_CUT)
+		const w = mountView({ axis: 'h' })
+		await flushPromises()
+
+		// Drag left glass (index 2: panel F1.0, tag OGL) by +10px along and +5px depth
+		const leftGlassGroup = w.get('[data-piece-group="2"]')
+		await leftGlassGroup.trigger('pointerdown', { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+		await leftGlassGroup.trigger('pointermove', { clientX: 110, clientY: 105, pointerId: 1 })
+		await leftGlassGroup.trigger('pointerup', { pointerId: 1 })
+		await flushPromises()
+
+		const map = w.emitted('update:section-map')!.at(-1)![0] as Record<string, SectionPieceTransform>
+		expect(map['h:OGL']).toBeDefined()
+		expect(map['h:MGR']).toBeDefined()
+		// Left glass moved +along, right glass twin reflected by moving -along
+		expect(map['h:OGL'].offsetAlong).toBeGreaterThan(0)
+		expect(map['h:MGR'].offsetAlong).toBeCloseTo(-map['h:OGL'].offsetAlong, 5)
+		// Both share the same depth adjustment
+		expect(map['h:MGR'].offsetDepth).toBe(map['h:OGL'].offsetDepth)
+		// Specific glass paths are also saved for 3D consumption
+		expect(map['GLASS:F1.0']).toEqual(map['h:OGL'])
+		expect(map['GLASS:F1.1']).toEqual(map['h:MGR'])
+	})
 
 	it('renders each profile and stationary center glass without cluttered dimension chains', async () => {
 		const w = mountView()
@@ -189,9 +335,9 @@ describe('SectionView', () => {
 		const inspector = w.get('[data-testid="profile-inspector"]')
 		expect(inspector.text()).toContain('90°')
 
-		// Mirrored twin (left frame, index 0) must also visually rotate clockwise (+90)
+		// Mirrored twin (left frame, index 0) reflects the rotation (270° in SVG)
 		const leftTransform = w.get('[data-piece="0"]').attributes('transform') ?? ''
-		expect(leftTransform).toContain('rotate(90)')
+		expect(leftTransform).toContain('rotate(270)')
 	})
 
 	it('supports workspace zoom, drag-to-pan, and positions the floating control pill directly above the selected profile', async () => {
@@ -601,6 +747,91 @@ describe('SectionView', () => {
 		await frame.trigger('pointermove', { clientX: 105, clientY: 100, altKey: true, pointerId: 1 })
 		const during = w.get('[data-piece="5"]').attributes('transform')
 		expect(during.match(/scale\([^)]*\)/)?.[0]).toBe(before.match(/scale\([^)]*\)/)?.[0])
+	})
+
+	it('Set default saves rotation and flips and resets all sectionMap orientation keys across axes', async () => {
+		fake.orientationCalls = []
+		fake.orientationResult = {
+			ok: true,
+			profile_name: 'E104159',
+			section_rotation: '90',
+			section_flip_x: 1,
+			section_flip_y: 0,
+			width_mm: 70,
+			depth_mm: 70,
+		}
+		const w = mountView()
+		await flushPromises()
+
+		// Select Mullion (index 4, M1)
+		await w.get('[data-piece-group="4"]').trigger('click')
+		await w.get('button[aria-label="Flip horizontal"]').trigger('click')
+		await w.get('button[aria-label="Rotate clockwise"]').trigger('click')
+		await w.get('button[aria-label="Set as default orientation"]').trigger('click')
+		await flushPromises()
+
+		expect(fake.orientationCalls).toHaveLength(1)
+		expect(fake.orientationCalls[0]).toEqual({
+			profileName: 'E104159',
+			opts: { delta: 90, delta_flip_x: true, delta_flip_y: false },
+		})
+
+		const lastMap = w.emitted('update:section-map')!.at(-1)![0] as Record<string, SectionPieceTransform>
+		for (const k of ['h:M1', 'v:M1', 'M1', 'mullion:E104159']) {
+			expect(lastMap[k]).toBeDefined()
+			expect(lastMap[k].rotation).toBe(0)
+			expect(lastMap[k].flipX).toBe(false)
+			expect(lastMap[k].flipY).toBe(false)
+		}
+		expect(w.emitted('profile-orientation-updated')?.at(-1)).toEqual(['E104159'])
+		expect(w.get('[data-testid="profile-inspector"]').text()).toContain('0°')
+	})
+
+	it('Set default on a mirrored piece (MFR) saves the unmirrored-equivalent delta and resets all frame keys', async () => {
+		fake.orientationCalls = []
+		fake.orientationResult = {
+			ok: true,
+			profile_name: 'E104156',
+			section_rotation: '270',
+			section_flip_x: 0,
+			section_flip_y: 1,
+			width_mm: 70,
+			depth_mm: 50,
+		}
+		const w = mountView()
+		await flushPromises()
+
+		// Select mirrored right frame (index 5, MFR)
+		await w.get('[data-piece-group="5"]').trigger('click')
+		await w.get('button[aria-label="Rotate clockwise"]').trigger('click')
+		await w.get('button[aria-label="Flip vertical"]').trigger('click')
+		await w.get('button[aria-label="Set as default orientation"]').trigger('click')
+		await flushPromises()
+
+		expect(fake.orientationCalls).toHaveLength(1)
+		// Clicking CW (+90°) on mirrored MFR sets pieceTransform.rotation = 270 (F_x * R(90) * F_x = R(270))
+		expect(fake.orientationCalls[0]).toEqual({
+			profileName: 'E104156',
+			opts: { delta: 270, delta_flip_x: false, delta_flip_y: true },
+		})
+
+		const lastMap = w.emitted('update:section-map')!.at(-1)![0] as Record<string, SectionPieceTransform>
+		for (const k of ['h:OFL', 'h:MFR', 'v:OFL', 'v:MFR', 'FRAME', 'frame:E104156']) {
+			expect(lastMap[k]).toBeDefined()
+			expect(lastMap[k].rotation).toBe(0)
+			expect(lastMap[k].flipX).toBe(false)
+			expect(lastMap[k].flipY).toBe(false)
+		}
+	})
+
+	it('highlights Set default when profile is flipped without rotation', async () => {
+		const w = mountView()
+		await flushPromises()
+		await w.get('[data-piece-group="4"]').trigger('click')
+		const setDefaultBtn = w.get('button[aria-label="Set as default orientation"]')
+		expect(setDefaultBtn.classes()).not.toContain('text-blue-800')
+		await w.get('button[aria-label="Flip vertical"]').trigger('click')
+		expect(setDefaultBtn.classes()).toContain('text-blue-800')
 	})
 
 })

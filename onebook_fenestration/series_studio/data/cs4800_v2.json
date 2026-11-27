@@ -168,7 +168,7 @@
 			"profile": "CS4801",
 			"angles": [
 				45,
-				135
+				45
 			],
 			"length": "span",
 			"note": "DXF: frame W / H, 45 degrees; EvA 123 frame 1500 x 4"
@@ -179,7 +179,7 @@
 			"profile": "CS4803",
 			"angles": [
 				45,
-				135
+				45
 			],
 			"length": "span - d_start - d_end",
 			"note": "DXF: sash W-(18.5*2), H-(18.5*2), 45 degrees; EvA 123 sash 727 / 1463"
@@ -248,7 +248,7 @@
 			"profile": "HSL3409",
 			"angles": [
 				45,
-				135
+				45
 			],
 			"when": "glass_t >= 5 and glass_t <= 8",
 			"length": "opening_w if position in ('B', 'T') else opening_h",
@@ -260,7 +260,7 @@
 			"profile": "HSL3410",
 			"angles": [
 				45,
-				135
+				45
 			],
 			"when": "glass_t >= 11.5 and glass_t <= 13.52",
 			"length": "opening_w if position in ('B', 'T') else opening_h",

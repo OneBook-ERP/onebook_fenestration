@@ -3,12 +3,22 @@ import { toast } from 'frappe-ui'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '@/router'
-import { copyDesign, deleteDesign, quoteStatus } from '@/api'
+import { copyDesign, deleteDesign, getProjectFlow, quoteStatus } from '@/api'
 import ProjectWorkspace from './ProjectWorkspace.vue'
 
 vi.mock('@/api', async (orig) => ({
 	...(await orig<object>()),
 	quoteStatus: vi.fn().mockResolvedValue({ quotation: null }),
+	getProjectFlow: vi.fn().mockResolvedValue(null),
+	getWorkspacePipeline: vi.fn().mockResolvedValue({ stats: {}, items: [], pending_orders: [] }),
+	materialTree: vi.fn().mockResolvedValue({
+		project: { name: 'FP-2026-00001', project_title: 'Villa Rose' },
+		warehouses: [{ name: 'Main Warehouse - OF', warehouse_name: 'Main Warehouse' }],
+		default_warehouse: 'Main Warehouse - OF',
+		windows: [],
+		summary: { profiles: [], glass: [], hardware: [] },
+		problems: [],
+	}),
 	copyDesign: vi.fn(),
 	deleteDesign: vi.fn().mockResolvedValue({}),
 }))
@@ -24,8 +34,8 @@ vi.mock('frappe-ui', async (orig) => ({
 		'Profile Finish': [{ name: 'RAL9016', finish_name: 'White', color: '#f4f4f4' }],
 		Customer: [{ name: 'CUST-1', customer_name: 'Acme Corp' }],
 		'Window Design': [
-			{ name: 'WD-1', design_ref: 'W01', qty: 260, series_version: 'CS400-V01', area_sqft: 12.013, window_kg: 10.5, error_count: 1, warning_count: 0, design_svg: svg, location: 'Hall', finish: 'RAL9016', design_json: JSON.stringify({ width: 1000, height: 1000, root: { type: 'split', dir: 'v', at: [500], children: [{ type: 'sash', glass: '6CTG' }, { type: 'sash', glass: '6CTG' }] } }), unit_price: 16380.72, line_total: 4258987.2, pricing_json: JSON.stringify({ priced_on: '2026-10-30T10:15:00' }) },
-			{ name: 'WD-2', design_ref: 'W02', qty: 60, series_version: 'CS400-V01', area_sqft: 8, window_kg: 5, error_count: 0, warning_count: 0, design_svg: '', location: '', finish: '', design_json: JSON.stringify({ width: 1000, height: 1000, root: { type: 'fixed', glass: 'Tinted' } }), unit_price: null, line_total: 90000, pricing_json: '' },
+			{ name: 'WD-1', design_ref: 'W01', qty: 260, series_version: 'CS400-V01', area_sqft: 12.013, window_kg: 10.5, error_count: 1, warning_count: 0, design_svg: svg, floor: '1st Floor', location: 'Hall', finish: 'RAL9016', design_json: JSON.stringify({ width: 1000, height: 1000, root: { type: 'split', dir: 'v', at: [500], children: [{ type: 'sash', glass: '6CTG' }, { type: 'sash', glass: '6CTG' }] } }), unit_price: 16380.72, line_total: 4258987.2, pricing_json: JSON.stringify({ priced_on: '2026-10-30T10:15:00' }) },
+			{ name: 'WD-2', design_ref: 'W02', qty: 60, series_version: 'CS400-V01', area_sqft: 8, window_kg: 5, error_count: 0, warning_count: 0, design_svg: '', floor: '', location: '', finish: '', design_json: JSON.stringify({ width: 1000, height: 1000, root: { type: 'fixed', glass: 'Tinted' } }), unit_price: null, line_total: 90000, pricing_json: '' },
 		],
 	}),
 }))
@@ -33,6 +43,8 @@ vi.mock('frappe-ui', async (orig) => ({
 beforeEach(() => {
 	vi.mocked(quoteStatus).mockReset()
 	vi.mocked(quoteStatus).mockResolvedValue({ quotation: null })
+	vi.mocked(getProjectFlow).mockReset()
+	vi.mocked(getProjectFlow).mockResolvedValue(null as never)
 })
 
 async function setup(query = '') {
@@ -47,9 +59,15 @@ async function setup(query = '') {
 describe('ProjectWorkspace', () => {
 	it('renders cards and totals', async () => {
 		const { w } = await setup()
-		expect(w.findAll('[data-testid="design-card"]')).toHaveLength(2)
+		const cards = w.findAll('[data-testid="design-card"]')
+		expect(cards).toHaveLength(2)
 		expect(w.text()).toContain('Villa Rose')
-				expect(w.text()).toContain('W01 · 2-sash casement')
+		expect(cards[0].text()).toContain('W01 · 2-sash casement')
+		expect(cards[0].text()).toContain('1000 × 1000 mm')
+		const placement = cards[0].get('[data-testid="design-card-placement"]')
+		expect(placement.text()).toContain('Floor: 1st Floor')
+		expect(placement.text()).toContain('Location: Hall')
+		expect(cards[1].find('[data-testid="design-card-placement"]').exists()).toBe(false)
 	})
 
 	it('shows card line totals and the project value', async () => {
@@ -158,6 +176,9 @@ describe('ProjectWorkspace', () => {
 		await w.get('input[aria-label="Search designs"]').setValue('hall')
 		expect(w.findAll('[data-testid="design-card"]')).toHaveLength(1)
 		expect(w.text()).toContain('W01 · ')
+		await w.get('input[aria-label="Search designs"]').setValue('1st floor')
+		expect(w.findAll('[data-testid="design-card"]')).toHaveLength(1)
+		expect(w.text()).toContain('W01 · ')
 	})
 	it('Edit design is a frappe-ui button link to the designer', async () => {
 		const { w } = await setup()
@@ -180,33 +201,53 @@ describe('ProjectWorkspace', () => {
 	})
 
 	describe('tabs', () => {
-		it('labels, disabled tabs and tab content', async () => {
+		it('labels, enabled tabs and tab content', async () => {
 			const { w } = await setup()
 			const tabs = w.findAll('[role="tab"]')
 			expect(tabs.map((t) => t.text())).toEqual(['Designs · 2', 'Quote', 'Order', 'Production', 'Install', 'Reports'])
-			expect(tabs.slice(2).every((t) => t.attributes('aria-disabled') === 'true' && t.attributes('disabled') === undefined)).toBe(true)
-			expect(tabs[2].attributes('aria-describedby')).toBeTruthy()
-			expect(w.get(`#${tabs[2].attributes('aria-describedby')}`).text()).toBe('Coming soon')
+			expect(tabs.every((t) => t.attributes('aria-disabled') === undefined)).toBe(true)
 			expect(w.get('[role="tablist"]').element.children.length).toBe(6)
 			expect(tabs[0].attributes('aria-selected')).toBe('true')
 			expect(w.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe(tabs[0].attributes('id'))
-			await tabs[2].trigger('click')
-			await flushPromises()
-			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(2)
-			expect(w.find('[data-testid="quote-panel"]').exists()).toBe(false)
-			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(2)
+
 			await tabs[1].trigger('click')
 			await flushPromises()
 			expect(w.find('[data-testid="quote-panel"]').exists()).toBe(true)
 			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(0)
+
+			await tabs[2].trigger('click')
+			await flushPromises()
+			expect(w.find('[data-testid="project-order-panel"]').exists()).toBe(true)
+
+			await tabs[3].trigger('click')
+			await flushPromises()
+			expect(w.find('[data-testid="bom-takeoff-panel"]').exists()).toBe(true)
+
+			await tabs[4].trigger('click')
+			await flushPromises()
+			expect(w.find('[data-testid="project-install-panel"]').exists()).toBe(true)
+
+			await tabs[5].trigger('click')
+			await flushPromises()
+			expect(w.find('[data-testid="project-reports-panel"]').exists()).toBe(true)
 		})
 		it('?tab=quote opens Quote', async () => {
 			const { w } = await setup('?tab=quote')
 			expect(w.find('[data-testid="quote-panel"]').exists()).toBe(true)
 			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(0)
 		})
-		it.each(['?tab=bogus', '?tab=order'])('%s falls back to Designs', async (q) => {
-			const { w } = await setup(q)
+		it('?tab=order opens Project Order panel', async () => {
+			const { w } = await setup('?tab=order')
+			expect(w.find('[data-testid="project-order-panel"]').exists()).toBe(true)
+			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(0)
+		})
+		it('?tab=production opens Production BOM Takeoff', async () => {
+			const { w } = await setup('?tab=production')
+			expect(w.find('[data-testid="bom-takeoff-panel"]').exists()).toBe(true)
+			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(0)
+		})
+		it('?tab=bogus falls back to Designs', async () => {
+			const { w } = await setup('?tab=bogus')
 			expect(w.findAll('[data-testid="design-card"]')).toHaveLength(2)
 			expect(w.find('[data-testid="quote-panel"]').exists()).toBe(false)
 		})
@@ -261,6 +302,34 @@ describe('ProjectWorkspace', () => {
 			;({ w } = await setup())
 			expect(header(w).text()).toContain('Out of date')
 		})
+		it('renders Own Client badge and hides Dealer-only Share with Hilux button', async () => {
+			vi.mocked(getProjectFlow).mockResolvedValue({
+				project: 'FP-2026-00001',
+				partner_type: 'Own Client',
+				shared_with_hilux: false,
+				design_locked: false,
+				manufacturing_status: 'Private Draft',
+				is_hilux_staff: true,
+				quotation: null,
+				sales_orders: [],
+				material_requests: [],
+				purchase_orders: [],
+				purchase_receipts: [],
+				purchase_invoices: [],
+				delivery_notes: [],
+				sales_invoices: [],
+				payment_entries: [],
+				suppliers: [],
+				primary_action: null,
+				create_options: [],
+				stages: [],
+			})
+			const { w } = await setup()
+			expect(w.get('[data-testid="partner-type-badge"]').text()).toBe('Own Client · Direct Supply & Install')
+			expect(w.find('[data-testid="share-with-hilux-btn"]').exists()).toBe(false)
+			const tabs = w.findAll('[role="tab"]').map((t) => t.text())
+			expect(tabs).toEqual(['Designs · 2', 'Quote', 'Order', 'Production', 'Install', 'Reports'])
+		})
 	})
 
 	describe('card details', () => {
@@ -270,7 +339,7 @@ describe('ProjectWorkspace', () => {
 			const [c1, c2] = w.findAll('[data-testid="design-card"]')
 			expect(c1.text()).toContain('W01 · 2-sash casement')
 			expect(c1.text()).toContain('× 260')
-			expect(c1.text()).toContain('CS400-V01 · 6 mm clear TG')
+			expect(c1.text()).toContain('CS400-V01 · 1000 × 1000 mm · 6 mm clear TG')
 			expect(c1.text()).not.toContain('6CTG')
 			expect(c1.text()).toContain('White')
 			expect(c1.get('[data-testid="finish-swatch"]').attributes('style')).toContain('background-color')
@@ -282,9 +351,13 @@ describe('ProjectWorkspace', () => {
 			expect(c2.text()).toContain('OK')
 			expect(c2.text()).toContain('8.000 sq.ft · 5.0 kg')
 			expect(c2.text()).toContain('W02 · Fixed')
-			expect(c2.text()).toContain('CS400-V01 · Tinted')
+			expect(c2.text()).toContain('CS400-V01 · 1000 × 1000 mm · Tinted')
 			expect(c2.text()).toContain('— each')
 			expect(c2.text()).toContain('—')
+			const cutBtn = c1.get('[data-testid="card-cutting-sheet"]')
+			expect(cutBtn.attributes('href')).toContain('doctype=Window+Design')
+			expect(cutBtn.attributes('href')).toContain('name=WD-1')
+			expect(cutBtn.attributes('href')).toContain('format=Window+Cutting+Sheet')
 		})
 	})
 })

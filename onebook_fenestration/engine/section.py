@@ -36,9 +36,11 @@ def analyze_dxf(path: str, layer: str | None = None) -> SectionProperties:
 		raise SectionError(f"cannot read DXF: {exc}") from exc
 	insunits = doc.header.get("$INSUNITS", 0)
 	scale, warnings = _unit_scale(insunits)
-	raw_loops = _read_raw_loops(doc.modelspace(), layer)
+	raw_loops, ignored_distant = _read_raw_loops(doc.modelspace(), layer)
 	if not raw_loops:
 		raise SectionError("no closed polylines")
+	if ignored_distant:
+		warnings = (*warnings, "distant_geometry_ignored")
 	if insunits == 1 and _raw_span(raw_loops) >= 8.0:
 		scale = 1.0
 		warnings = (*warnings, "units_assumed_mm")
@@ -61,11 +63,45 @@ def _raw_span(loops: list[list[tuple[float, float]]]) -> float:
 	return max(max(xs) - min(xs), max(ys) - min(ys))
 
 
-def _read_raw_loops(modelspace, layer) -> list[list[tuple[float, float]]]:
+def _iter_entities(entities, depth: int = 0):
+	"""Yield modelspace entities, recursively expanding INSERT block references."""
+	for entity in entities:
+		if entity.dxftype() == "INSERT" and depth < 6:
+			try:
+				yield from _iter_entities(entity.virtual_entities(), depth + 1)
+			except Exception:
+				continue
+		else:
+			yield entity
+
+
+def _loop_bbox(pts: list[tuple[float, float]]) -> tuple[float, float, float, float]:
+	xs = [x for x, _ in pts]
+	ys = [y for _, y in pts]
+	return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _filter_primary_cluster(loops: list[list[tuple[float, float]]]) -> tuple[list[list[tuple[float, float]]], bool]:
+	"""If a DXF contains stray reference blocks far from the primary section, keep the primary cluster."""
+	if len(loops) <= 1:
+		return loops, False
+	primary = max(loops, key=lambda pts: abs(_moments(pts)[0]))
+	px0, py0, px1, py1 = _loop_bbox(primary)
+	primary_span = max(px1 - px0, py1 - py0, 1.0)
+	margin = max(primary_span * 5.0, 50.0)
+	kept = []
+	for pts in loops:
+		x0, y0, x1, y1 = _loop_bbox(pts)
+		if x1 >= px0 - margin and x0 <= px1 + margin and y1 >= py0 - margin and y0 <= py1 + margin:
+			kept.append(pts)
+	return kept, len(kept) < len(loops)
+
+
+def _read_raw_loops(modelspace, layer) -> tuple[list[list[tuple[float, float]]], bool]:
 	loops = []
 	raw_edges = []
 	open_polylines = []
-	for entity in modelspace:
+	for entity in _iter_entities(modelspace):
 		if layer is not None and entity.dxf.layer != layer:
 			continue
 		dtype = entity.dxftype()
@@ -74,12 +110,14 @@ def _read_raw_loops(modelspace, layer) -> list[list[tuple[float, float]]]:
 			if entity.is_closed:
 				if len(pts) >= 3:
 					loops.append(pts)
+			elif len(pts) >= 3 and _dist(pts[0], pts[-1]) <= 0.5:
+				loops.append(_strip_closing_point(pts, tol=0.05))
 			elif len(pts) >= 3:
 				open_polylines.append(pts)
 		elif dtype == "SPLINE":
 			pts = _flatten_entity(entity)
 			if (entity.closed or _dist(pts[0], pts[-1]) < 0.1) and len(pts) >= 3:
-				loops.append(pts)
+				loops.append(pts if entity.closed else _strip_closing_point(pts, tol=0.05))
 			elif len(pts) >= 2:
 				raw_edges.append(pts)
 		elif dtype in ("LINE", "ARC", "ELLIPSE"):
@@ -93,12 +131,20 @@ def _read_raw_loops(modelspace, layer) -> list[list[tuple[float, float]]]:
 		loops.extend(_chain_edges(raw_edges))
 	if open_polylines and loops:
 		loops.extend(open_polylines)
+	elif open_polylines and not loops:
+		# Fallback: close open polylines whose endpoints are reasonably close relative to their span
+		for pts in open_polylines:
+			x0, y0, x1, y1 = _loop_bbox(pts)
+			span = max(x1 - x0, y1 - y0, 1.0)
+			if _dist(pts[0], pts[-1]) <= max(1.0, span * 0.1):
+				loops.append(pts)
+	loops, ignored_distant = _filter_primary_cluster(loops)
 	if len(loops) > 1:
 		areas = [abs(_moments(pts)[0]) for pts in loops]
 		max_area = max(areas, default=0.0)
 		if max_area > 5.0:
 			loops = [pts for pts, a in zip(loops, areas, strict=True) if a >= 0.05]
-	return loops
+	return loops, ignored_distant
 
 
 def _flatten_entity(entity) -> list[tuple[float, float]]:

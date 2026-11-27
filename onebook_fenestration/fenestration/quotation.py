@@ -16,6 +16,7 @@ from onebook_fenestration.fenestration.quote_party import (
 	is_export,
 	tax_address,
 )
+from onebook_fenestration.fenestration.sharing import resolve_project_partner_type
 from onebook_fenestration.series_studio.snapshot import get_snapshot
 
 WINDOW_ITEM = "FEN-WINDOW"
@@ -146,7 +147,21 @@ def _staleness(project: str, quotation: str) -> dict:
 		["item_code", "item_name", "amount", "fen_window_design", "fen_design_hash"],
 		order_by="idx",
 	)
+	partner_type = (
+		frappe.db.get_value("Quotation", quotation, "fen_partner_type")
+		if frappe.db.has_column("Quotation", "fen_partner_type")
+		else None
+	)
 	designs = current_designs(project, DESIGN_FIELDS)
+	if partner_type == "Fabrication Partner":
+		transport = sum(flt(line.amount) for line in lines if line.item_code == TRANSPORT_ITEM)
+		project_transport = flt(frappe.db.get_value("Fenestration Project", project, "transport_charges"))
+		return {
+			"changed": [],
+			"added": [],
+			"removed": [],
+			"transport_changed": abs(transport - project_transport) > 0.005,
+		}
 	by_name = {design.name: design for design in designs}
 	quoted = {line.fen_window_design for line in lines if line.fen_window_design}
 	# Deleting a design on a draft clears the line's link, so an unlinked window line also means "removed";
@@ -228,18 +243,57 @@ class QuotationBuilder:
 	def __init__(self, project, quotation):
 		self.project = project
 		self.quotation = quotation
+		self.partner_type = resolve_project_partner_type(project)
 
 	def build(self, designs: list[dict]) -> None:
 		self.set_header()
 		self.quotation.set("items", [])
-		for design in designs:
-			self.add_line(
-				WINDOW_ITEM, design.qty, design.unit_price, design_line_text(design), design.name, design_hash(design)
-			)
+		if self.partner_type == "Fabrication Partner":
+			self._add_material_supply_lines()
+		else:
+			for design in designs:
+				self.add_line(
+					WINDOW_ITEM,
+					design.qty,
+					design.unit_price,
+					design_line_text(design),
+					design.name,
+					design_hash(design),
+				)
 		if flt(self.project.transport_charges) > 0:
 			self.add_line(TRANSPORT_ITEM, 1, self.project.transport_charges)
 		self.set_taxes()
 		self.quotation.save()
+
+	def _add_material_supply_lines(self) -> None:
+		"""Fabrication Partners buy raw aluminium frames & materials only (no Hilux fabrication/installation labour)."""
+		from onebook_fenestration.production import takeoff
+
+		tree = takeoff.project_material_tree(self.project.name)
+		summary = tree.get("summary") or {}
+		rows = takeoff._select_summary_rows(summary, "all")
+		if not rows:
+			raise QuoteNotReady(_("No raw aluminium profiles or materials found in project BOM takeoff."))
+
+		price_list = (
+			frappe.db.get_single_value("Fenestration Settings", "cost_price_list")
+			or "Standard Selling"
+		)
+		for row in rows:
+			item_code = row.get("item_code")
+			if not item_code or not frappe.db.exists("Item", item_code):
+				continue
+			rate = _material_supply_rate(item_code, price_list)
+			self.add_line(
+				item_code,
+				row["qty"],
+				rate,
+				text=(row.get("label") or item_code, row.get("description") or item_code),
+				uom=row.get("uom") or "Nos",
+			)
+
+		if not self.quotation.items:
+			raise QuoteNotReady(_("No ERP Items linked to the project's profiles/materials for material quoting."))
 
 	def set_header(self):
 		quotation, project = self.quotation, self.project
@@ -249,23 +303,24 @@ class QuotationBuilder:
 				if quotation.meta.has_field(fieldname):
 					quotation.set(fieldname, None)
 		billing, shipping = customer_addresses(project.customer)
-		quotation.update(
-			{
-				"company": project.company,
-				# A customer's own currency must not leak in: design prices are in company currency.
-				"currency": frappe.get_cached_value("Company", project.company, "default_currency"),
-				"conversion_rate": 1,
-				"plc_conversion_rate": 1,
-				"quotation_to": "Customer",
-				"party_name": project.customer,
-				"customer_address": billing,
-				"shipping_address_name": shipping,
-				"ignore_pricing_rule": 1,
-				"transaction_date": today,
-				"valid_till": add_days(today, QUOTE_VALIDITY_DAYS),
-				"fen_project": project.name,
-			}
-		)
+		header = {
+			"company": project.company,
+			# A customer's own currency must not leak in: design prices are in company currency.
+			"currency": frappe.get_cached_value("Company", project.company, "default_currency"),
+			"conversion_rate": 1,
+			"plc_conversion_rate": 1,
+			"quotation_to": "Customer",
+			"party_name": project.customer,
+			"customer_address": billing,
+			"shipping_address_name": shipping,
+			"ignore_pricing_rule": 1,
+			"transaction_date": today,
+			"valid_till": add_days(today, QUOTE_VALIDITY_DAYS),
+			"fen_project": project.name,
+		}
+		if quotation.meta.has_field("fen_partner_type"):
+			header["fen_partner_type"] = self.partner_type
+		quotation.update(header)
 		if frappe.db.exists("Letter Head", DEFAULT_LETTER_HEAD):
 			quotation.letter_head = DEFAULT_LETTER_HEAD
 		terms = project.terms or (
@@ -279,9 +334,9 @@ class QuotationBuilder:
 			quotation.tc_name = terms
 			quotation.terms = get_terms_and_conditions(terms, quotation.as_dict())
 
-	def add_line(self, item_code, qty, rate, text=None, design=None, hash_=None):
+	def add_line(self, item_code, qty, rate, text=None, design=None, hash_=None, uom="Nos"):
 		# price_list_rate pinned to the rate so an Item Price on the generic item never overrides it
-		row = {"item_code": item_code, "qty": qty, "rate": rate, "price_list_rate": rate, "uom": "Nos"}
+		row = {"item_code": item_code, "qty": qty, "rate": rate, "price_list_rate": rate, "uom": uom}
 		if text:
 			row.update(item_name=text[0], description=text[1])
 		if design:
@@ -291,7 +346,13 @@ class QuotationBuilder:
 	def set_taxes(self):
 		"""Choose the GST template; ERPNext loads its rows and india_compliance validates them against the place of supply."""
 		address = tax_address(self.quotation.customer_address, self.quotation.shipping_address_name)
-		self.quotation.taxes_and_charges = gst_template(self.project.company, self.project.customer, address)
+		template = gst_template(self.project.company, self.project.customer, address)
+		if frappe.get_meta("Address").has_field("gstin") or frappe.db.exists(
+			"Sales Taxes and Charges Template", template
+		):
+			self.quotation.taxes_and_charges = template
+		else:
+			self.quotation.taxes_and_charges = None
 		if self.quotation.meta.has_field("is_export_with_gst"):
 			# The quote shows IGST for SEZ/Overseas; india_compliance rejects GST rows on exports under LUT.
 			self.quotation.is_export_with_gst = int(is_export(self.project.customer, address))
@@ -324,3 +385,19 @@ def _typology(cells) -> str:
 	for cell in cells:
 		counts[cell.node["type"]] = counts.get(cell.node["type"], 0) + 1
 	return " + ".join(f"{count} {kind}" for kind, count in counts.items())
+
+
+def _material_supply_rate(item_code: str, preferred_price_list: str | None = None) -> float:
+	for pl in dict.fromkeys(p for p in (preferred_price_list, "Standard Selling", "Standard Buying") if p):
+		rate = frappe.db.get_value(
+			"Item Price",
+			{"item_code": item_code, "price_list": pl},
+			"price_list_rate",
+			order_by="modified desc",
+		)
+		if flt(rate) > 0:
+			return flt(rate)
+	item_rates = frappe.db.get_value("Item", item_code, ["standard_rate", "valuation_rate"], as_dict=True)
+	if item_rates:
+		return flt(item_rates.standard_rate or item_rates.valuation_rate)
+	return 0.0

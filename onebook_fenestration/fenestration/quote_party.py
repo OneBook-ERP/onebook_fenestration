@@ -26,7 +26,8 @@ def tax_address(billing: str | None, shipping: str | None) -> str | None:
 
 def gst_template(company: str, customer: str, address: str | None) -> str:
 	abbr = frappe.get_cached_value("Company", company, "abbr")
-	state = address and frappe.db.get_value("Address", address, "gst_state")
+	state_field = "gst_state" if frappe.get_meta("Address").has_field("gst_state") else "state"
+	state = address and frappe.db.get_value("Address", address, state_field)
 	company_state = _company_state(company)
 	out_of_state = is_export(customer, address) or (state and company_state and state != company_state)
 	return f"Output GST {'Out' if out_of_state else 'In'}-state - {abbr}"
@@ -34,14 +35,20 @@ def gst_template(company: str, customer: str, address: str | None) -> str:
 
 def is_export(customer: str, address: str | None) -> bool:
 	"""SEZ or Overseas party: the address's GST category, else the customer's."""
-	category = address and frappe.db.get_value("Address", address, "gst_category")
-	category = category or frappe.db.get_value("Customer", customer, "gst_category")
+	category = (
+		frappe.db.get_value("Address", address, "gst_category")
+		if address and frappe.get_meta("Address").has_field("gst_category")
+		else None
+	)
+	if not category and frappe.get_meta("Customer").has_field("gst_category"):
+		category = frappe.db.get_value("Customer", customer, "gst_category")
 	return category in INTER_STATE_CATEGORIES
 
 
 def company_address(company: str) -> str | None:
-	"""The company's own address carrying a GSTIN; india_compliance needs one on every quotation."""
-	return _first(_linked("Company", company, is_your_company_address=1, gstin=("is", "set")))
+	"""The company's own address carrying a GSTIN (or primary company address when india_compliance is absent)."""
+	extra = {"gstin": ("is", "set")} if frappe.get_meta("Address").has_field("gstin") else {}
+	return _first(_linked("Company", company, is_your_company_address=1, **extra))
 
 
 def _first(filters: list) -> str | None:
@@ -63,7 +70,8 @@ def _linked(link_doctype: str, link_name: str, **filters) -> list:
 
 def _company_state(company: str) -> str | None:
 	address = company_address(company)
-	state = address and frappe.db.get_value("Address", address, "gst_state")
+	state_field = "gst_state" if frappe.get_meta("Address").has_field("gst_state") else "state"
+	state = address and frappe.db.get_value("Address", address, state_field)
 	if state:
 		return state
 	gstin = (

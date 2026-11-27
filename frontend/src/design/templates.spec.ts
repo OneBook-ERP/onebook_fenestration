@@ -59,4 +59,16 @@ describe('TEMPLATES', () => {
 		expect(t).toMatchObject({ dir: 'h', at: [300] })
 		expect(t.type === 'split' && t.children.map((c) => c.type)).toEqual(['fixed', 'sash'])
 	})
+
+	it('enables automatic beading by default across all templates', () => {
+		const visit = (n: DesignNode) => {
+			if (n.type === 'split') n.children.forEach(visit)
+			else if (n.type === 'fixed' || n.type === 'sash') expect(n.bead).toBe(true)
+		}
+		for (const t of TEMPLATES) {
+			const d = t.build(1200, 1200)
+			expect(d.beadProfileId).toBeUndefined()
+			visit(d.root)
+		}
+	})
 })

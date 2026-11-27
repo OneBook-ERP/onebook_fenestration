@@ -7,11 +7,13 @@
  "field_order": [
   "series_code",
   "series_title",
+  "supported_products",
   "column_break_series",
   "system_type",
   "published_version",
   "profiles_section",
-  "profiles_preview"
+  "profiles_preview",
+  "section_config_json"
  ],
  "fields": [
   {
@@ -28,6 +30,12 @@
    "label": "Series Title",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "supported_products",
+   "fieldtype": "Small Text",
+   "label": "Supported Products",
+   "description": "JSON list of supported assemblies: Window, Door, Sliding Window, Sliding Door"
   },
   {
    "fieldname": "column_break_series",
@@ -58,6 +66,12 @@
    "fieldname": "profiles_preview",
    "fieldtype": "HTML",
    "label": "Profiles Preview"
+  },
+  {
+   "fieldname": "section_config_json",
+   "fieldtype": "Long Text",
+   "label": "Section Configuration JSON",
+   "hidden": 1
   }
  ],
  "modified": "2026-11-04 03:48:00",

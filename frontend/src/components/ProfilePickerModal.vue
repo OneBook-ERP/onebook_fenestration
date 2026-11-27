@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { transformedPathViewBox } from '@/design/svgBounds'
+import { profileThumbTransform } from '@/studio/sectionSvg'
 
 export interface ProfileItem {
 	code: string
@@ -10,6 +12,10 @@ export interface ProfileItem {
 	depth_mm?: number
 	maxWidth?: number
 	svg?: string
+	section_rotation?: string | number | null
+	section_flip_x?: number | boolean | null
+	section_flip_y?: number | boolean | null
+	outline_transformed?: boolean
 	hasOutline?: boolean
 	currentSeries?: boolean
 }
@@ -55,8 +61,11 @@ watch(
 watch(
 	() => props.modelValue,
 	(open) => {
-		if (open && props.targetRole !== 'all') {
-			selectedRoleFilter.value = props.targetRole
+		if (open) {
+			searchQuery.value = ''
+			if (props.targetRole !== 'all') {
+				selectedRoleFilter.value = props.targetRole
+			}
 		}
 	},
 )
@@ -102,8 +111,9 @@ const filteredProfiles = computed(() => {
 	}
 	return props.profiles.filter((p) => {
 		const pRole = (p.role || '').toLowerCase()
-		if (props.targetRole === 'all' && selectedRoleFilter.value !== 'all') {
-			if (pRole !== selectedRoleFilter.value.toLowerCase()) return false
+		if (target !== 'all') {
+			if (pRole && !matchesTarget(pRole)) return false
+			if (!pRole && !showAllProfiles.value) return false
 		}
 		if (!showAllProfiles.value && (!p.currentSeries || !p.hasOutline)) return false
 		if (selectedSeriesFilter.value !== 'all') {
@@ -267,22 +277,24 @@ function close() {
 						@click="onSelectProfile(p.code)"
 					>
 						<!-- Profile SVG Section Preview -->
-						<div class="relative flex h-32 w-full items-center justify-center rounded-lg bg-gray-50/80 p-2 overflow-hidden border border-gray-100 group-hover:bg-white transition-colors">
+						<div class="relative flex h-32 w-full items-center justify-center rounded-lg bg-gray-50/80 p-3 overflow-hidden border border-gray-100 group-hover:bg-white transition-colors">
 							<svg
 								v-if="p.svg"
 								xmlns="http://www.w3.org/2000/svg"
-								viewBox="-5 -5 80 80"
-								class="max-h-full max-w-full drop-shadow-2xs"
+								:viewBox="transformedPathViewBox(p)"
+								class="h-full w-full drop-shadow-2xs"
 								preserveAspectRatio="xMidYMid meet"
 							>
-								<path
-									:d="p.svg"
-									fill="#CBD5E1"
-									stroke="#334155"
-									stroke-width="1.5"
-									fill-rule="evenodd"
-									vector-effect="non-scaling-stroke"
-								/>
+								<g :transform="profileThumbTransform(p)">
+									<path
+										:d="p.svg"
+										fill="#CBD5E1"
+										stroke="#334155"
+										stroke-width="1.5"
+										fill-rule="evenodd"
+										vector-effect="non-scaling-stroke"
+									/>
+								</g>
 							</svg>
 							<div v-else class="text-center font-mono text-xs font-semibold text-gray-400">
 								{{ p.code }}
@@ -336,22 +348,24 @@ function close() {
 						@click="onSelectProfile(p.code)"
 					>
 						<!-- Thumbnail SVG -->
-						<div class="flex size-14 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-1 group-hover:bg-white">
+						<div class="flex size-14 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-1.5 group-hover:bg-white">
 							<svg
 								v-if="p.svg"
 								xmlns="http://www.w3.org/2000/svg"
-								viewBox="-5 -5 80 80"
-								class="max-h-full max-w-full"
+								:viewBox="transformedPathViewBox(p)"
+								class="h-full w-full"
 								preserveAspectRatio="xMidYMid meet"
 							>
-								<path
-									:d="p.svg"
-									fill="#CBD5E1"
-									stroke="#334155"
-									stroke-width="1.5"
-									fill-rule="evenodd"
-									vector-effect="non-scaling-stroke"
-								/>
+								<g :transform="profileThumbTransform(p)">
+									<path
+										:d="p.svg"
+										fill="#CBD5E1"
+										stroke="#334155"
+										stroke-width="1.5"
+										fill-rule="evenodd"
+										vector-effect="non-scaling-stroke"
+									/>
+								</g>
 							</svg>
 							<span v-else class="font-mono text-[10px] text-gray-400">{{ p.code }}</span>
 						</div>

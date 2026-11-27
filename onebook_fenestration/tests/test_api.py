@@ -4,7 +4,7 @@ import unittest.mock
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from onebook_fenestration.api.design import compute_design, cross_section, get_fenestration_defaults
+from onebook_fenestration.api.design import compute_design, cross_section, get_fenestration_defaults, profile_catalog
 from onebook_fenestration.series_studio.importer import import_snapshot_json
 from onebook_fenestration.tests.test_snapshot import load
 
@@ -193,3 +193,24 @@ class TestCrossSectionApi(IntegrationTestCase):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):
 			cross_section(load("w01.json"), self.version, "h")
+
+	def test_profile_catalog_transforms_default_orientation(self):
+		frappe.db.set_value(
+			"Fenestration Profile",
+			"TSTCUT-F",
+			{"section_rotation": "90", "section_flip_x": 1, "section_flip_y": 0, "width_mm": 70, "depth_mm": 50},
+		)
+		try:
+			res = profile_catalog(self.version, start=0, page_length=200)
+		finally:
+			frappe.db.set_value(
+				"Fenestration Profile",
+				"TSTCUT-F",
+				{"section_rotation": "0", "section_flip_x": 0, "section_flip_y": 0, "width_mm": 50, "depth_mm": 70},
+			)
+		self.assertIs(res["ok"], True)
+		row = next(it for it in res["items"] if it["code"] == "TSTCUT-F")
+		self.assertIs(row["outline_transformed"], True)
+		self.assertEqual(row["width_mm"], 70)
+		self.assertEqual(row["depth_mm"], 50)
+		self.assertEqual(row["section_svg"], "M 70 50 L 70 0 L 0 0 Z")
