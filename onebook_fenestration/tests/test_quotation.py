@@ -48,10 +48,6 @@ class TestQuotation(IntegrationTestCase):
 		super().setUpClass()
 		if not frappe.db.exists("DocType", "GST Settings") or not frappe.db.exists("Company", COMPANY):
 			raise unittest.SkipTest(f"Requires {COMPANY!r} and india_compliance GST Settings fixtures")
-		if not frappe.db.exists("DocType", "GST Settings") or not frappe.db.exists("Company", COMPANY):
-			raise unittest.SkipTest(
-				f"Requires {COMPANY!r} and india_compliance GST Settings fixtures"
-			)
 		cls.version = import_snapshot_json("CS400", load("cs400_snapshot.json"), "CS400 Economical Casement")
 		cls.set_up_prices()
 		cls.project = frappe.get_doc(
